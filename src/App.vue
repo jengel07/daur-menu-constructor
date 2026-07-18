@@ -38,23 +38,31 @@ const resetImport = () => {
 
   <div v-else class="constructor-layout">
     <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2 class="brand-title">Daur Menu</h2>
-        <span class="status-badge">Режим редактирования</span>
-      </div>
+  <!-- Заголовок -->
+  <div class="sidebar-header">
+    <h2 class="brand-title">Daur Menu</h2>
+    <span class="status-badge">Режим редактирования</span>
+  </div>
 
-      <nav class="sidebar-menu">
-        <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode']" :key="tab"
-          class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab as any">
-          <span class="icon">{{ tab === 'navigation' ? '🍔' : tab === 'colors' ? '🎨' : tab === 'branding' ? '✨' : tab === 'general' ? '📝' : '📱' }}</span>
-          {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : 'QR-код меню' }}
-        </button>
-      </nav>
+  <!-- Новый контейнер для навигации -->
+  <div class="sidebar-content">
+    <nav class="sidebar-menu">
+      <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode']" 
+              :key="tab"
+              class="menu-btn" 
+              :class="{ active: activeTab === tab }" 
+              @click="activeTab = tab as any">
+        <span class="icon">{{ tab === 'navigation' ? '🍔' : tab === 'colors' ? '🎨' : tab === 'branding' ? '✨' : tab === 'general' ? '📝' : '📱' }}</span>
+        {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : 'QR-код меню' }}
+      </button>
+    </nav>
+  </div>
 
-      <div class="sidebar-footer">
-        <button @click="resetImport" class="btn-reset-sidebar">↩ Сбросить и загрузить заново</button>
-      </div>
-    </aside>
+  <!-- Кнопка сброса теперь прижмется к низу -->
+  <button @click="resetImport" class="btn-reset-sidebar">
+    ↩ Сбросить и загрузить заново
+  </button>
+</aside>
 
     <main class="editor-area">
       <header class="editor-header">
