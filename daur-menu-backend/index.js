@@ -1,8 +1,9 @@
-const express = require('express');
-const multer = require('multer');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const { createWorker } = require('tesseract.js');
+import express from 'express';
+import multer from 'multer';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { createWorker } from 'tesseract.js';
+import { parseMenuText } from './menuParser.js'; // Добавьте .js в конце
 
 dotenv.config();
 
@@ -12,15 +13,32 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-// Функция для ручного парсинга текста (здесь вы будете писать свои правила)
+// Логика парсинга (будем расширять)
 function parseMenuText(text) {
-    console.log("📝 Обработка текста:", text.substring(0, 200) + "...");
+    if (!text || text.trim().length === 0) return { categories: [], items: [] };
+
+    console.log("📝 Начало парсинга текста...");
     
-    // ВАША ЛОГИКА: Здесь нужно будет с помощью RegEx или split
-    // превратить 'text' в массив категорий и блюд
+    // Пример простого поиска цен (цифры + символ рубля)
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
+    const items = [];
+
+    lines.forEach((line, index) => {
+        const priceMatch = line.match(/(\d+)\s*[₽рP]/i);
+        if (priceMatch) {
+            items.push({
+                id: `item-${index}`,
+                categoryId: 'cat-1',
+                name: line.replace(priceMatch[0], '').trim(),
+                price: Number(priceMatch[1]),
+                description: 'Описание из меню'
+            });
+        }
+    });
+
     return {
         categories: [{ id: 'cat-1', name: 'Основное меню' }],
-        items: [] // Пока пусто, так как нужно настроить парсинг под ваш формат
+        items: items
     };
 }
 
@@ -32,27 +50,23 @@ app.post('/api/parse-menu', upload.single('menuFile'), async (req, res) => {
     try {
         console.log(`📂 Получен файл: ${req.file.originalname}`);
 
-        // Инициализируем Tesseract
+        // Инициализируем Worker правильно
         const worker = await createWorker('rus');
+        
+        // Распознавание
         const { data: { text } } = await worker.recognize(req.file.buffer);
         await worker.terminate();
 
-        // Парсим полученный текст
+        // Парсим
         const parsedData = parseMenuText(text);
 
         res.json(parsedData);
     } catch (error) {
-        console.error('❌ Ошибка OCR:', error);
-        res.status(500).json({ error: 'Не удалось распознать меню' });
+        console.error('❌ Ошибка OCR или парсинга:', error);
+        res.status(500).json({ error: 'Не удалось распознать меню: ' + error.message });
     }
 });
 
-app.use((err, req, res, next) => {
-    console.error('💥 Критическая ошибка:', err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Сервер запущен на http://localhost:${PORT} (без ИИ)`);
+app.listen(3000, () => {
+    console.log('🚀 Сервер запущен на http://localhost:3000');
 });

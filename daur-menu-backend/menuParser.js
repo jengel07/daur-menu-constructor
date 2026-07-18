@@ -24,4 +24,4 @@ function parseMenuText(text) {
     return result;
 }
 
-module.exports = { parseMenuText };
+export { parseMenuText };
