@@ -1,11 +1,5 @@
 import { ref } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
-import { GoogleGenAI } from '@google/genai';
-
-// Инициализируем Gemini, который официально поддерживает прямые запросы из браузера
-// Получаем ключ из переменных окружения Vite
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey });
 
 
 export function useMenuParser() {
