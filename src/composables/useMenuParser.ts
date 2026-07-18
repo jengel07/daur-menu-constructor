@@ -3,9 +3,10 @@ import type { MenuItem, MenuCategory } from '../types/menu';
 import { GoogleGenAI } from '@google/genai';
 
 // Инициализируем Gemini, который официально поддерживает прямые запросы из браузера
-const ai = new GoogleGenAI({
-  apiKey: 'AQ.Ab8RN6JNACxAjgnM142jn96Nn6nU8EfJuKA90HgKpeDCPNEhyg'
-});
+// Получаем ключ из переменных окружения Vite
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey });
+
 
 export function useMenuParser() {
   const isParsing = ref(false);
