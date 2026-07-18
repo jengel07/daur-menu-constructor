@@ -3,9 +3,9 @@ export interface MenuItem {
   name: string;
   description: string;
   price: number;
-  image?: string;
   categoryId: string;
   isAvailable: boolean;
+  image?: string;
 }
 
 export interface MenuCategory {

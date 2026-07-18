@@ -2,6 +2,13 @@
 import { ref, computed } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
 
+// ИСПРАВЛЕНО: Корректный синтаксис объединения типов для ref
+const fileInput = ref<HTMLInputElement | null>(null);
+
+// !!! НОВЫЕ ПЕРЕМЕННЫЕ СОСТОЯНИЯ ДЛЯ ЗАГРУЗКИ
+const isImageLoading = ref(false); // Показывает, идет ли загрузка прямо сейчас
+const imageLoadError = ref<string | null>(null); // Хранит текст ошибки, если она произойдет
+
 const props = defineProps<{
   items: MenuItem[];
   categories: MenuCategory[];
@@ -18,7 +25,50 @@ const selectedCategoryId = ref<string>('all');
 
 // Состояние модального окна добавления/редактирования
 const isModalOpen = ref(false);
-const editingItem = ref<Partial<MenuItem> | null>(null);
+
+// ИСПРАВЛЕНО: Расширяем Partial типом для картинки
+const editingItem = ref<(Partial<MenuItem> & { image?: string }) | null>(null);
+
+// !!! ОБНОВЛЕННАЯ ФУНКЦИЯ ОБРАБОТКИ ЗАГРУЗКИ
+const handleImageUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  imageLoadError.value = null; // Сбрасываем старую ошибку перед новой загрузкой
+
+  if (target.files && target.files[0]) {
+    const file = target.files[0];
+
+    // Простая валидация типа файла (только изображения)
+    if (!file.type.startsWith('image/')) {
+      imageLoadError.value = 'Пожалуйста, выберите файл изображения (png, jpg).';
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    // 1. Включаем индикатор загрузки
+    isImageLoading.value = true;
+
+    reader.onload = (e) => {
+      // Искусственная задержка 1.5 секунды, чтобы увидеть спиннер
+      // В реальном проекте убрать setTimeout и оставить только код внутри!
+      setTimeout(() => {
+        if (editingItem.value) {
+          editingItem.value.image = e.target?.result as string;
+        }
+        // 2. Выключаем индикатор загрузки
+        isImageLoading.value = false;
+      }, 1500);
+    };
+
+    reader.onerror = () => {
+      // Обработка ошибки чтения файла
+      isImageLoading.value = false;
+      imageLoadError.value = 'Ошибка при чтении файла. Попробуйте еще раз.';
+    };
+    
+    reader.readAsDataURL(file);
+  }
+};
 
 // Фильтрация списка блюд в реальном времени
 const filteredItems = computed(() => {
@@ -30,7 +80,7 @@ const filteredItems = computed(() => {
   });
 });
 
-// Быстрое переключение доступности блюда (стоп-лист)
+// Быстрое переключение доступности блюда
 const toggleAvailability = (itemId: string) => {
   const updated = props.items.map(item => {
     if (item.id === itemId) {
@@ -59,6 +109,7 @@ const openEditModal = (item?: MenuItem) => {
       name: '',
       description: '',
       price: 0,
+      image: '',
       categoryId: props.categories[0]?.id || '',
       isAvailable: true
     };
@@ -68,16 +119,14 @@ const openEditModal = (item?: MenuItem) => {
 
 // Сохранение изменений в модальном окне
 const saveItem = () => {
-  if (!editingItem.value || !editingItem.value.name) return;
+  if (!editingItem.value || !editingItem.value.name || isImageLoading.value) return;
 
-  let updatedItems = [...props.items];
+  const updatedItems = [...props.items];
   const index = updatedItems.findIndex(item => item.id === editingItem.value?.id);
 
   if (index !== -1) {
-    // Редактирование
-    updatedItems[index] = editingItem.value as MenuItem;
+    updatedItems[index] = { ...updatedItems[index], ...editingItem.value } as MenuItem;
   } else {
-    // Добавление нового
     updatedItems.push(editingItem.value as MenuItem);
   }
 
@@ -88,9 +137,10 @@ const saveItem = () => {
 const closeModal = () => {
   isModalOpen.value = false;
   editingItem.value = null;
+  imageLoadError.value = null; // Сброс ошибки при закрытии
+  isImageLoading.value = false; // Сброс загрузки при закрытии
 };
 </script>
-
 <template>
   <div class="menu-editor">
     
@@ -164,9 +214,47 @@ const closeModal = () => {
     <!-- Модальное окно редактирования/добавления -->
     <div v-if="isModalOpen && editingItem" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
-        <h2 class="modal-title">
-          {{ props.items.some(i => i.id === editingItem?.id) ? 'Редактировать блюдо' : 'Новое блюдо' }}
-        </h2>
+
+        <!-- Заголовок (один!) -->
+    <h2 class="modal-title">
+      {{ props.items.some(i => i.id === (editingItem?.id ?? '')) ? 'Редактировать блюдо' : 'Новое блюдо' }}
+    </h2>
+      
+<!-- Блок загрузки фото -->
+<div class="form-group">
+  <label>Фото блюда</label>
+  <div 
+    class="image-upload-area" 
+    :class="{ 'is-loading': isImageLoading, 'has-error': imageLoadError }"
+    @click="!isImageLoading && fileInput?.click()"
+  >
+    <!-- 1. Пока идет загрузка - показываем спиннер -->
+    <div v-if="isImageLoading" class="loading-overlay">
+      <div class="spinner"></div>
+      <span class="loading-text">Обработка...</span>
+    </div>
+
+    <!-- 2. Ошибка загрузки -->
+    <div v-else-if="imageLoadError" class="error-message">
+      <span>⚠️ {{ imageLoadError }}</span>
+      <span class="retry-text">Нажмите, чтобы попробовать снова</span>
+    </div>
+
+    <!-- 3. Обычное состояние (есть фото или нет фото) -->
+    <template v-else>
+      <img v-if="editingItem.image" :src="editingItem.image" class="preview-img" alt="Превью" />
+      <span v-else>+ Нажмите для загрузки фото</span>
+    </template>
+
+    <input 
+      type="file" 
+      ref="fileInput" 
+      @change="handleImageUpload" 
+      accept="image/*" 
+      style="display: none" 
+    />
+  </div>
+</div>
         
         <div class="form-group">
           <label>Название блюда</label>
@@ -504,5 +592,90 @@ input:checked + .slider:before {
 
 .btn-save:hover {
   background: #535bf2;
+}
+.image-upload-area {
+  width: 100%;
+  height: 140px;
+  border: 2px dashed #333;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  color: #666;
+  background: #141414;
+}
+
+.preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* --- СТИЛИ ДЛЯ ИНДИКАТОРА ЗАГРУЗКИ (ДОБАВИТЬ В КОНЕЦ) --- */
+
+/* Область загрузки в состоянии загрузки или ошибки */
+.image-upload-area.is-loading {
+  cursor: wait;
+  border-color: #646cff; /* Цвет основного CSS-файла */
+}
+
+.image-upload-area.has-error {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+/* Оверлей загрузки поверх всего внутри области */
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  background: rgba(20, 20, 20, 0.8); /* Чуть темнее фона */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.loading-text {
+  font-size: 0.8rem;
+  color: #646cff;
+}
+
+/* Стили CSS-спиннера */
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(100, 108, 255, 0.2);
+  border-top-color: #646cff; /* Цвет основного CSS-файла */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Блок сообщения об ошибке */
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.retry-text {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* Анимация вращения */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
