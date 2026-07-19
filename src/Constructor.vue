@@ -166,14 +166,20 @@ const triggerFileUpload = async (type: 'avatar' | 'cover') => {
               <div v-else>
                 <div v-if="restaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
                   <div class="wifi-icon-box">ℹ️</div>
-                  <div class="wifi-label">
-                    <div class="title">Информация WiFi</div>
-                    <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
-                      <div>Сеть: {{ restaurantInfo.wifiName || 'Не задано' }}</div>
-                      <div style="font-weight: bold; margin-top: 2px;">Пароль: {{ restaurantInfo.wifiPassword || 'Не задан' }}</div>
-                    </div>
-                  </div>
-                  <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }">›</div>
+                  <div class="wifi-label" :style="{ color: restaurantInfo.textColor }">
+  <div class="title">Информация WiFi</div>
+  <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
+    <div>Сеть: {{ restaurantInfo.wifiName || 'Не задано' }}</div>
+    <div style="font-weight: bold; margin-top: 2px;">Пароль: {{ restaurantInfo.wifiPassword }}</div>
+  </div>
+</div>
+                  <div 
+  class="chevron" 
+  :style="{ 
+    transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+    color: restaurantInfo.textColor 
+  }"
+>›</div>
                 </div>
                 <div class="phone-categories">
                   <span v-for="cat in categories" :key="cat.id" class="phone-cat-badge" :style="{ backgroundColor: restaurantInfo.primaryColor }">{{ cat.name }}</span>
