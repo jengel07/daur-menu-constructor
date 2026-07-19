@@ -23,10 +23,24 @@ export interface RestaurantInfo {
   address?: string;
   phone?: string;
   qrCodeUrl?: string;
+  wifiName?: string;
+  wifiPassword?: string;
 }
 
 export interface MenuState {
   restaurantInfo: RestaurantInfo;
   categories: MenuCategory[];
   items: MenuItem[];
+}
+
+export interface RestaurantInfo {
+  // ... ваши существующие поля
+  qrSettings: {
+    text: string;
+    bgColor: string;
+    squareColor: string;
+    textColor: string;
+    textBgColor: string;
+    font: string;
+  }
 }
