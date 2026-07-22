@@ -7,9 +7,9 @@
     "dev": "vite --host",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
-    
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "qrcode.vue": "^3.10.0",
     "vue": "^3.5.39",
     "vue-router": "^4.6.4"

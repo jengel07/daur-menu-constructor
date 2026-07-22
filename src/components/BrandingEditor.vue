@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { RestaurantInfo } from '@/types/menu';
 
 const props = defineProps<{
-  modelValue: RestaurantInfo;
+  modelValue: RestaurantInfo & { showCoverGradient?: boolean };
 }>();
 
 const emit = defineEmits(['update:modelValue']);
@@ -12,7 +12,7 @@ const emit = defineEmits(['update:modelValue']);
 const avatarInput = ref<HTMLInputElement | null>(null);
 const coverInput = ref<HTMLInputElement | null>(null);
 
-// Функции для вызова клика (будут доступны в App.vue)
+// Функции для вызова клика
 const triggerAvatarUpload = () => {
   avatarInput.value?.click();
 };
@@ -21,8 +21,13 @@ const triggerCoverUpload = () => {
   coverInput.value?.click();
 };
 
-// Экспортируем функции наружу
 defineExpose({ triggerAvatarUpload, triggerCoverUpload });
+
+// Универсальный обновлятор полей
+const updateField = (field: string, value: any) => {
+  const updatedData = { ...props.modelValue, [field]: value };
+  emit('update:modelValue', updatedData);
+};
 
 const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
   const file = (event.target as HTMLInputElement).files?.[0];
@@ -31,12 +36,7 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
   const reader = new FileReader();
   reader.onload = (e) => {
     const result = e.target?.result as string;
-    
-    const updatedData = { ...props.modelValue };
-    if (type === 'cover') updatedData.coverImage = result;
-    else updatedData.avatarImage = result;
-
-    emit('update:modelValue', updatedData);
+    updateField(type === 'cover' ? 'coverImage' : 'avatarImage', result);
   };
   reader.readAsDataURL(file);
 };
@@ -46,12 +46,30 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
   <div class="branding-editor">
     <h3>Брендинг и лого</h3>
 
+    <!-- Поле ввода названия ресторана -->
+    <div class="form-group">
+      <label>Название ресторана</label>
+      <input 
+        type="text" 
+        :value="modelValue.name" 
+        @input="(e) => updateField('name', (e.target as HTMLInputElement).value)" 
+        placeholder="Введите название ресторана" 
+        class="restaurant-name-input"
+      />
+    </div>
+
+    <!-- Фоновое изображение (обложка) -->
     <div class="form-group">
       <label>Фоновое изображение (обложка)</label>
       <div class="image-upload-container cover-upload" 
-           :style="modelValue.coverImage ? { backgroundImage: `url(${modelValue.coverImage})` } : {}">
+           :style="{ 
+             backgroundImage: modelValue.coverImage 
+               ? (modelValue.showCoverGradient !== false 
+                   ? `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${modelValue.coverImage})` 
+                   : `url(${modelValue.coverImage})`) 
+               : 'none' 
+           }">
         <label class="upload-btn">
-          <!-- Добавлен ref="coverInput" -->
           <input ref="coverInput" type="file" accept="image/*" @change="(e) => handleFileUpload(e, 'cover')" hidden />
           {{ modelValue.coverImage ? 'Изменить обложку' : 'Загрузить обложку' }}
         </label>
@@ -59,6 +77,19 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
       </div>
     </div>
 
+    <!-- Чекбокс управления градиентом в настройках -->
+    <div class="form-group checkbox-group" v-if="modelValue.coverImage">
+      <label class="checkbox-label">
+        <input 
+          type="checkbox" 
+          :checked="modelValue.showCoverGradient !== false" 
+          @change="(e) => updateField('showCoverGradient', (e.target as HTMLInputElement).checked)"
+        />
+        <span>Добавить затемняющий градиент для читаемости текста</span>
+      </label>
+    </div>
+
+    <!-- Аватар ресторана -->
     <div class="form-group">
       <label>Аватар ресторана</label>
       <div class="avatar-wrapper">
@@ -66,7 +97,6 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
           <span v-if="!modelValue.avatarImage">🍽️</span>
           
           <label class="avatar-overlay">
-            <!-- ref="avatarInput" уже был здесь -->
             <input ref="avatarInput" type="file" accept="image/*" @change="(e) => handleFileUpload(e, 'avatar')" hidden />
             <span>{{ modelValue.avatarImage ? 'Изменить' : 'Выбрать' }}</span>
           </label>
@@ -80,6 +110,22 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
 .branding-editor { display: flex; flex-direction: column; gap: 24px; padding: 16px; }
 .form-group label { display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 14px; }
 
+/* Стиль для инпута названия */
+.restaurant-name-input {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: #242424;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.restaurant-name-input:focus {
+  border-color: #646cff;
+}
+
 .image-upload-container {
   border: 2px dashed #333; border-radius: 12px; display: flex;
   flex-direction: column; justify-content: center; align-items: center;
@@ -89,6 +135,26 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
 
 .cover-upload { width: 100%; height: 150px; justify-content: flex-end; }
 .placeholder-text { color: #666; font-size: 12px; margin-top: 4px; position: absolute; pointer-events: none; }
+
+/* Стили для чекбокса настройки градиента */
+.checkbox-group {
+  margin-top: -12px;
+}
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #ccc !important;
+  font-size: 13px !important;
+  user-select: none;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #646cff;
+  cursor: pointer;
+}
 
 .avatar-wrapper { display: flex; align-items: center; gap: 16px; }
 .avatar-circle { 
@@ -109,7 +175,6 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
 }
 
 .avatar-circle:hover .avatar-overlay { opacity: 1; }
-
 .avatar-circle:not(:has([style*="background-image"])) .avatar-overlay { opacity: 0.6; }
 
 .upload-btn { 

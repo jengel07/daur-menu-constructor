@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import QrcodeVue from 'qrcode.vue';
-import { computed } from 'vue';
+import { ref } from 'vue';
 import type { RestaurantInfo } from '../types/menu';
+import html2canvas from 'html2canvas';
 
 const props = defineProps<{ modelValue: RestaurantInfo }>();
 const emit = defineEmits(['update:model-value']);
 
-// Генерируем ссылку на превью динамически
-const previewUrl = computed(() => {
-  return "https://kind-rivers-win.loca.lt/preview";
-});
+const downloadFormat = ref('PNG');
+const exportRef = ref<HTMLElement | null>(null);
 
 const update = (key: string, value: any) => {
   emit('update:model-value', { 
@@ -17,50 +15,266 @@ const update = (key: string, value: any) => {
     qrSettings: { ...props.modelValue.qrSettings, [key]: value } 
   });
 };
+
+const downloadQRCode = async () => {
+  if (!exportRef.value) return;
+  
+  if (downloadFormat.value === 'PNG') {
+    // Делаем снимок с жестко заданным цветом фона карточки, чтобы не было черных дыр
+    const canvas = await html2canvas(exportRef.value, {
+      scale: 3,
+      backgroundColor: props.modelValue.qrSettings.textBgColor || '#000000',
+      useCORS: true
+    });
+    
+    const link = document.createElement('a');
+    link.download = `qr-menu-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } else if (downloadFormat.value === 'SVG') {
+    const svgElement = exportRef.value.querySelector('svg');
+    if (!svgElement) return;
+
+    const fullSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="300" height="340" viewBox="0 0 300 340">
+        <rect width="100%" height="100%" rx="16" fill="${props.modelValue.qrSettings.textBgColor || '#000000'}" />
+        <g transform="translate(30, 20)">
+          <rect width="240" height="240" rx="10" fill="${props.modelValue.qrSettings.bgColor || '#ffffff'}" />
+          <g transform="translate(20, 20)">
+            ${svgElement.innerHTML}
+          </g>
+        </g>
+        <text x="150" y="300" 
+              fill="${props.modelValue.qrSettings.textColor || '#ffffff'}" 
+              font-family="${props.modelValue.qrSettings.fontFamily || 'Comfortaa'}" 
+              font-size="16" 
+              font-weight="bold" 
+              text-anchor="middle">
+          ${props.modelValue.qrSettings.text || ''}
+        </text>
+      </svg>
+    `;
+
+    const blob = new Blob([fullSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `qr-menu-${Date.now()}.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+};
 </script>
 
 <template>
   <div class="qr-editor-container">
-    <!-- Панель управления -->
-    <div class="controls">
-      <label>Текст: 
-        <input :value="modelValue.qrSettings.text" @input="update('text', ($event.target as HTMLInputElement).value)">
-      </label>
-      <label>Фон: 
-        <input type="color" :value="modelValue.qrSettings.bgColor" @input="update('bgColor', ($event.target as HTMLInputElement).value)">
-      </label>
-      <label>Квадраты: 
-        <input type="color" :value="modelValue.qrSettings.squareColor" @input="update('squareColor', ($event.target as HTMLInputElement).value)">
-      </label>
-    </div>
+    <div class="controls-card">
+      <h3>Настройки QR-кода</h3>
+      
+      <div class="control-group">
+        <label>Текст под QR:</label> 
+        <input 
+          type="text" 
+          :value="modelValue.qrSettings.text" 
+          @input="update('text', ($event.target as HTMLInputElement).value)"
+        >
+      </div>
 
-    <!-- Область отображения QR (имитация телефона) -->
-    <div class="phone-preview">
-      <div class="qr-box">
+      <div class="control-group">
+        <label>Шрифт текста:</label>
+        <select 
+          :value="modelValue.qrSettings.fontFamily || 'Comfortaa'" 
+          @change="update('fontFamily', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="Comfortaa">Comfortaa</option>
+          <option value="Lora">Lora (Elegant)</option>
+          <option value="Playfair Display">Playfair Display (Classic)</option>
+          <option value="Oswald">Oswald (Bold)</option>
+          <option value="Caveat">Caveat (Handwritten)</option>
+          <option value="Montserrat">Montserrat (Geometric)</option>
+          <option value="Arvo">Arvo (Sturdy)</option>
+          <option value="Lobster">Lobster (Bold Script)</option>
+          <option value="Merriweather">Merriweather (Readable)</option>
+          <option value="Anton">Anton (Impactful)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Фон QR:</label> 
+        <input 
+          type="color" 
+          :value="modelValue.qrSettings.bgColor" 
+          @input="update('bgColor', ($event.target as HTMLInputElement).value)"
+        >
+      </div>
+
+      <div class="control-group">
+        <label>Квадраты:</label> 
+        <input 
+          type="color" 
+          :value="modelValue.qrSettings.squareColor" 
+          @input="update('squareColor', ($event.target as HTMLInputElement).value)"
+        >
+      </div>
+
+      <div class="control-group">
+        <label>Текст Фон:</label> 
+        <input 
+          type="color" 
+          :value="modelValue.qrSettings.textBgColor" 
+          @input="update('textBgColor', ($event.target as HTMLInputElement).value)"
+        >
+      </div>
+
+      <div class="control-group">
+        <label>Текст Цвет:</label> 
+        <input 
+          type="color" 
+          :value="modelValue.qrSettings.textColor" 
+          @input="update('textColor', ($event.target as HTMLInputElement).value)"
+        >
+      </div>
+
+      <!-- Блок скачивания -->
+      <div class="download-section">
+        <div class="control-group">
+          <label>Формат файла:</label>
+          <select v-model="downloadFormat">
+            <option value="PNG">PNG</option>
+            <option value="SVG">SVG</option>
+          </select>
+        </div>
+        <button class="download-btn" @click="downloadQRCode">
+          📥 Скачать QR-код
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Скрытый элемент для генерации точной копии карточки при скачивании -->
+  <div style="position: absolute; left: -9999px; top: -9999px;">
+    <div 
+      ref="exportRef" 
+      class="qr-card-export" 
+      :style="{ background: modelValue.qrSettings.textBgColor || '#000000' }"
+    >
+      <div class="qr-box-export" :style="{ background: modelValue.qrSettings.bgColor || '#ffffff' }">
         <qrcode-vue 
-          :value="previewUrl" 
-          :background="modelValue.qrSettings.bgColor" 
-          :foreground="modelValue.qrSettings.squareColor" 
+          :value="'https://great-birds-rest.loca.lt'" 
+          :size="200" 
+          :background="modelValue.qrSettings.bgColor || '#ffffff'" 
+          :foreground="modelValue.qrSettings.squareColor || '#000000'" 
           level="H" 
-          :size="200"
         />
-        <p class="qr-text">{{ modelValue.qrSettings.text }}</p>
+      </div>
+      <div 
+        class="qr-label-export" 
+        :style="{ 
+          color: modelValue.qrSettings.textColor || '#ffffff',
+          fontFamily: modelValue.qrSettings.fontFamily || 'Comfortaa'
+        }"
+      >
+        {{ modelValue.qrSettings.text }}
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.qr-editor-container { display: flex; gap: 20px; }
-.phone-preview { 
-  background: black; 
-  padding: 20px; 
-  border-radius: 30px; 
+.qr-editor-container { 
   display: flex; 
-  justify-content: center; 
-  align-items: center; 
-  width: 250px;
+  flex-direction: column;
+  gap: 20px; 
+  max-width: 400px;
 }
-.qr-box { background: white; padding: 15px; border-radius: 10px; text-align: center; }
-.qr-text { margin-top: 10px; font-weight: bold; color: black; }
+.controls-card {
+  background: #1e1e1e;
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #fff;
+}
+.controls-card h3 {
+  margin-bottom: 5px;
+  font-size: 18px;
+}
+.control-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.control-group label {
+  font-size: 14px;
+  color: #ccc;
+}
+.control-group input[type="text"],
+.control-group select {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  outline: none;
+  width: 180px;
+}
+.control-group select {
+  cursor: pointer;
+}
+.control-group input[type="color"] {
+  border: none;
+  width: 40px;
+  height: 32px;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 4px;
+}
+.download-section {
+  margin-top: 10px;
+  border-top: 1px solid #333;
+  padding-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.download-btn {
+  background: #ff5722;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
+.download-btn:hover {
+  background: #f4511e;
+}
+
+/* Стили для скрытой карточки экспорта */
+.qr-card-export {
+  padding: 16px;
+  border-radius: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 260px;
+}
+.qr-box-export {
+  padding: 12px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.qr-label-export {
+  margin-top: 12px;
+  font-weight: bold;
+  font-size: 16px;
+  width: 100%;
+}
 </style>
