@@ -8,7 +8,7 @@ const emit = defineEmits(['update:model-value']);
 
 // Генерируем ссылку на превью динамически
 const previewUrl = computed(() => {
-  return "https://kind-rivers-win.loca.lt/preview";т
+  return "https://kind-rivers-win.loca.lt/preview";
 });
 
 const update = (key: string, value: any) => {
