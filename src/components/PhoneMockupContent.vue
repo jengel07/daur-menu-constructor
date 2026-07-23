@@ -4,67 +4,67 @@
     
     <div class="phone-mockup">
       <div class="phone-screen">
-         
+        
         <!-- ЭКРАН МЕНЮ -->
         <template v-if="currentScreen === 'menu'">
           <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
             cursor: 'pointer', 
-            backgroundColor: restaurantInfo?.secondaryColor || '#333', 
-            backgroundImage: restaurantInfo?.coverImage 
-              ? (restaurantInfo.showCoverGradient !== false 
-                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
-                : `url(${restaurantInfo.coverImage})`) 
+            backgroundColor: store.restaurantInfo.secondaryColor, 
+            backgroundImage: store.restaurantInfo.coverImage 
+              ? (store.restaurantInfo.showCoverGradient !== false 
+                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${store.restaurantInfo.coverImage})` 
+                : `url(${store.restaurantInfo.coverImage})`) 
               : 'none', 
             backgroundSize: 'cover', 
             backgroundPosition: 'center' 
           }">
             <div class="phone-avatar-wrapper">
               <div class="phone-avatar-placeholder" @click.stop="triggerFileUpload('avatar')" style="cursor: pointer;">
-                <span v-if="!restaurantInfo?.avatarImage">🍽️</span>
-                <img v-else :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                <span v-if="!store.restaurantInfo.avatarImage">🍽️</span>
+                <img v-else :src="store.restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
               </div>
             </div>
             <div class="phone-logo">{{ currentRestaurantName }}</div>
           </div>
           
-          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: restaurantInfo?.backgroundColor || '#1a1a1a', color: restaurantInfo?.textColor || '#ffffff' }">
+          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: store.restaurantInfo.backgroundColor, color: store.restaurantInfo.textColor }">
             <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
               <div 
                 class="qr-card-preview" 
-                :style="{ background: restaurantInfo?.qrSettings?.textBgColor || '#000000' }"
+                :style="{ background: store.restaurantInfo.qrSettings?.textBgColor || '#000000' }"
               >
-                <div class="qr-box-preview" :style="{ background: restaurantInfo?.qrSettings?.bgColor || '#ffffff' }">
+                <div class="qr-box-preview" :style="{ background: store.restaurantInfo.qrSettings?.bgColor || '#ffffff' }">
                   <QrcodeVue 
                     :value="'https://great-birds-rest.loca.lt'" 
                     :size="150" 
-                    :background="restaurantInfo?.qrSettings?.bgColor || '#ffffff'" 
-                    :foreground="restaurantInfo?.qrSettings?.squareColor || '#000000'" 
+                    :background="store.restaurantInfo.qrSettings?.bgColor || '#ffffff'" 
+                    :foreground="store.restaurantInfo.qrSettings?.squareColor || '#000000'" 
                     level="H" 
                   />
                 </div>
                 <div 
                   class="qr-label-preview" 
                   :style="{ 
-                    color: restaurantInfo?.qrSettings?.textColor || '#ffffff',
-                    fontFamily: restaurantInfo?.qrSettings?.fontFamily || 'Comfortaa'
+                    color: store.restaurantInfo.qrSettings?.textColor || '#ffffff',
+                    fontFamily: store.restaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
                   }"
                 >
-                  {{ restaurantInfo?.qrSettings?.text }}
+                  {{ store.restaurantInfo.qrSettings?.text }}
                 </div>
               </div>
             </div>
             
             <div v-else>
-              <div v-if="restaurantInfo?.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
+              <div v-if="store.restaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
                 <div class="wifi-icon-box">ℹ️</div>
-                <div class="wifi-label" :style="{ color: restaurantInfo?.textColor }">
+                <div class="wifi-label" :style="{ color: store.restaurantInfo.textColor }">
                   <div class="title">{{ t.wifiTitle }}</div>
                   <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
-                    <div>{{ t.wifiNetwork }}: {{ restaurantInfo?.wifiName || t.wifiNotSet }}</div>
-                    <div style="font-weight: bold; margin-top: 2px;">{{ t.wifiPassword }}: {{ restaurantInfo?.wifiPassword }}</div>
+                    <div>{{ t.wifiNetwork }}: {{ store.restaurantInfo.wifiName || t.wifiNotSet }}</div>
+                    <div style="font-weight: bold; margin-top: 2px;">{{ t.wifiPassword }}: {{ store.restaurantInfo.wifiPassword }}</div>
                   </div>
                 </div>
-                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: restaurantInfo?.textColor }">›</div>
+                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: store.restaurantInfo.textColor }">›</div>
               </div>
 
               <!-- Категории меню -->
@@ -73,17 +73,17 @@
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === null }"
                   @click="selectedCategory = null"
-                  :style="{ backgroundColor: selectedCategory === null ? (restaurantInfo?.primaryColor || '#646cff') : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === null ? store.restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
                   {{ t.allCategories }}
                 </button>
                 <button 
-                  v-for="cat in categories" 
+                  v-for="cat in store.categories" 
                   :key="cat.id" 
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === cat.name }"
                   @click="selectedCategory = selectedCategory === cat.name ? null : cat.name"
-                  :style="{ backgroundColor: selectedCategory === cat.name ? (restaurantInfo?.primaryColor || '#646cff') : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === cat.name ? store.restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
                   {{ getLocalizedCategoryName(cat.name) }}
                 </button>
@@ -99,14 +99,14 @@
                   <div class="card-content">
                     <div>
                       <h3>{{ getLocalizedItemName(item.name) }}</h3>
-                      <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
+                      <div class="price">RUB {{ Number(item.price).toFixed(2) }}</div>
                     </div>
 
                     <button 
                       v-if="getItemQuantity(item.id) === 0" 
                       class="add-to-cart-btn" 
                       @click="addToCart(item)"
-                      :style="{ backgroundColor: restaurantInfo?.primaryColor || '#646cff' }"
+                      :style="{ backgroundColor: store.restaurantInfo.primaryColor }"
                     >
                       {{ t.addBtn }}
                     </button>
@@ -123,7 +123,7 @@
           </div>
 
           <!-- Нижняя панель управления -->
-          <div class="floating-settings-bar" :class="{ 'bar-hidden': !isBottomBarVisible }" :style="{ backgroundColor: restaurantInfo?.primaryColor || '#646cff' }">
+          <div class="floating-settings-bar" :class="{ 'bar-hidden': !isBottomBarVisible }" :style="{ backgroundColor: store.restaurantInfo.primaryColor }">
             <button class="bar-btn" @click="activeModal = 'language'"><span>🌐</span> {{ selectedLanguage }}</button>
             <div class="bar-divider"></div>
             <button class="bar-btn" @click="activeModal = 'filters'"><span>🎛️</span> {{ t.filtersTitle }}</button>
@@ -209,7 +209,7 @@
               <div class="win-link-card">
                 <div class="win-link-preview-left">
                   <div class="win-link-thumb">
-                    <img v-if="restaurantInfo?.avatarImage" :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img v-if="store.restaurantInfo.avatarImage" :src="store.restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
                     <span v-else>🍽️</span>
                   </div>
                   <div class="win-link-text">
@@ -237,7 +237,7 @@
           </div>
 
           <!-- Плавающая плашка корзины -->
-          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: restaurantInfo?.primaryColor || '#646cff', zIndex: 20 }">
+          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: store.restaurantInfo.primaryColor, zIndex: 20 }">
             <span class="cart-title">{{ t.cartTitle }}</span>
             <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
           </div>
@@ -260,7 +260,7 @@
                   <div class="cart-item-name">{{ getLocalizedItemName(item.name) }}</div>
                   <div class="cart-item-price">RUB {{ (item.price * item.quantity).toFixed(2) }}</div>
                 </div>
-                <div class="cart-item-actions" :style="{ backgroundColor: restaurantInfo?.primaryColor || '#646cff' }">
+                <div class="cart-item-actions" :style="{ backgroundColor: store.restaurantInfo.primaryColor }">
                   <button @click="handleTrashClick(item.id)">🗑️</button>
                   <span class="cart-item-qty">{{ item.quantity }}</span>
                   <button @click="increaseQuantity(item.id)">+</button>
@@ -269,7 +269,7 @@
             </div>
 
             <!-- Кнопка оформления заказа в дашборд -->
-            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: restaurantInfo?.primaryColor || '#646cff' }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: store.restaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
               Оформить заказ
             </button>
 
@@ -296,45 +296,9 @@
 import { ref, computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 import { useOrders } from '../composables/useOrders';
+import { useMenuStore } from '../store/menuStore';
 
-const props = withDefaults(
-  defineProps<{
-    restaurantInfo?: {
-      name?: string;
-      primaryColor?: string;
-      secondaryColor?: string;
-      backgroundColor?: string;
-      textColor?: string;
-      coverImage?: string;
-      avatarImage?: string;
-      showCoverGradient?: boolean;
-      isWifiEnabled?: boolean;
-      wifiName?: string;
-      wifiPassword?: string;
-      qrSettings?: {
-        textBgColor?: string;
-        bgColor?: string;
-        squareColor?: string;
-        textColor?: string;
-        fontFamily?: string;
-        text?: string;
-      };
-    };
-    items?: any[];
-    categories?: any[];
-  }>(),
-  {
-    restaurantInfo: () => ({
-      name: 'Ресторан',
-      primaryColor: '#646cff',
-      secondaryColor: '#333333',
-      backgroundColor: '#1a1a1a',
-      textColor: '#ffffff'
-    }),
-    items: () => [],
-    categories: () => []
-  }
-);
+const store = useMenuStore();
 
 const { addOrder } = useOrders();
 
@@ -356,7 +320,7 @@ const shareUrl = ref('https://great-birds-rest.loca.lt');
 // Корзина
 const cartItems = ref<any[]>([]);
 
-const currentRestaurantName = computed(() => props.restaurantInfo?.name || 'Ресторан');
+const currentRestaurantName = computed(() => store.restaurantInfo.name || 'Ресторан');
 
 const getItemQuantity = (itemId: number | string) => {
   const found = cartItems.value.find(i => i.id === itemId);
@@ -408,12 +372,11 @@ const handleCheckout = () => {
   alert('Заказ успешно оформлен и отправлен в дашборд администратора!');
 };
 
-// Фильтрация товаров с защитой от undefined в props.items
+// Фильтрация товаров из стора
 const filteredItems = computed(() => {
-  if (!props.items) return [];
-  return props.items.filter(item => {
+  return store.items.filter(item => {
     const matchesCategory = selectedCategory.value === null || item.categoryId === selectedCategory.value || item.category === selectedCategory.value;
-    const matchesSearch = searchQuery.value === '' || (item.name && item.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
+    const matchesSearch = searchQuery.value === '' || item.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 });
@@ -476,7 +439,3 @@ const openPreview = () => {
   window.open(shareUrl.value, '_blank');
 };
 </script>
-
-<style scoped>
-/* Стили компонента */
-</style>

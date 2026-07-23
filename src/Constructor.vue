@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useOrders } from './composables/useOrders';
 import { ref, reactive, nextTick, watch, onMounted, computed } from 'vue';
 import MenuImport from './components/MenuImport.vue';
 import MenuEditor from './components/MenuEditor.vue';
@@ -8,9 +9,20 @@ import ColorEditor from './components/ColorEditor.vue';
 import QrCodeEditor from './components/QrCodeEditor.vue';
 import QrcodeVue from 'qrcode.vue'; 
 import { useCart } from './composables/useCart';
+import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
+import PhoneMockupContent from './components/PhoneMockupContent.vue';
+
 
 import type { MenuItem, MenuCategory, RestaurantInfo } from './types/menu';
-
+const { orders, stats, updateOrderStatus } = useOrders();
+const saveToLocalStorage = () => {
+  const dataToSave = {
+    info: restaurantInfo,
+    items: items.value,
+    cats: categories.value
+  };
+  localStorage.setItem('restaurantData', JSON.stringify(dataToSave));
+};
 const activeTab = ref<'navigation' | 'colors' | 'branding' | 'general' | 'qrcode'>('navigation');
 const brandingEditorRef = ref<any>(null);
 const isWifiExpanded = ref(false);
@@ -526,11 +538,13 @@ const triggerFileUpload = async (type: 'avatar' | 'cover') => {
         <span class="status-badge">Режим редактирования</span>
       </div>
       <nav class="sidebar-menu">
-        <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode']" 
-                :key="tab" class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab as any">
-          <span class="icon">{{ tab === 'navigation' ? '🍔' : tab === 'colors' ? '🎨' : tab === 'branding' ? '✨' : tab === 'general' ? '📝' : '📱' }}</span>
-          {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : 'QR-код меню' }}
-        </button>
+        <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" 
+  :key="tab" class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab">
+  <span class="icon">
+    {{ tab === 'navigation' ? '🍔' : tab === 'colors' ? '🎨' : tab === 'branding' ? '✨' : tab === 'general' ? '📄' : tab === 'qrcode' ? '📱' : '📋' }}
+  </span>
+  {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : tab === 'qrcode' ? 'QR-код меню' : 'Настройка заказов' }}
+</button>
       </nav>
       <button @click="resetImport" class="btn-reset-sidebar">↩ Сбросить и загрузить заново</button>
     </aside>
@@ -545,6 +559,9 @@ const triggerFileUpload = async (type: 'avatar' | 'cover') => {
         <GeneralSettings v-else-if="activeTab === 'general'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
         <ColorEditor v-else-if="activeTab === 'colors'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
         <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
+      <OrderSettingsEditor v-else-if="activeTab === 'orders'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
+        
+      
       </div>
     </main>
 
