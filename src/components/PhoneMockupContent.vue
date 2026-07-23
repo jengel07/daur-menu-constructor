@@ -9,62 +9,62 @@
         <template v-if="currentScreen === 'menu'">
           <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
             cursor: 'pointer', 
-            backgroundColor: store.restaurantInfo.secondaryColor, 
-            backgroundImage: store.restaurantInfo.coverImage 
-              ? (store.restaurantInfo.showCoverGradient !== false 
-                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${store.restaurantInfo.coverImage})` 
-                : `url(${store.restaurantInfo.coverImage})`) 
+            backgroundColor: restaurantInfo.secondaryColor, 
+            backgroundImage: restaurantInfo.coverImage 
+              ? (restaurantInfo.showCoverGradient !== false 
+                  ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
+                  : `url(${restaurantInfo.coverImage})`) 
               : 'none', 
             backgroundSize: 'cover', 
             backgroundPosition: 'center' 
           }">
             <div class="phone-avatar-wrapper">
               <div class="phone-avatar-placeholder" @click.stop="triggerFileUpload('avatar')" style="cursor: pointer;">
-                <span v-if="!store.restaurantInfo.avatarImage">🍽️</span>
-                <img v-else :src="store.restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                <span v-if="!restaurantInfo.avatarImage">🍽️</span>
+                <img v-else :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
               </div>
             </div>
-            <div class="phone-logo">{{ currentRestaurantName }}</div>
+            <div class="phone-logo">{{ restaurantInfo.name || t('restaurantName') }}</div>
           </div>
           
-          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: store.restaurantInfo.backgroundColor, color: store.restaurantInfo.textColor }">
+          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: restaurantInfo.backgroundColor, color: restaurantInfo.textColor }">
             <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
               <div 
                 class="qr-card-preview" 
-                :style="{ background: store.restaurantInfo.qrSettings?.textBgColor || '#000000' }"
+                :style="{ background: restaurantInfo.qrSettings?.textBgColor || '#000000' }"
               >
-                <div class="qr-box-preview" :style="{ background: store.restaurantInfo.qrSettings?.bgColor || '#ffffff' }">
+                <div class="qr-box-preview" :style="{ background: restaurantInfo.qrSettings?.bgColor || '#ffffff' }">
                   <QrcodeVue 
                     :value="'https://great-birds-rest.loca.lt'" 
                     :size="150" 
-                    :background="store.restaurantInfo.qrSettings?.bgColor || '#ffffff'" 
-                    :foreground="store.restaurantInfo.qrSettings?.squareColor || '#000000'" 
+                    :background="restaurantInfo.qrSettings?.bgColor || '#ffffff'" 
+                    :foreground="restaurantInfo.qrSettings?.squareColor || '#000000'" 
                     level="H" 
                   />
                 </div>
                 <div 
                   class="qr-label-preview" 
                   :style="{ 
-                    color: store.restaurantInfo.qrSettings?.textColor || '#ffffff',
-                    fontFamily: store.restaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
+                    color: restaurantInfo.qrSettings?.textColor || '#ffffff',
+                    fontFamily: restaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
                   }"
                 >
-                  {{ store.restaurantInfo.qrSettings?.text }}
+                  {{ restaurantInfo.qrSettings?.text }}
                 </div>
               </div>
             </div>
             
             <div v-else>
-              <div v-if="store.restaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
+              <div v-if="restaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
                 <div class="wifi-icon-box">ℹ️</div>
-                <div class="wifi-label" :style="{ color: store.restaurantInfo.textColor }">
-                  <div class="title">{{ t.wifiTitle }}</div>
+                <div class="wifi-label" :style="{ color: restaurantInfo.textColor }">
+                  <div class="title">{{ t('wifiTitle') }}</div>
                   <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
-                    <div>{{ t.wifiNetwork }}: {{ store.restaurantInfo.wifiName || t.wifiNotSet }}</div>
-                    <div style="font-weight: bold; margin-top: 2px;">{{ t.wifiPassword }}: {{ store.restaurantInfo.wifiPassword }}</div>
+                    <div>{{ t('wifiNetwork') }}: {{ restaurantInfo.wifiName || t('wifiNotSet') }}</div>
+                    <div style="font-weight: bold; margin-top: 2px;">{{ t('wifiPassword') }}: {{ restaurantInfo.wifiPassword }}</div>
                   </div>
                 </div>
-                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: store.restaurantInfo.textColor }">›</div>
+                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: restaurantInfo.textColor }">›</div>
               </div>
 
               <!-- Категории меню -->
@@ -73,24 +73,24 @@
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === null }"
                   @click="selectedCategory = null"
-                  :style="{ backgroundColor: selectedCategory === null ? store.restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === null ? restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
-                  {{ t.allCategories }}
+                  {{ t('allCategories') }}
                 </button>
                 <button 
-                  v-for="cat in store.categories" 
+                  v-for="cat in categories" 
                   :key="cat.id" 
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === cat.name }"
                   @click="selectedCategory = selectedCategory === cat.name ? null : cat.name"
-                  :style="{ backgroundColor: selectedCategory === cat.name ? store.restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === cat.name ? restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
                   {{ getLocalizedCategoryName(cat.name) }}
                 </button>
               </div>
 
               <div v-if="filteredItems.length === 0" class="empty-search-notice">
-                {{ t.emptySearch }}
+                {{ t('emptySearch') }}
               </div>
 
               <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : 'menu-items-list-phone'">
@@ -106,9 +106,9 @@
                       v-if="getItemQuantity(item.id) === 0" 
                       class="add-to-cart-btn" 
                       @click="addToCart(item)"
-                      :style="{ backgroundColor: store.restaurantInfo.primaryColor }"
+                      :style="{ backgroundColor: restaurantInfo.primaryColor }"
                     >
-                      {{ t.addBtn }}
+                      {{ t('addBtn') }}
                     </button>
 
                     <div v-else class="counter-controls">
@@ -122,20 +122,14 @@
             </div>
           </div>
 
-          <!-- Нижняя панель управления -->
-          <div class="floating-settings-bar" :class="{ 'bar-hidden': !isBottomBarVisible }" :style="{ backgroundColor: store.restaurantInfo.primaryColor }">
-            <button class="bar-btn" @click="activeModal = 'language'"><span>🌐</span> {{ selectedLanguage }}</button>
-            <div class="bar-divider"></div>
-            <button class="bar-btn" @click="activeModal = 'filters'"><span>🎛️</span> {{ t.filtersTitle }}</button>
-            <div class="bar-divider"></div>
-            <button class="bar-btn" @click="handleShare"><span>📤</span></button>
-            <div class="bar-divider"></div>
-            <button class="bar-btn" @click="viewMode = viewMode === 'grid' ? 'list' : 'grid'">
-              <span>{{ viewMode === 'grid' ? '🗂️' : '📋' }}</span>
-            </button>
-            <div class="bar-divider"></div>
-            <button class="bar-btn" @click="activeModal = 'search'"><span>🔍</span></button>
-          </div>
+          <!-- Плавающая панель настроек -->
+          <FloatingSettingsBar 
+            :primaryColor="restaurantInfo.primaryColor"
+            :selectedLanguage="selectedLanguage"
+            :viewMode="viewMode"
+            @open-modal="(modalName) => activeModal = modalName"
+            @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
+          />
 
           <!-- Тоаст -->
           <div v-if="showToast" class="toast-notification">
@@ -146,14 +140,14 @@
           <div v-if="activeModal === 'language'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
             <div class="bottom-sheet">
               <div class="sheet-indicator"></div>
-              <div class="sheet-header"><h3>{{ t.langTitle }}</h3></div>
+              <div class="sheet-header"><h3>{{ t('langTitle') }}</h3></div>
               <div class="languages-grid">
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Deutsch' }" @click="selectedLanguage = 'Deutsch'"><span class="flag-icon">🇩🇪</span> Deutsch</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'English' }" @click="selectedLanguage = 'English'"><span class="flag-icon">🇬🇧</span> English</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Русский' }" @click="selectedLanguage = 'Русский'"><span class="flag-icon">🇷🇺</span> Русский</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Аҧсшәа' }" @click="selectedLanguage = 'Аҧсшәа'"><span class="flag-icon">🟢</span> Аҧсшәа</button>
+                <button class="lang-option" :class="{ active: selectedLanguage === 'Deutsch' }" @click="selectedLanguage = 'Deutsch'; activeModal = 'none'"><span class="flag-icon">🇩🇪</span> Deutsch</button>
+                <button class="lang-option" :class="{ active: selectedLanguage === 'English' }" @click="selectedLanguage = 'English'; activeModal = 'none'"><span class="flag-icon">🇬🇧</span> English</button>
+                <button class="lang-option" :class="{ active: selectedLanguage === 'Русский' }" @click="selectedLanguage = 'Русский'; activeModal = 'none'"><span class="flag-icon">🇷🇺</span> Русский</button>
+                <button class="lang-option" :class="{ active: selectedLanguage === 'Аҧсшәа' }" @click="selectedLanguage = 'Аҧсшәа'; activeModal = 'none'"><span class="flag-icon">🟢</span> Аҧсшәа</button>
               </div>
-              <div class="sheet-footer-brand">{{ t.poweredBy }}</div>
+              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
             </div>
           </div>
 
@@ -162,16 +156,16 @@
             <div class="bottom-sheet">
               <div class="sheet-indicator"></div>
               <div class="sheet-header-flex">
-                <h3>{{ t.searchTitle }}</h3>
-                <button class="clear-filters-text-btn" @click="searchQuery = ''">очистить</button>
+                <h3>{{ t('searchTitle') }}</h3>
+                <button class="clear-filters-text-btn" @click="searchQuery = ''">{{ t('clearFilters') }}</button>
               </div>
               <div class="search-input-wrapper">
                 <span class="search-icon-prefix">🔍</span>
-                <input v-model="searchQuery" type="text" class="search-modal-input" :placeholder="t.searchPlaceholder" autofocus />
+                <input v-model="searchQuery" type="text" class="search-modal-input" :placeholder="t('searchPlaceholder')" autofocus />
                 <button v-if="searchQuery" class="clear-input-btn" @click="searchQuery = ''">✕</button>
               </div>
-              <button class="show-results-btn" @click="activeModal = 'none'">{{ t.showResults }} ({{ filteredItems.length }})</button>
-              <div class="sheet-footer-brand">{{ t.poweredBy }}</div>
+              <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }} ({{ filteredItems.length }})</button>
+              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
             </div>
           </div>
 
@@ -180,19 +174,19 @@
             <div class="bottom-sheet">
               <div class="sheet-indicator"></div>
               <div class="sheet-header-flex">
-                <h3>{{ t.filtersTitle }}</h3>
-                <button class="clear-filters-text-btn" @click="clearAllFilters">{{ t.clearFilters }}</button>
+                <h3>{{ t('filtersTitle') }}</h3>
+                <button class="clear-filters-text-btn" @click="clearAllFilters">{{ t('clearFilters') }}</button>
               </div>
               <div class="filters-section-content">
-                <div class="filters-category-title">{{ t.nutritionTitle }}</div>
+                <div class="filters-category-title">{{ t('nutritionTitle') }}</div>
                 <div class="languages-grid">
                   <button class="lang-option" :class="{ active: selectedFilters.includes('nuts') }" @click="toggleFilter('nuts')"><span class="flag-icon">🌰</span> Без орехов</button>
                   <button class="lang-option" :class="{ active: selectedFilters.includes('lactose') }" @click="toggleFilter('lactose')"><span class="flag-icon">🥛</span> Без лактозы</button>
                   <button class="lang-option" :class="{ active: selectedFilters.includes('gluten') }" @click="toggleFilter('gluten')"><span class="flag-icon">🌾</span> Без глютена</button>
                 </div>
               </div>
-              <button class="show-results-btn" @click="activeModal = 'none'">{{ t.showResults }}</button>
-              <div class="sheet-footer-brand">{{ t.poweredBy }}</div>
+              <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }}</button>
+              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
             </div>
           </div>
 
@@ -209,12 +203,12 @@
               <div class="win-link-card">
                 <div class="win-link-preview-left">
                   <div class="win-link-thumb">
-                    <img v-if="store.restaurantInfo.avatarImage" :src="store.restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img v-if="restaurantInfo.avatarImage" :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
                     <span v-else>🍽️</span>
                   </div>
                   <div class="win-link-text">
                     <div class="win-link-url">{{ shareUrl }}</div>
-                    <div class="win-link-sub">Меню ресторана · {{ currentRestaurantName }}</div>
+                    <div class="win-link-sub">Меню ресторана · {{ restaurantInfo.name || t('restaurantName') }}</div>
                   </div>
                 </div>
                 <div class="win-link-actions">
@@ -237,8 +231,8 @@
           </div>
 
           <!-- Плавающая плашка корзины -->
-          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: store.restaurantInfo.primaryColor, zIndex: 20 }">
-            <span class="cart-title">{{ t.cartTitle }}</span>
+          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor, zIndex: 20 }">
+            <span class="cart-title">{{ t('cartTitle') }}</span>
             <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
           </div>
         </template>
@@ -247,12 +241,12 @@
         <template v-else-if="currentScreen === 'cart'">
           <div class="cart-screen-header">
             <button class="cart-close-btn" @click="currentScreen = 'menu'">✕</button>
-            <h2>{{ t.cartHeader }}</h2>
+            <h2>{{ t('cartHeader') }}</h2>
             <button class="cart-clear-all-btn" @click="cartItems = []">🗑️</button>
           </div>
 
           <div class="cart-screen-body">
-            <div class="closed-notice" v-html="t.closedNotice"></div>
+            <div class="closed-notice" v-html="t('closedNotice')"></div>
 
             <div class="cart-items-list">
               <div v-for="item in cartItems" :key="item.id" class="cart-item-row">
@@ -260,30 +254,29 @@
                   <div class="cart-item-name">{{ getLocalizedItemName(item.name) }}</div>
                   <div class="cart-item-price">RUB {{ (item.price * item.quantity).toFixed(2) }}</div>
                 </div>
-                <div class="cart-item-actions" :style="{ backgroundColor: store.restaurantInfo.primaryColor }">
-                  <button @click="handleTrashClick(item.id)">🗑️</button>
+                <div class="cart-item-actions" :style="{ backgroundColor: restaurantInfo.primaryColor }">
+                  <button @click="decreaseQuantity(item.id)">🗑️</button>
                   <span class="cart-item-qty">{{ item.quantity }}</span>
                   <button @click="increaseQuantity(item.id)">+</button>
                 </div>
               </div>
             </div>
 
-            <!-- Кнопка оформления заказа в дашборд -->
-            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: store.restaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: restaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
               Оформить заказ
             </button>
 
             <div class="add-more-link" @click="currentScreen = 'menu'" style="margin-top: 12px; text-align: center; cursor: pointer;">
-              {{ t.addMore }}
+              {{ t('addMore') }}
             </div>
           </div>
 
           <div class="cart-screen-footer">
             <div class="subtotal-row">
-              <span>{{ t.subtotal }}</span>
+              <span>{{ t('subtotal') }}</span>
               <span class="subtotal-sum">RUB {{ totalPrice.toFixed(2) }}</span>
             </div>
-            <div class="powered-by">© Проект от Web-Visual-World | 2024</div>
+            <div class="powered-by">{{ t('poweredBy') }}</div>
           </div>
         </template>
 
@@ -296,13 +289,16 @@
 import { ref, computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 import { useOrders } from '../composables/useOrders';
-import { useMenuStore } from '../store/menuStore';
+import FloatingSettingsBar from './FloatingSettingsBar.vue';
 
-const store = useMenuStore();
+const props = defineProps<{
+  restaurantInfo: any;
+  items: any[];
+  categories: any[];
+}>();
 
 const { addOrder } = useOrders();
 
-// Состояния интерфейса превью
 const currentScreen = ref<'menu' | 'cart'>('menu');
 const activeTab = ref<'menu' | 'qrcode'>('menu');
 const activeModal = ref<'none' | 'language' | 'search' | 'filters' | 'share'>('none');
@@ -312,15 +308,163 @@ const searchQuery = ref('');
 const selectedLanguage = ref('Русский');
 const selectedFilters = ref<string[]>([]);
 const isWifiExpanded = ref(false);
-const isBottomBarVisible = ref(true);
 const showToast = ref(false);
 const toastMessage = ref('');
 const shareUrl = ref('https://great-birds-rest.loca.lt');
 
-// Корзина
 const cartItems = ref<any[]>([]);
 
-const currentRestaurantName = computed(() => store.restaurantInfo.name || 'Ресторан');
+// Словари локализации интерфейса
+const translations: Record<string, Record<string, string>> = {
+  'Русский': {
+    restaurantName: 'Мой Ресторан',
+    wifiTitle: 'Информация WiFi',
+    wifiNetwork: 'Сеть',
+    wifiPassword: 'Пароль',
+    wifiNotSet: 'Не задано',
+    addBtn: '+ добавить',
+    cartTitle: 'Посмотреть корзину',
+    subtotal: 'Подытог',
+    closedNotice: 'Мы сейчас закрыты.<br>Откроемся в понедельник.',
+    addMore: '+ Добавить еще товары',
+    cartHeader: 'Корзина',
+    langTitle: 'Язык',
+    filtersTitle: 'Фильтры',
+    searchTitle: 'Поиск по меню',
+    searchPlaceholder: 'Введите название блюда...',
+    emptySearch: 'Ничего не найдено',
+    nutritionTitle: 'Питание',
+    clearFilters: 'очистить',
+    showResults: 'Показать результаты',
+    categoriesTitle: 'Категории',
+    allCategories: 'Все категории',
+    poweredBy: '© Проект от Web-Visual-World | 2024'
+  },
+  'English': {
+    restaurantName: 'My Restaurant',
+    wifiTitle: 'WiFi Information',
+    wifiNetwork: 'Network',
+    wifiPassword: 'Password',
+    wifiNotSet: 'Not set',
+    addBtn: '+ add',
+    cartTitle: 'View Cart',
+    subtotal: 'Subtotal',
+    closedNotice: 'We are currently closed.<br>We will open on Monday.',
+    addMore: '+ Add more items',
+    cartHeader: 'Cart',
+    langTitle: 'Language',
+    filtersTitle: 'Filters',
+    searchTitle: 'Search menu',
+    searchPlaceholder: 'Enter dish name...',
+    emptySearch: 'Nothing found',
+    nutritionTitle: 'Dietary',
+    clearFilters: 'clear',
+    showResults: 'Show results',
+    categoriesTitle: 'Categories',
+    allCategories: 'All categories',
+    poweredBy: '© Проект от Web-Visual-World | 2024'
+  },
+  'Deutsch': {
+    restaurantName: 'Mein Restaurant',
+    wifiTitle: 'WiFi Information',
+    wifiNetwork: 'Netzwerk',
+    wifiPassword: 'Passwort',
+    wifiNotSet: 'Nicht festgelegt',
+    addBtn: '+ hinzufügen',
+    cartTitle: 'Warenkorb ansehen',
+    subtotal: 'Zwischensumme',
+    closedNotice: 'Wir haben derzeit geschlossen.<br>Wir öffnen am Montag.',
+    addMore: '+ Weitere Artikel hinzufügen',
+    cartHeader: 'Warenkorb',
+    langTitle: 'Sprache',
+    filtersTitle: 'Filter',
+    searchTitle: 'Menü durchsuchen',
+    searchPlaceholder: 'Gericht eingeben...',
+    emptySearch: 'Nichts gefunden',
+    nutritionTitle: 'Ernährung',
+    clearFilters: 'löschen',
+    showResults: 'Ergebnisse anzeigen',
+    categoriesTitle: 'Kategorien',
+    allCategories: 'Alle Kategorien',
+    poweredBy: '© Проект от Web-Visual-World | 2024'
+  },
+  'Аԥсшәа': {
+    restaurantName: 'Аресторан',
+    wifiTitle: 'Wi-Fi Информация',
+    wifiNetwork: 'Ашьаҭа',
+    wifiPassword: 'Ажәамаҵәа',
+    wifiNotSet: 'Иҟазҵам',
+    addBtn: '+ аҿыц',
+    cartTitle: 'Акарзина ахәаԥшра',
+    subtotal: 'Абжьара',
+    closedNotice: 'Ҳара ҳаҷы зҵәоуп.<br>Ашәахьа аартхоит.',
+    addMore: '+ Иацҵатәуп атоварқәа',
+    cartHeader: 'Акарзина',
+    langTitle: 'Абызшәа',
+    filtersTitle: 'Афильтрқәа',
+    searchTitle: 'Аҧшаара',
+    searchPlaceholder: 'Иҧшаа аџьынџь...',
+    emptySearch: 'Даҽаԥшаам',
+    nutritionTitle: 'Адырҩара',
+    clearFilters: 'иқәгатәуп',
+    showResults: 'Аихьӡарақәа аарԥштәуп',
+    categoriesTitle: 'Акатегориақәа',
+    allCategories: 'Зегьы акатегориақәа',
+    poweredBy: '© Проект от Web-Visual-World | 2024'
+  }
+};
+
+const dishTranslations: Record<string, Record<string, { name: string, category: string }>> = {
+  'Том Ям': {
+    'Русский': { name: 'Том Ям', category: 'Основные блюда' },
+    'English': { name: 'Tom Yum', category: 'Main dishes' },
+    'Deutsch': { name: 'Tom Yam', category: 'Hauptgerichte' },
+    'Аҧсшәа': { name: 'Атом Иам', category: 'Ихадоу аџьынџьқәа' }
+  },
+  'Картошка фри': {
+    'Русский': { name: 'Картошка фри', category: 'Основные блюда' },
+    'English': { name: 'French Fries', category: 'Main dishes' },
+    'Deutsch': { name: 'Pommes Frites', category: 'Hauptgerichte' },
+    'Аҧсшәа': { name: 'Акартошька фри', category: 'Ихадоу аџьынџьқәа' }
+  },
+  'Спагети Карбонара': {
+    'Русский': { name: 'Спагети Карбонара', category: 'Основные блюда' },
+    'English': { name: 'Spaghetti Carbonara', category: 'Main dishes' },
+    'Deutsch': { name: 'Spaghetti Carbonara', category: 'Hauptgerichte' },
+    'Аҧсшәа': { name: 'Аспагетти Карбонара', category: 'Ихадоу аџьынџьқәа' }
+  }
+};
+
+const categoryTranslations: Record<string, Record<string, string>> = {
+  'Основные блюда': { 'Русский': 'Основные блюда', 'English': 'Main dishes', 'Deutsch': 'Hauptgerichte', 'Аҧсшәа': 'Ихадоу аџьынџьқәа' },
+  'Напитки': { 'Русский': 'Напитки', 'English': 'Beverages', 'Deutsch': 'Getränke', 'Аҧсшәа': 'Амаҷқәа' },
+  'Блюда на завтрак': { 'Русский': 'Блюда на завтрак', 'English': 'Breakfast dishes', 'Deutsch': 'Frühstücksgerichte', 'Аҧсшәа': 'Ахьаҵа аџьынџьқәа' },
+  'Гарниры': { 'Русский': 'Гарниры', 'English': 'Side dishes', 'Deutsch': 'Beilagen', 'Аҧсшәа': 'Ахьыҩқәа' },
+  'Десерты': { 'Русский': 'Десерты', 'English': 'Desserts', 'Deutsch': 'Desserts', 'Аҧсшәа': 'Адесертқәа' },
+  'Первые блюда': { 'Русский': 'Первые блюда', 'English': 'First courses', 'Deutsch': 'Suppen & Vorspeisen', 'Аҧсшәа': 'Актәи аџьынџьқәа' },
+  'Соусы': { 'Русский': 'Соусы', 'English': 'Sauces', 'Deutsch': 'Saucen', 'Аҧсшәа': 'Асоусқәа' },
+  'Салаты': { 'Русский': 'Салаты', 'English': 'Salads', 'Deutsch': 'Salate', 'Аҧсшәа': 'Асалатқәа' },
+  'Итальянские блюда': { 'Русский': 'Итальянские блюда', 'English': 'Italian dishes', 'Deutsch': 'Italienische Gerichte', 'Аҧсшәа': 'Италиатәи аџьынџьқәа' },
+  'Холодные закуски': { 'Русский': 'Холодные закуски', 'English': 'Cold appetizers', 'Deutsch': 'Kalte Vorspeisen', 'Аҧсшәа': 'Шьаҟатәи аҩкаақәа' },
+  'Кавказская кухня': { 'Русский': 'Кавказская кухня', 'English': 'Caucasian cuisine', 'Deutsch': 'Kaukasische Küche', 'Аҧсшәа': 'Кавказтәи аҟазшьа' },
+  'Выпечка': { 'Русский': 'Выпечка', 'English': 'Bakery', 'Deutsch': 'Gebäck', 'Аҧсшәа': 'Ахьыҟара' },
+  'Морепродукты': { 'Русский': 'Морепродукты', 'English': 'Seafood', 'Deutsch': 'Meeresfrüchte', 'Аҧсшәа': 'Амшын атоварқәа' }
+};
+
+const t = (key: string) => {
+  const lang = selectedLanguage.value;
+  return translations[lang]?.[key] || translations['Русский'][key] || key;
+};
+
+const getLocalizedCategoryName = (name: string) => {
+  const lang = selectedLanguage.value;
+  return categoryTranslations[name]?.[lang] || name;
+};
+
+const getLocalizedItemName = (name: string) => {
+  const lang = selectedLanguage.value;
+  return dishTranslations[name]?.[lang]?.name || name;
+};
 
 const getItemQuantity = (itemId: number | string) => {
   const found = cartItems.value.find(i => i.id === itemId);
@@ -352,66 +496,27 @@ const decreaseQuantity = (itemId: number | string) => {
   }
 };
 
-const handleTrashClick = (itemId: number | string) => {
-  cartItems.value = cartItems.value.filter(i => i.id !== itemId);
-};
-
 const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
-// Отправка заказа в дашборд
 const handleCheckout = () => {
   if (cartItems.value.length === 0) return;
-  
   addOrder(cartItems.value, totalPrice.value, 'delivery');
-  
   cartItems.value = [];
   currentScreen.value = 'menu';
-  
-  alert('Заказ успешно оформлен и отправлен в дашборд администратора!');
+  alert('Заказ успешно оформлен и отправлен в дашборд!');
 };
 
-// Фильтрация товаров из стора
 const filteredItems = computed(() => {
-  return store.items.filter(item => {
+  return props.items.filter(item => {
     const matchesCategory = selectedCategory.value === null || item.categoryId === selectedCategory.value || item.category === selectedCategory.value;
     const matchesSearch = searchQuery.value === '' || item.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 });
 
-// Локализация текстов
-const t = computed(() => {
-  return {
-    wifiTitle: 'Wi-Fi сеть',
-    wifiNetwork: 'Сеть',
-    wifiPassword: 'Пароль',
-    wifiNotSet: 'Не задано',
-    allCategories: 'Все',
-    emptySearch: 'Ничего не найдено',
-    addBtn: '+ Добавить',
-    filtersTitle: 'Фильтры',
-    langTitle: 'Выберите язык',
-    searchTitle: 'Поиск блюд',
-    searchPlaceholder: 'Введите название...',
-    showResults: 'Показать результаты',
-    clearFilters: 'Сбросить',
-    nutritionTitle: 'Состав / Аллергены',
-    cartTitle: 'Корзина',
-    cartHeader: 'Ваш заказ',
-    closedNotice: 'Заведение работает в режиме предпросмотра',
-    addMore: '+ Добавить еще блюда',
-    subtotal: 'Итого:',
-    poweredBy: 'Работает на Daur Menu'
-  };
-});
-
-const getLocalizedCategoryName = (name: string) => name;
-const getLocalizedItemName = (name: string) => name;
-
-const triggerFileUpload = (type: string) => {};
-
+const triggerFileUpload = (_type: string) => {};
 const handlePhoneScroll = () => {};
 const clearAllFilters = () => { selectedFilters.value = []; };
 const toggleFilter = (filter: string) => {
@@ -420,21 +525,23 @@ const toggleFilter = (filter: string) => {
   else selectedFilters.value.push(filter);
 };
 
-const handleShare = () => { activeModal.value = 'share'; };
 const copyShareLink = () => {
   navigator.clipboard.writeText(shareUrl.value);
   triggerToast('Ссылка скопирована!');
   activeModal.value = 'none';
 };
+
 const shareViaSocial = (network: string) => {
   triggerToast(`Поделиться в ${network}`);
   activeModal.value = 'none';
 };
+
 const triggerToast = (msg: string) => {
   toastMessage.value = msg;
   showToast.value = true;
   setTimeout(() => { showToast.value = false; }, 2000);
 };
+
 const openPreview = () => {
   window.open(shareUrl.value, '_blank');
 };

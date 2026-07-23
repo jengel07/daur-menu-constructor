@@ -13,11 +13,21 @@ const getContrastColor = (hex: string) => {
 };
 
 const update = (field: keyof RestaurantInfo, value: string) => {
-  emit('update:modelValue', { ...props.modelValue, [field]: value });
+  const updatedData = { ...props.modelValue, [field]: value };
+  
+  // Если меняется primaryColor, синхронизируем его для плавающей панели, 
+  // если она управляется через отдельное свойство или стиль в родительском компоненте.
+  // Здесь мы отправляем полный обновленный объект модели.
+  emit('update:modelValue', updatedData);
 };
 
 const applyTheme = (bg: string, text: string, primary: string) => {
-  emit('update:modelValue', { ...props.modelValue, backgroundColor: bg, textColor: text, primaryColor: primary });
+  emit('update:modelValue', { 
+    ...props.modelValue, 
+    backgroundColor: bg, 
+    textColor: text, 
+    primaryColor: primary 
+  });
 };
 
 const themes = [
@@ -67,7 +77,7 @@ const themes = [
     <div class="color-pickers">
       <label>Фон <input type="color" :value="modelValue.backgroundColor" @input="update('backgroundColor', ($event.target as HTMLInputElement).value)"></label>
       <label>Текст <input type="color" :value="modelValue.textColor" @input="update('textColor', ($event.target as HTMLInputElement).value)"></label>
-      <label>Основной <input type="color" :value="modelValue.primaryColor" @input="update('primaryColor', ($event.target as HTMLInputElement).value)"></label>
+      <label>Основной <input type="color" :value="modelValue.primaryColor" @input="update('updateColor', ($event.target as HTMLInputElement).value) || update('primaryColor', ($event.target as HTMLInputElement).value)"></label>
     </div>
   </div>
 </template>
