@@ -1,59 +1,79 @@
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import type { RestaurantInfo } from '../types/menu';
-import { useOrders } from '../composables/useOrders';
-
-defineProps<{ modelValue: RestaurantInfo }>();
-
-const { pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
-const isOrderSettingsOpen = ref(true);
-const orderMode = ref('order');
-const isLiabilityAgreed = ref(false);
-const isActivated = ref(false);
-
-const setOrderMode = (mode: string) => {
-  orderMode.value = mode;
-  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
-};
-
-const stats = ref({ open: 0, progress: 0, done: 0, cancelled: 0 });
-const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
-const orders = ref<any[]>([]);
-const isRefreshing = ref(false);
-
-const refreshOrders = () => {
-  isRefreshing.value = true;
-  setTimeout(() => (isRefreshing.value = false), 600);
-};
-
-const getFilteredOrders = computed(() => orders.value.filter(o => o.status === currentTab.value));
-const getTabName = (tab: string) => ({ open: 'Open', progress: 'in Progress', done: 'Done', cancelled: 'Cancelled' }[tab] || tab);
-
-const onsiteActive = ref(false);
-const notifType = ref('whatsapp');
-const whatsappNumber = ref('+7');
-const emailNotif = ref(true);
-</script>
-
 <template>
   <div class="order-hub-container">
     <header class="hub-header">
       <div class="hub-counters">
-        <button v-for="tab in ['open', 'progress', 'done', 'cancelled']" :key="tab" class="counter-badge" :class="[tab, { active: currentTab === tab }]" @click="currentTab = tab as any">
-          <span class="dot"></span> <span class="count-num">{{ stats[tab as keyof typeof stats] }}</span> {{ getTabName(tab) }}
+        <button 
+          v-for="tab in ['open', 'progress', 'done', 'cancelled']" 
+          :key="tab" 
+          class="counter-badge" 
+          :class="[tab, { active: currentTab === tab }]" 
+          @click="currentTab = tab as any"
+        >
+          <span class="dot"></span> 
+          <span class="count-num">{{ stats[tab as keyof typeof stats] || 0 }}</span> 
+          {{ getTabName(tab) }}
         </button>
       </div>
       <div class="hub-actions">
-        <button class="btn-action-top" @click="isOrderSettingsOpen = true">⚙️ Open Settings</button>
+        <button class="btn-action-top" @click="isOrderSettingsOpen = true">⚙️ Настройки</button>
         <button class="btn-action-top refresh-btn" :class="{ rotating: isRefreshing }" @click="refreshOrders">🔄 Обновить</button>
       </div>
     </header>
 
     <main class="hub-main-workspace">
-      <div v-if="getFilteredOrders.length === 0" class="no-orders-placeholder"><p>Нет заказов в категории "{{ getTabName(currentTab) }}"</p></div>
-      <div v-else class="orders-list"></div>
+      <div v-if="getFilteredOrders.length === 0" class="no-orders-placeholder">
+        <p>Нет заказов в категории "{{ getTabName(currentTab) }}"</p>
+      </div>
+      <div v-else class="orders-list">
+        <div v-for="order in getFilteredOrders" :key="order.id" class="order-card-item">
+          <div class="order-card-header">
+            <span class="order-id">ORD-{{ order.id }}</span>
+            <span class="order-time">{{ order.time || '14:44' }}</span>
+          </div>
+          <div class="order-items-summary">
+            <div v-for="(item, idx) in order.items" :key="idx" class="order-item-row">
+              <span>{{ item.name }} x{{ item.quantity }}</span>
+              <span>RUB {{ item.price * item.quantity }}</span>
+            </div>
+          </div>
+          <div class="order-card-footer">
+            <span class="order-total">Итого: RUB {{ order.total }}</span>
+            <div class="order-actions-btns">
+              <button 
+                v-if="order.status === 'open'" 
+                class="btn-cancel-order" 
+                @click="updateOrderStatus(order.id, 'cancelled')"
+              >
+                Отменить
+              </button>
+              <button 
+                v-if="order.status === 'open'" 
+                class="btn-progress-order" 
+                @click="updateOrderStatus(order.id, 'progress')"
+              >
+                В работу ➔
+              </button>
+              <button 
+                v-if="order.status === 'progress'" 
+                class="btn-done-order" 
+                @click="updateOrderStatus(order.id, 'done')"
+              >
+                Готово ✓
+              </button>
+              <button 
+                v-if="order.status === 'cancelled'" 
+                class="btn-restore-order" 
+                @click="updateOrderStatus(order.id, 'open')"
+              >
+                ↺ Вернуть
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
+    <!-- Модальное окно настроек заказов -->
     <div v-if="isOrderSettingsOpen" class="modal-overlay" @click.self="isOrderSettingsOpen = false">
       <div class="modal-content order-settings-modal">
         <div class="modal-header">
@@ -172,160 +192,258 @@ const emailNotif = ref(true);
   </div>
 </template>
 
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { RestaurantInfo } from '../types/menu';
+import { useOrders } from '../composables/useOrders';
+
+defineProps<{ modelValue: RestaurantInfo }>();
+
+const { 
+  pickupActive, 
+  pickupTime, 
+  deliveryActive, 
+  deliveryTime, 
+  workDays,
+  orders,
+  stats,
+  updateOrderStatus
+} = useOrders();
+
+const isOrderSettingsOpen = ref(false);
+const orderMode = ref('order');
+const isLiabilityAgreed = ref(false);
+const isActivated = ref(true);
+
+// Дополнительные реактивные переменные для модального окна настроек
+const pickupAddress = ref('');
+const pickupCity = ref('');
+const pickupIndex = ref('');
+const deliveryFee = ref(0);
+const minOrder = ref(0);
+const freeFrom = ref(0);
+const notifType = ref('dashboard');
+const whatsappNumber = ref('');
+const emailNotif = ref(false);
+
+const setOrderMode = (mode: string) => {
+  orderMode.value = mode;
+  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
+};
+
+const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
+const isRefreshing = ref(false);
+
+const refreshOrders = () => {
+  isRefreshing.value = true;
+  setTimeout(() => (isRefreshing.value = false), 600);
+};
+
+const getFilteredOrders = computed(() => {
+  return orders.value.filter(o => o.status === currentTab.value);
+});
+
+const getTabName = (tab: string) => ({ 
+  open: 'Новые', 
+  progress: 'В работу', 
+  done: 'Готовы', 
+  cancelled: 'Отменено' 
+}[tab] || tab);
+
+const onsiteActive = ref(false);
+</script>
+
 <style scoped>
+/* ТЕМНАЯ ТЕМА ПО УМОЛЧАНИЮ (Черная) */
 .order-hub-container { 
   display: flex; 
   flex-direction: column; 
   min-height: 100vh; 
   font-family: inherit; 
-}
-
-/* Стили по умолчанию (темная тема) */
-:global(.constructor-wrapper:not(.light-theme)) .order-hub-container {
   background-color: #121212;
   color: #fff;
 }
-:global(.constructor-wrapper:not(.light-theme)) .hub-header {
+.hub-header {
   background-color: #1a1a1a;
   border-bottom: 1px solid #2d2d2d;
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 12px 24px; 
+  gap: 16px;
 }
-:global(.constructor-wrapper:not(.light-theme)) .counter-badge {
+.counter-badge {
   background: #262626;
   border: 1px solid #333;
   color: #a0aec0;
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
 }
-:global(.constructor-wrapper:not(.light-theme)) .counter-badge.active {
+.counter-badge.active {
   background: #2d2d2d;
   color: #fff;
   border-color: #555;
 }
-:global(.constructor-wrapper:not(.light-theme)) .btn-action-top {
+.btn-action-top {
   background: #2d2d2d;
   border: 1px solid #3d3d3d;
   color: #fff;
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
 }
-:global(.constructor-wrapper:not(.light-theme)) .btn-action-top:hover {
-  background: #3d3d3d;
-}
-:global(.constructor-wrapper:not(.light-theme)) .hub-main-workspace {
+.hub-main-workspace {
   background-color: #18181b;
+  flex: 1; padding: 24px;
 }
-:global(.constructor-wrapper:not(.light-theme)) .no-orders-placeholder {
-  color: #71717a;
+.order-card-item {
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  color: #fff;
+  border-radius: 12px; padding: 16px 20px;
 }
+.order-card-header {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
+  display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin-bottom: 12px; padding-bottom: 8px;
+}
+.order-card-footer {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: space-between; align-items: center; padding-top: 12px;
+}
+.order-item-row {
+  color: #d1d5db;
+  display: flex; justify-content: space-between;
+}
+.order-total {
+  color: #10b981;
+  font-weight: 600; font-size: 14px;
+}
+.count-num {
+  font-weight: 600; padding: 1px 6px; border-radius: 10px; font-size: 11px;
+  color: #fff; background: rgba(255,255,255,0.1);
+}
+.order-time { color: #a0aec0; font-size: 13px; }
 
-/* Стили для светлой темы */
-:global(.constructor-wrapper.light-theme) .order-hub-container {
-  background-color: #f4f5f7;
-  color: #1a202c;
-}
-:global(.constructor-wrapper.light-theme) .hub-header {
-  background-color: #ffffff;
-  border-bottom: 1px solid #d1d5db;
-}
-:global(.constructor-wrapper.light-theme) .counter-badge {
-  background: #f1f3f5;
-  border: 1px solid #d1d5db;
-  color: #4a5568;
-}
-:global(.constructor-wrapper.light-theme) .counter-badge.active {
-  background: #e2e8f0;
-  color: #1a202c;
-  border-color: #cbd5e0;
-}
-:global(.constructor-wrapper.light-theme) .btn-action-top {
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #1a202c;
-}
-:global(.constructor-wrapper.light-theme) .btn-action-top:hover {
-  background: #f1f3f5;
-}
-:global(.constructor-wrapper.light-theme) .hub-main-workspace {
-  background-color: #f4f5f7;
-}
-:global(.constructor-wrapper.light-theme) .no-orders-placeholder {
-  color: #718096;
-}
-
-.hub-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; gap: 16px; }
 .hub-counters { display: flex; gap: 10px; align-items: center; }
-.counter-badge { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
 .counter-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
 .counter-badge.open .dot { background-color: #f97316; }
 .counter-badge.progress .dot { background-color: #3b82f6; }
 .counter-badge.done .dot { background-color: #10b981; }
 .counter-badge.cancelled .dot { background-color: #ef4444; }
-.count-num { font-weight: 600; color: #fff; background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 10px; font-size: 11px; }
 .hub-actions { display: flex; gap: 12px; }
-.btn-action-top { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
 .refresh-btn { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
 .refresh-btn:hover { background: #1d4ed8 !important; }
 .refresh-btn.rotating { opacity: 0.7; }
-.hub-main-workspace { flex: 1; padding: 24px; }
-.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 300px; font-size: 14px; }
+.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 200px; font-size: 14px; color: #71717a; }
+.orders-list { display: flex; flex-direction: column; gap: 16px; max-width: 750px; }
+.order-items-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 14px; }
+.order-actions-btns { display: flex; gap: 8px; }
+.btn-cancel-order { background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-progress-order, .btn-done-order { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-restore-order { background: #6b7280; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-cancel-order:hover, .btn-progress-order:hover, .btn-done-order:hover, .btn-restore-order:hover { opacity: 0.9; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.modal-content.order-settings-modal { background: #fff; color: #1a202c; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); box-sizing: border-box; display: flex; flex-direction: column; }
+.modal-content.order-settings-modal { background: #fff; color: #1a202c; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; display: flex; flex-direction: column; }
 .activated-settings-scroll { overflow-y: auto; padding-right: 4px; max-height: 65vh; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
-.modal-header h2 { margin: 0; font-size: 20px; font-weight: 700; color: #1a202c; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #718096; }
-.mode-tabs { display: flex; background: #edf2f7; padding: 4px; border-radius: 12px; margin-bottom: 20px; flex-shrink: 0; }
-.mode-tabs button { flex: 1; background: transparent; border: none; padding: 10px; font-size: 14px; font-weight: 500; color: #4a5568; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.mode-tabs { display: flex; background: #edf2f7; padding: 4px; border-radius: 12px; margin-bottom: 20px; }
+.mode-tabs button { flex: 1; background: transparent; border: none; padding: 10px; font-size: 14px; color: #4a5568; border-radius: 8px; cursor: pointer; }
 .mode-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.mode-description-card { background: #f7fafc; padding: 16px; border-radius: 12px; font-size: 14px; color: #4a5568; line-height: 1.5; margin-bottom: 20px; border: 1px solid #edf2f7; }
-.warning-card { background: #f8fafc; }
-.order-top-text { font-size: 14px; color: #4a5568; margin-bottom: 16px; line-height: 1.4; }
-.checkbox-row { display: flex; align-items: flex-start; gap: 12px; }
-.checkbox-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; cursor: pointer; }
-.checkbox-row label { font-size: 13px; color: #4a5568; line-height: 1.4; cursor: pointer; }
-.modal-footer-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; border-top: 1px solid #edf2f7; padding-top: 16px; flex-shrink: 0; }
-.btn-cancel { background: #f7fafc; border: 1px solid #e2e8f0; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4a5568; cursor: pointer; }
-.btn-activate { background: #718096; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #fff; cursor: pointer; transition: background 0.2s; }
-.btn-activate:not(:disabled) { background: #4a5568; }
-.btn-activate:disabled { opacity: 0.6; cursor: not-allowed; }
 .setting-block { background: #fdfdfd; border: 1px solid #edf2f7; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
 .setting-row-switch { display: flex; justify-content: space-between; align-items: center; }
 .setting-label-with-icon { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: #2d3748; }
-.block-icon { font-size: 18px; }
-.status-text { font-size: 12px; color: #a0aec0; margin-top: 4px; display: block; }
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e0; transition: .3s; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #fff; transition: .3s; }
+.slider { position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e0; transition: .3s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #fff; transition: .3s; border-radius: 50%; }
 input:checked + .slider { background-color: #10b981; }
 input:checked + .slider:before { transform: translateX(20px); }
-.slider.round { border-radius: 24px; }
-.slider.round:before { border-radius: 50%; }
-.range-group { margin-top: 16px; }
-.range-label { display: flex; justify-content: space-between; font-size: 13px; color: #4a5568; margin-bottom: 8px; }
+
+/* Дополнительные стили для полей ввода внутри модалки настроек */
+.order-top-text { font-size: 13px; color: #4a5568; margin-bottom: 16px; line-height: 1.4; }
+.status-text { display: block; font-size: 12px; color: #718096; margin-top: 6px; margin-bottom: 12px; }
+.range-group { margin-top: 12px; margin-bottom: 12px; }
+.range-label { display: flex; justify-content: space-between; font-size: 13px; color: #4a5568; margin-bottom: 6px; }
 .highlight-orange { color: #f97316; font-weight: 600; }
-.range-input { width: 100%; accent-color: #f97316; cursor: pointer; }
-.input-group { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.input-group label { font-size: 12px; color: #718096; }
-.text-input { background: #f7fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; font-size: 14px; color: #2d3748; outline: none; }
-.text-input:focus { border-color: #cbd5e0; }
-.phone-input-wrapper { display: flex; align-items: center; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-.phone-input-wrapper:focus-within { border-color: #cbd5e0; }
-.country-select { display: flex; align-items: center; gap: 6px; padding: 0 12px; border-right: 1px solid #e2e8f0; background: #edf2f7; height: 41px; cursor: pointer; }
-.flag-icon { font-size: 16px; }
-.select-arrow { font-size: 11px; color: #718096; }
-.phone-input { border: none !important; background: transparent !important; flex: 1; }
+.range-input { width: 100%; accent-color: #f97316; }
+.input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.input-group label { font-size: 12px; color: #4a5568; font-weight: 500; }
+.text-input { padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; background: #fff; color: #1a202c; }
+.text-input:focus { border-color: #3b82f6; }
 .row-inputs { display: flex; gap: 12px; }
-.row-inputs-three { display: flex; gap: 8px; margin-top: 12px; }
-.input-with-unit { position: relative; display: flex; align-items: center; }
-.input-with-unit input { width: 100%; padding-right: 45px; }
-.input-with-unit span { position: absolute; right: 10px; font-size: 11px; color: #a0aec0; font-weight: 600; }
-.mb-12 { margin-bottom: 12px; }
-.mt-12 { margin-top: 12px; }
-.mt-16 { margin-top: 16px; }
-.work-day-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f7fafc; font-size: 14px; color: #2d3748; }
-.day-switch-left { display: flex; align-items: center; gap: 12px; }
+.row-inputs .input-group { flex: 1; }
+.row-inputs-three { display: flex; gap: 8px; }
+.row-inputs-three .input-group { flex: 1; }
+.input-with-unit { display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; overflow: hidden; }
+.input-with-unit input { border: none; border-radius: 0; }
+.input-with-unit span { padding: 0 8px; font-size: 12px; color: #718096; background: #f7fafc; height: 100%; display: flex; align-items: center; }
+.work-day-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f7fafc; font-size: 13px; }
+.day-switch-left { display: flex; align-items: center; gap: 10px; }
 .text-muted { color: #a0aec0; }
-.day-action-right { font-size: 13px; color: #718096; cursor: pointer; }
-.notification-tabs { display: flex; background: #edf2f7; padding: 4px; border-radius: 8px; }
-.notification-tabs button { flex: 1; background: transparent; border: none; padding: 8px; font-size: 13px; font-weight: 500; color: #4a5568; border-radius: 6px; cursor: pointer; }
-.notification-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.notif-text-desc span { font-size: 14px; color: #2d3748; font-weight: 500; }
-.notif-text-desc p { margin: 2px 0 0 0; font-size: 12px; color: #718096; }
+.day-action-right { font-weight: 500; color: #4a5568; }
+.mb-12 { margin-bottom: 12px; }
+.mt-16 { margin-top: 16px; }
+.notification-tabs { display: flex; background: #edf2f7; padding: 3px; border-radius: 8px; gap: 4px; }
+.notification-tabs button { flex: 1; background: transparent; border: none; padding: 8px; font-size: 13px; color: #4a5568; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.notification-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.phone-input-wrapper { display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden; background: #fff; }
+.country-select { display: flex; align-items: center; gap: 4px; padding: 0 10px; background: #f7fafc; border-right: 1px solid #cbd5e0; font-size: 13px; }
+.phone-input { border: none !important; border-radius: 0 !important; }
+.notif-text-desc span { font-size: 13px; font-weight: 500; color: #2d3748; display: block; }
+.notif-text-desc p { font-size: 11px; color: #718096; margin-top: 2px; }
+</style>
+
+<!-- СВЕТЛАЯ ТЕМА -->
+<style>
+.constructor-wrapper.light-theme .order-hub-container {
+  background-color: #f4f5f7 !important;
+  color: #1a202c !important;
+}
+.constructor-wrapper.light-theme .hub-header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #d1d5db !important;
+}
+.constructor-wrapper.light-theme .counter-badge {
+  background: #f1f3f5 !important;
+  border: 1px solid #d1d5db !important;
+  color: #4a5568 !important;
+}
+.constructor-wrapper.light-theme .counter-badge.active {
+  background: #e2e8f0 !important;
+  color: #1a202c !important;
+  border-color: #cbd5e0 !important;
+}
+.constructor-wrapper.light-theme .btn-action-top {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #1a202c !important;
+}
+.constructor-wrapper.light-theme .hub-main-workspace {
+  background-color: #f4f5f7 !important;
+}
+.constructor-wrapper.light-theme .order-card-item {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #1a202c !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.constructor-wrapper.light-theme .order-card-header {
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #1a202c !important;
+}
+.constructor-wrapper.light-theme .order-card-footer {
+  border-top: 1px solid #e2e8f0 !important;
+}
+.constructor-wrapper.light-theme .order-item-row {
+  color: #2d3748 !important;
+}
+.constructor-wrapper.light-theme .order-total {
+  color: #047857 !important;
+}
+.constructor-wrapper.light-theme .count-num {
+  color: #1a202c !important;
+  background: rgba(0,0,0,0.06) !important;
+}
+.constructor-wrapper.light-theme .order-time {
+  color: #718096 !important;
+}
 </style>
