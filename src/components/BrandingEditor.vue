@@ -68,7 +68,7 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
                    ? `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${modelValue.coverImage})` 
                    : `url(${modelValue.coverImage})`) 
                : 'none' 
-           }">
+            }">
         <label class="upload-btn">
           <input ref="coverInput" type="file" accept="image/*" @change="(e) => handleFileUpload(e, 'cover')" hidden />
           {{ modelValue.coverImage ? 'Изменить обложку' : 'Загрузить обложку' }}
@@ -108,16 +108,17 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
 
 <style scoped>
 .branding-editor { display: flex; flex-direction: column; gap: 24px; padding: 16px; }
-.form-group label { display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 14px; }
+.branding-editor h3 { color: var(--text-main); }
+.form-group label { display: block; margin-bottom: 8px; color: var(--text-muted, #a0a0a0); font-size: 14px; }
 
 /* Стиль для инпута названия */
 .restaurant-name-input {
   width: 100%;
   padding: 10px 14px;
-  background-color: #242424;
-  border: 1px solid #333;
+  background-color: var(--input-bg, #ffffff);
+  border: 1px solid var(--border-color, #ccc);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-main);
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
@@ -127,14 +128,14 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
 }
 
 .image-upload-container {
-  border: 2px dashed #333; border-radius: 12px; display: flex;
+  border: 2px dashed var(--border-color, #ccc); border-radius: 12px; display: flex;
   flex-direction: column; justify-content: center; align-items: center;
-  background-color: #242424; background-size: cover;
+  background-color: var(--input-bg, #ffffff); background-size: cover;
   background-position: center; position: relative; overflow: hidden;
 }
 
 .cover-upload { width: 100%; height: 150px; justify-content: flex-end; }
-.placeholder-text { color: #666; font-size: 12px; margin-top: 4px; position: absolute; pointer-events: none; }
+.placeholder-text { color: #888; font-size: 12px; margin-top: 4px; position: absolute; pointer-events: none; }
 
 /* Стили для чекбокса настройки градиента */
 .checkbox-group {
@@ -145,7 +146,7 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  color: #ccc !important;
+  color: var(--text-main) !important;
   font-size: 13px !important;
   user-select: none;
 }
@@ -161,8 +162,8 @@ const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
   width: 100px; height: 100px; border-radius: 50%; 
   background-size: cover; background-position: center; 
   display: flex; justify-content: center; align-items: center; 
-  font-size: 40px; color: #555; background-color: #333;
-  position: relative; overflow: hidden; border: 2px solid #333;
+  font-size: 40px; color: #555; background-color: var(--border-color, #eee);
+  position: relative; overflow: hidden; border: 2px solid var(--border-color, #ccc);
   cursor: pointer;
 }
 

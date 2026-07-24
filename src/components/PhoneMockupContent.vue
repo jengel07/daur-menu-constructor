@@ -12,8 +12,8 @@
             backgroundColor: restaurantInfo.secondaryColor, 
             backgroundImage: restaurantInfo.coverImage 
               ? (restaurantInfo.showCoverGradient !== false 
-                  ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
-                  : `url(${restaurantInfo.coverImage})`) 
+                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
+                : `url(${restaurantInfo.coverImage})`) 
               : 'none', 
             backgroundSize: 'cover', 
             backgroundPosition: 'center' 
@@ -277,6 +277,7 @@
               <span class="subtotal-sum">RUB {{ totalPrice.toFixed(2) }}</span>
             </div>
             <div class="powered-by">{{ t('poweredBy') }}</div>
+            
           </div>
         </template>
 
@@ -288,8 +289,24 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
-import { useOrders } from '../composables/useOrders';
+
 import FloatingSettingsBar from './FloatingSettingsBar.vue';
+import { useOrders } from '../composables/useOrders';
+
+
+
+
+
+const { addOrder } = useOrders();
+
+// Функция, вызываемая при подтверждении заказа клиентом в корзине:
+const handleCheckout = () => {
+  if (cartItems.value.length === 0) return;
+  addOrder(cartItems.value, totalPrice.value, 'delivery');
+  cartItems.value = [];
+  currentScreen.value = 'menu';
+  alert('Заказ успешно оформлен и отправлен в дашборд!');
+};
 
 const props = defineProps<{
   restaurantInfo: any;
@@ -297,7 +314,6 @@ const props = defineProps<{
   categories: any[];
 }>();
 
-const { addOrder } = useOrders();
 
 const currentScreen = ref<'menu' | 'cart'>('menu');
 const activeTab = ref<'menu' | 'qrcode'>('menu');
@@ -500,16 +516,13 @@ const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
-const handleCheckout = () => {
-  if (cartItems.value.length === 0) return;
-  addOrder(cartItems.value, totalPrice.value, 'delivery');
-  cartItems.value = [];
-  currentScreen.value = 'menu';
-  alert('Заказ успешно оформлен и отправлен в дашборд!');
-};
+
 
 const filteredItems = computed(() => {
   return props.items.filter(item => {
+    // 🛑 Скрываем блюдо, если оно находится в стопе (isAvailable равно false/0)
+    if (item.isAvailable === false || item.isAvailable === 0) return false;
+
     const matchesCategory = selectedCategory.value === null || item.categoryId === selectedCategory.value || item.category === selectedCategory.value;
     const matchesSearch = searchQuery.value === '' || item.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     return matchesCategory && matchesSearch;

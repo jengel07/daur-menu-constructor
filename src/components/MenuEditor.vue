@@ -2,12 +2,10 @@
 import { ref, computed } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
 
-// ИСПРАВЛЕНО: Корректный синтаксис объединения типов для ref
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// !!! НОВЫЕ ПЕРЕМЕННЫЕ СОСТОЯНИЯ ДЛЯ ЗАГРУЗКИ
-const isImageLoading = ref(false); // Показывает, идет ли загрузка прямо сейчас
-const imageLoadError = ref<string | null>(null); // Хранит текст ошибки, если она произойдет
+const isImageLoading = ref(false);
+const imageLoadError = ref<string | null>(null);
 
 const props = defineProps<{
   items: MenuItem[];
@@ -19,25 +17,20 @@ const emit = defineEmits<{
   (e: 'update-categories', categories: MenuCategory[]): void;
 }>();
 
-// Состояние поиска и фильтрации
 const searchQuery = ref('');
 const selectedCategoryId = ref<string>('all');
 
-// Состояние модального окна добавления/редактирования
 const isModalOpen = ref(false);
 
-// ИСПРАВЛЕНО: Расширяем Partial типом для картинки
 const editingItem = ref<(Partial<MenuItem> & { image?: string }) | null>(null);
 
-// !!! ОБНОВЛЕННАЯ ФУНКЦИЯ ОБРАБОТКИ ЗАГРУЗКИ
 const handleImageUpload = (event: Event) => {
   const target = event.target as HTMLInputElement;
-  imageLoadError.value = null; // Сбрасываем старую ошибку перед новой загрузкой
+  imageLoadError.value = null;
 
   if (target.files && target.files[0]) {
     const file = target.files[0];
 
-    // Простая валидация типа файла (только изображения)
     if (!file.type.startsWith('image/')) {
       imageLoadError.value = 'Пожалуйста, выберите файл изображения (png, jpg).';
       return;
@@ -45,23 +38,18 @@ const handleImageUpload = (event: Event) => {
 
     const reader = new FileReader();
     
-    // 1. Включаем индикатор загрузки
     isImageLoading.value = true;
 
     reader.onload = (e) => {
-      // Искусственная задержка 1.5 секунды, чтобы увидеть спиннер
-      // В реальном проекте убрать setTimeout и оставить только код внутри!
       setTimeout(() => {
         if (editingItem.value) {
           editingItem.value.image = e.target?.result as string;
         }
-        // 2. Выключаем индикатор загрузки
         isImageLoading.value = false;
       }, 1500);
     };
 
     reader.onerror = () => {
-      // Обработка ошибки чтения файла
       isImageLoading.value = false;
       imageLoadError.value = 'Ошибка при чтении файла. Попробуйте еще раз.';
     };
@@ -70,7 +58,6 @@ const handleImageUpload = (event: Event) => {
   }
 };
 
-// Фильтрация списка блюд в реальном времени
 const filteredItems = computed(() => {
   return props.items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
@@ -80,7 +67,6 @@ const filteredItems = computed(() => {
   });
 });
 
-// Быстрое переключение доступности блюда
 const toggleAvailability = (itemId: string) => {
   const updated = props.items.map(item => {
     if (item.id === itemId) {
@@ -91,7 +77,6 @@ const toggleAvailability = (itemId: string) => {
   emit('update-items', updated);
 };
 
-// Удаление блюда
 const deleteItem = (itemId: string) => {
   if (confirm('Вы уверены, что хотите удалить это блюдо?')) {
     const updated = props.items.filter(item => item.id !== itemId);
@@ -99,7 +84,6 @@ const deleteItem = (itemId: string) => {
   }
 };
 
-// Открытие формы редактирования или создания
 const openEditModal = (item?: MenuItem) => {
   if (item) {
     editingItem.value = { ...item };
@@ -117,7 +101,6 @@ const openEditModal = (item?: MenuItem) => {
   isModalOpen.value = true;
 };
 
-// Сохранение изменений в модальном окне
 const saveItem = () => {
   if (!editingItem.value || !editingItem.value.name || isImageLoading.value) return;
 
@@ -137,14 +120,14 @@ const saveItem = () => {
 const closeModal = () => {
   isModalOpen.value = false;
   editingItem.value = null;
-  imageLoadError.value = null; // Сброс ошибки при закрытии
-  isImageLoading.value = false; // Сброс загрузки при закрытии
+  imageLoadError.value = null;
+  isImageLoading.value = false;
 };
 </script>
+
 <template>
   <div class="menu-editor">
     
-    <!-- Панель инструментов: поиск, категории и кнопка "Добавить" -->
     <div class="toolbar">
       <div class="filter-group">
         <input 
@@ -167,7 +150,6 @@ const closeModal = () => {
       </button>
     </div>
 
-    <!-- Сетка карточек блюд -->
     <div v-if="filteredItems.length > 0" class="items-grid">
       <div 
         v-for="item in filteredItems" 
@@ -206,55 +188,48 @@ const closeModal = () => {
       </div>
     </div>
 
-    <!-- Если ничего не найдено -->
     <div v-else class="empty-results">
       <p>Ничего не найдено по вашему запросу 🧐</p>
     </div>
 
-    <!-- Модальное окно редактирования/добавления -->
     <div v-if="isModalOpen && editingItem" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
 
-        <!-- Заголовок (один!) -->
-    <h2 class="modal-title">
-      {{ props.items.some(i => i.id === (editingItem?.id ?? '')) ? 'Редактировать блюдо' : 'Новое блюдо' }}
-    </h2>
+        <h2 class="modal-title">
+          {{ props.items.some(i => i.id === (editingItem?.id ?? '')) ? 'Редактировать блюдо' : 'Новое блюдо' }}
+        </h2>
       
-<!-- Блок загрузки фото -->
-<div class="form-group">
-  <label>Фото блюда</label>
-  <div 
-    class="image-upload-area" 
-    :class="{ 'is-loading': isImageLoading, 'has-error': imageLoadError }"
-    @click="!isImageLoading && fileInput?.click()"
-  >
-    <!-- 1. Пока идет загрузка - показываем спиннер -->
-    <div v-if="isImageLoading" class="loading-overlay">
-      <div class="spinner"></div>
-      <span class="loading-text">Обработка...</span>
-    </div>
+        <div class="form-group">
+          <label>Фото блюда</label>
+          <div 
+            class="image-upload-area" 
+            :class="{ 'is-loading': isImageLoading, 'has-error': imageLoadError }"
+            @click="!isImageLoading && fileInput?.click()"
+          >
+            <div v-if="isImageLoading" class="loading-overlay">
+              <div class="spinner"></div>
+              <span class="loading-text">Обработка...</span>
+            </div>
 
-    <!-- 2. Ошибка загрузки -->
-    <div v-else-if="imageLoadError" class="error-message">
-      <span>⚠️ {{ imageLoadError }}</span>
-      <span class="retry-text">Нажмите, чтобы попробовать снова</span>
-    </div>
+            <div v-else-if="imageLoadError" class="error-message">
+              <span>⚠️ {{ imageLoadError }}</span>
+              <span class="retry-text">Нажмите, чтобы попробовать снова</span>
+            </div>
 
-    <!-- 3. Обычное состояние (есть фото или нет фото) -->
-    <template v-else>
-      <img v-if="editingItem.image" :src="editingItem.image" class="preview-img" alt="Превью" />
-      <span v-else>+ Нажмите для загрузки фото</span>
-    </template>
+            <template v-else>
+              <img v-if="editingItem.image" :src="editingItem.image" class="preview-img" alt="Превью" />
+              <span v-else>+ Нажмите для загрузки фото</span>
+            </template>
 
-    <input 
-      type="file" 
-      ref="fileInput" 
-      @change="handleImageUpload" 
-      accept="image/*" 
-      style="display: none" 
-    />
-  </div>
-</div>
+            <input 
+              type="file" 
+              ref="fileInput" 
+              @change="handleImageUpload" 
+              accept="image/*" 
+              style="display: none" 
+            />
+          </div>
+        </div>
         
         <div class="form-group">
           <label>Название блюда</label>
@@ -299,7 +274,6 @@ const closeModal = () => {
   gap: 24px;
 }
 
-/* Панель инструментов */
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -317,26 +291,26 @@ const closeModal = () => {
 
 .search-input {
   flex-grow: 1;
-  background: #1e1e1e;
-  border: 1px solid #2e2e2e;
+  background: var(--bg-input, #1e1e1e);
+  border: 1px solid var(--border-color, #2e2e2e);
   padding: 10px 16px;
   border-radius: 8px;
-  color: white;
+  color: var(--text-main, white);
   font-size: 0.95rem;
 }
 
 .category-select {
-  background: #1e1e1e;
-  border: 1px solid #2e2e2e;
+  background: var(--bg-input, #1e1e1e);
+  border: 1px solid var(--border-color, #2e2e2e);
   padding: 10px 16px;
   border-radius: 8px;
-  color: white;
+  color: var(--text-main, white);
   font-size: 0.95rem;
   cursor: pointer;
 }
 
 .btn-add {
-  background: #646cff;
+  background: var(--accent, #646cff);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -347,10 +321,9 @@ const closeModal = () => {
 }
 
 .btn-add:hover {
-  background: #535bf2;
+  opacity: 0.9;
 }
 
-/* Сетка карточек */
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -358,8 +331,8 @@ const closeModal = () => {
 }
 
 .item-card {
-  background: #1e1e1e;
-  border: 1px solid #2e2e2e;
+  background: var(--bg-card, #1e1e1e);
+  border: 1px solid var(--border-color, #2e2e2e);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -371,7 +344,7 @@ const closeModal = () => {
 
 .item-card:hover {
   transform: translateY(-2px);
-  border-color: #4a4a4a;
+  border-color: var(--accent, #4a4a4a);
 }
 
 .item-card.not-available {
@@ -387,8 +360,8 @@ const closeModal = () => {
 }
 
 .category-badge {
-  background: rgba(255, 255, 255, 0.05);
-  color: #a0a0a0;
+  background: var(--badge-bg, rgba(255, 255, 255, 0.05));
+  color: var(--badge-color, #a0a0a0);
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 0.75rem;
@@ -410,7 +383,7 @@ const closeModal = () => {
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--action-hover, rgba(255, 255, 255, 0.1));
 }
 
 .card-body {
@@ -422,11 +395,12 @@ const closeModal = () => {
   margin: 0 0 8px 0;
   font-size: 1.1rem;
   font-weight: 600;
+  color: var(--text-main, white);
 }
 
 .item-desc {
   margin: 0;
-  color: #888888;
+  color: var(--text-muted, #888888);
   font-size: 0.85rem;
   line-height: 1.4;
 }
@@ -435,17 +409,16 @@ const closeModal = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #2e2e2e;
+  border-top: 1px solid var(--border-color, #2e2e2e);
   padding-top: 12px;
 }
 
 .item-price {
   font-weight: 700;
-  color: #646cff;
+  color: var(--accent, #646cff);
   font-size: 1.1rem;
 }
 
-/* Переключатель Toggle (Свитч) */
 .switch {
   position: relative;
   display: inline-flex;
@@ -463,7 +436,7 @@ const closeModal = () => {
 .slider {
   width: 34px;
   height: 20px;
-  background-color: #444;
+  background-color: var(--slider-bg, #444);
   transition: .2s;
   border-radius: 34px;
   position: relative;
@@ -482,7 +455,7 @@ const closeModal = () => {
 }
 
 input:checked + .slider {
-  background-color: #646cff;
+  background-color: var(--accent, #646cff);
 }
 
 input:checked + .slider:before {
@@ -491,17 +464,16 @@ input:checked + .slider:before {
 
 .switch-label {
   font-size: 0.75rem;
-  color: #a0a0a0;
+  color: var(--text-muted, #a0a0a0);
   user-select: none;
 }
 
 .empty-results {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: var(--text-muted, #666);
 }
 
-/* Модальное окно */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -516,8 +488,8 @@ input:checked + .slider:before {
 }
 
 .modal-card {
-  background: #1e1e1e;
-  border: 1px solid #2e2e2e;
+  background: var(--bg-card, #1e1e1e);
+  border: 1px solid var(--border-color, #2e2e2e);
   border-radius: 16px;
   padding: 32px;
   max-width: 500px;
@@ -526,11 +498,13 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: 20px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  color: var(--text-main, white);
 }
 
 .modal-title {
   margin: 0;
   font-size: 1.4rem;
+  color: var(--text-main, white);
 }
 
 .form-group {
@@ -541,15 +515,15 @@ input:checked + .slider:before {
 
 .form-group label {
   font-size: 0.85rem;
-  color: #a0a0a0;
+  color: var(--text-muted, #a0a0a0);
 }
 
 .form-group input, .form-group textarea, .form-group select {
-  background: #141414;
-  border: 1px solid #2e2e2e;
+  background: var(--bg-input-inner, #141414);
+  border: 1px solid var(--border-color, #2e2e2e);
   border-radius: 8px;
   padding: 10px 12px;
-  color: white;
+  color: var(--text-main, white);
   font-family: inherit;
 }
 
@@ -568,8 +542,8 @@ input:checked + .slider:before {
 
 .btn-cancel {
   background: transparent;
-  border: 1px solid #333;
-  color: #a0a0a0;
+  border: 1px solid var(--border-color, #333);
+  color: var(--text-muted, #a0a0a0);
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
@@ -577,11 +551,11 @@ input:checked + .slider:before {
 }
 
 .btn-cancel:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--action-hover, rgba(255, 255, 255, 0.05));
 }
 
 .btn-save {
-  background: #646cff;
+  background: var(--accent, #646cff);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -591,20 +565,22 @@ input:checked + .slider:before {
 }
 
 .btn-save:hover {
-  background: #535bf2;
+  opacity: 0.9;
 }
+
 .image-upload-area {
   width: 100%;
   height: 140px;
-  border: 2px dashed #333;
+  border: 2px dashed var(--border-dashed, #333);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  color: #666;
-  background: #141414;
+  color: var(--text-muted, #666);
+  background: var(--bg-input-inner, #141414);
+  position: relative;
 }
 
 .preview-img {
@@ -613,12 +589,9 @@ input:checked + .slider:before {
   object-fit: cover;
 }
 
-/* --- СТИЛИ ДЛЯ ИНДИКАТОРА ЗАГРУЗКИ (ДОБАВИТЬ В КОНЕЦ) --- */
-
-/* Область загрузки в состоянии загрузки или ошибки */
 .image-upload-area.is-loading {
   cursor: wait;
-  border-color: #646cff; /* Цвет основного CSS-файла */
+  border-color: var(--accent, #646cff);
 }
 
 .image-upload-area.has-error {
@@ -626,7 +599,6 @@ input:checked + .slider:before {
   color: #ff4d4f;
 }
 
-/* Оверлей загрузки поверх всего внутри области */
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -635,7 +607,7 @@ input:checked + .slider:before {
   gap: 12px;
   width: 100%;
   height: 100%;
-  background: rgba(20, 20, 20, 0.8); /* Чуть темнее фона */
+  background: var(--loading-overlay-bg, rgba(20, 20, 20, 0.8));
   position: absolute;
   top: 0;
   left: 0;
@@ -643,20 +615,18 @@ input:checked + .slider:before {
 
 .loading-text {
   font-size: 0.8rem;
-  color: #646cff;
+  color: var(--accent, #646cff);
 }
 
-/* Стили CSS-спиннера */
 .spinner {
   width: 30px;
   height: 30px;
   border: 3px solid rgba(100, 108, 255, 0.2);
-  border-top-color: #646cff; /* Цвет основного CSS-файла */
+  border-top-color: var(--accent, #646cff);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-/* Блок сообщения об ошибке */
 .error-message {
   display: flex;
   flex-direction: column;
@@ -668,14 +638,14 @@ input:checked + .slider:before {
 
 .retry-text {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-muted, #888);
   margin-top: 4px;
 }
 
-/* Анимация вращения */
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
+
 </style>

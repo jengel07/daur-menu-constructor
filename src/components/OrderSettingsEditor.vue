@@ -1,3 +1,40 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { RestaurantInfo } from '../types/menu';
+import { useOrders } from '../composables/useOrders';
+
+defineProps<{ modelValue: RestaurantInfo }>();
+
+const { pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
+const isOrderSettingsOpen = ref(true);
+const orderMode = ref('order');
+const isLiabilityAgreed = ref(false);
+const isActivated = ref(false);
+
+const setOrderMode = (mode: string) => {
+  orderMode.value = mode;
+  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
+};
+
+const stats = ref({ open: 0, progress: 0, done: 0, cancelled: 0 });
+const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
+const orders = ref<any[]>([]);
+const isRefreshing = ref(false);
+
+const refreshOrders = () => {
+  isRefreshing.value = true;
+  setTimeout(() => (isRefreshing.value = false), 600);
+};
+
+const getFilteredOrders = computed(() => orders.value.filter(o => o.status === currentTab.value));
+const getTabName = (tab: string) => ({ open: 'Open', progress: 'in Progress', done: 'Done', cancelled: 'Cancelled' }[tab] || tab);
+
+const onsiteActive = ref(false);
+const notifType = ref('whatsapp');
+const whatsappNumber = ref('+7');
+const emailNotif = ref(true);
+</script>
+
 <template>
   <div class="order-hub-container">
     <header class="hub-header">
@@ -135,50 +172,85 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import type { RestaurantInfo } from '../types/menu';
-import { useOrders } from '../composables/useOrders';
-
-defineProps<{ modelValue: RestaurantInfo }>();
-
-const { pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
-const isOrderSettingsOpen = ref(true);
-const orderMode = ref('order');
-const isLiabilityAgreed = ref(false);
-const isActivated = ref(false);
-
-const setOrderMode = (mode: string) => {
-  orderMode.value = mode;
-  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
-};
-
-const stats = ref({ open: 0, progress: 0, done: 0, cancelled: 0 });
-const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
-const orders = ref<any[]>([]);
-const isRefreshing = ref(false);
-
-const refreshOrders = () => {
-  isRefreshing.value = true;
-  setTimeout(() => (isRefreshing.value = false), 600);
-};
-
-const getFilteredOrders = computed(() => orders.value.filter(o => o.status === currentTab.value));
-const getTabName = (tab: string) => ({ open: 'Open', progress: 'in Progress', done: 'Done', cancelled: 'Cancelled' }[tab] || tab);
-
-const onsiteActive = ref(false);
-const notifType = ref('whatsapp');
-const whatsappNumber = ref('+7');
-const emailNotif = ref(true);
-</script>
-
 <style scoped>
-.order-hub-container { display: flex; flex-direction: column; min-height: 100vh; background-color: #121212; color: #fff; font-family: inherit; }
-.hub-header { display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; padding: 12px 24px; gap: 16px; }
+.order-hub-container { 
+  display: flex; 
+  flex-direction: column; 
+  min-height: 100vh; 
+  font-family: inherit; 
+}
+
+/* Стили по умолчанию (темная тема) */
+:global(.constructor-wrapper:not(.light-theme)) .order-hub-container {
+  background-color: #121212;
+  color: #fff;
+}
+:global(.constructor-wrapper:not(.light-theme)) .hub-header {
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #2d2d2d;
+}
+:global(.constructor-wrapper:not(.light-theme)) .counter-badge {
+  background: #262626;
+  border: 1px solid #333;
+  color: #a0aec0;
+}
+:global(.constructor-wrapper:not(.light-theme)) .counter-badge.active {
+  background: #2d2d2d;
+  color: #fff;
+  border-color: #555;
+}
+:global(.constructor-wrapper:not(.light-theme)) .btn-action-top {
+  background: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  color: #fff;
+}
+:global(.constructor-wrapper:not(.light-theme)) .btn-action-top:hover {
+  background: #3d3d3d;
+}
+:global(.constructor-wrapper:not(.light-theme)) .hub-main-workspace {
+  background-color: #18181b;
+}
+:global(.constructor-wrapper:not(.light-theme)) .no-orders-placeholder {
+  color: #71717a;
+}
+
+/* Стили для светлой темы */
+:global(.constructor-wrapper.light-theme) .order-hub-container {
+  background-color: #f4f5f7;
+  color: #1a202c;
+}
+:global(.constructor-wrapper.light-theme) .hub-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #d1d5db;
+}
+:global(.constructor-wrapper.light-theme) .counter-badge {
+  background: #f1f3f5;
+  border: 1px solid #d1d5db;
+  color: #4a5568;
+}
+:global(.constructor-wrapper.light-theme) .counter-badge.active {
+  background: #e2e8f0;
+  color: #1a202c;
+  border-color: #cbd5e0;
+}
+:global(.constructor-wrapper.light-theme) .btn-action-top {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #1a202c;
+}
+:global(.constructor-wrapper.light-theme) .btn-action-top:hover {
+  background: #f1f3f5;
+}
+:global(.constructor-wrapper.light-theme) .hub-main-workspace {
+  background-color: #f4f5f7;
+}
+:global(.constructor-wrapper.light-theme) .no-orders-placeholder {
+  color: #718096;
+}
+
+.hub-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; gap: 16px; }
 .hub-counters { display: flex; gap: 10px; align-items: center; }
-.counter-badge { display: flex; align-items: center; gap: 8px; background: #262626; border: 1px solid #333; padding: 6px 14px; border-radius: 20px; font-size: 13px; color: #a0aec0; cursor: pointer; transition: all 0.2s; }
-.counter-badge:hover { border-color: #4a5568; }
-.counter-badge.active { background: #2d2d2d; color: #fff; border-color: #555; }
+.counter-badge { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
 .counter-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
 .counter-badge.open .dot { background-color: #f97316; }
 .counter-badge.progress .dot { background-color: #3b82f6; }
@@ -186,13 +258,12 @@ const emailNotif = ref(true);
 .counter-badge.cancelled .dot { background-color: #ef4444; }
 .count-num { font-weight: 600; color: #fff; background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 10px; font-size: 11px; }
 .hub-actions { display: flex; gap: 12px; }
-.btn-action-top { background: #2d2d2d; border: 1px solid #3d3d3d; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
-.btn-action-top:hover { background: #3d3d3d; }
-.refresh-btn { background: #2563eb; border-color: #2563eb; }
-.refresh-btn:hover { background: #1d4ed8; }
+.btn-action-top { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+.refresh-btn { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
+.refresh-btn:hover { background: #1d4ed8 !important; }
 .refresh-btn.rotating { opacity: 0.7; }
-.hub-main-workspace { flex: 1; padding: 24px; background-color: #18181b; }
-.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 300px; color: #71717a; font-size: 14px; }
+.hub-main-workspace { flex: 1; padding: 24px; }
+.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 300px; font-size: 14px; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content.order-settings-modal { background: #fff; color: #1a202c; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); box-sizing: border-box; display: flex; flex-direction: column; }
 .activated-settings-scroll { overflow-y: auto; padding-right: 4px; max-height: 65vh; }

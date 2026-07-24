@@ -56,17 +56,18 @@ const update = (field: keyof RestaurantInfo, value: any) => {
 
 <style scoped>
 .general-settings { display: flex; flex-direction: column; gap: 20px; padding: 16px; }
+.general-settings h3 { color: var(--text-main); }
 .form-group { margin-top: 15px; }
-.form-group label { display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 14px; }
+.form-group label { display: block; margin-bottom: 8px; color: var(--text-muted, #a0a0a0); font-size: 14px; }
 
-.wifi-toggle-container { background: #1e1e1e; padding: 15px; border-radius: 8px; }
+.wifi-toggle-container { background: var(--card-bg, #d7d7d761); border: 1px solid var(--border-color, #333); padding: 15px; border-radius: 8px; }
 .toggle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.toggle-header label { font-weight: bold; }
-.description { font-size: 12px; color: #777; margin: 0; line-height: 1.4; }
+.toggle-header label { font-weight: bold; color: var(--text-main); }
+.description { font-size: 12px; color: var(--text-muted, #777); margin: 0; line-height: 1.4; }
 
 input[type="text"] { 
-  width: 100%; padding: 12px; background: #242424; border: 1px solid #333; 
-  border-radius: 8px; color: white; box-sizing: border-box; 
+  width: 100%; padding: 12px; background: var(--input-bg, #d7d7d761); border: 1px solid var(--border-color, #333); 
+  border-radius: 8px; color: var(--text-main); box-sizing: border-box; 
 }
 input[type="text"]:focus { border-color: #646cff; outline: none; }
 </style>

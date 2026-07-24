@@ -20,7 +20,6 @@ const downloadQRCode = async () => {
   if (!exportRef.value) return;
   
   if (downloadFormat.value === 'PNG') {
-    // Делаем снимок с жестко заданным цветом фона карточки, чтобы не было черных дыр
     const canvas = await html2canvas(exportRef.value, {
       scale: 3,
       backgroundColor: props.modelValue.qrSettings.textBgColor || '#000000',
@@ -187,18 +186,30 @@ const downloadQRCode = async () => {
   gap: 20px; 
   max-width: 400px;
 }
+
+/* Стили карточки и элементов по умолчанию (темная тема) */
 .controls-card {
-  background: #1e1e1e;
+  background: var(--card-bg, #c0c0c030);
+  border: 1px solid var(--border-color, #333);
   padding: 24px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  color: #fff;
+  color: var(--text-main, #fff);
 }
+
+/* Переопределение для светлой темы через обертку приложения */
+:global(.constructor-wrapper.light-theme) .controls-card {
+  background: var(--card-bg, #ffffff) !important;
+  border-color: var(--border-color, #545454) !important;
+  color: var(--text-main, #333) !important;
+}
+
 .controls-card h3 {
   margin-bottom: 5px;
-  font-size: 18px;
+  font-size: 18px;  
+  color: var(--text-main);
 }
 .control-group {
   display: flex;
@@ -208,18 +219,31 @@ const downloadQRCode = async () => {
 }
 .control-group label {
   font-size: 14px;
-  color: #ccc;
+  color: var(--text-muted, #ccc);
 }
+
+:global(.constructor-wrapper.light-theme) .control-group label {
+  color: var(--text-muted, #666) !important;
+}
+
 .control-group input[type="text"],
 .control-group select {
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #fff;
+  background: var(--input-bg, #8e8d8d5b);
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-main, #fff);
   padding: 8px 12px;
   border-radius: 6px;
   outline: none;
   width: 180px;
 }
+
+:global(.constructor-wrapper.light-theme) .control-group input[type="text"],
+:global(.constructor-wrapper.light-theme) .control-group select {
+  background: var(--input-bg, #f4f5f7) !important;
+  border-color: var(--border-color, #555555) !important;
+  color: var(--text-main, #333) !important;
+}
+
 .control-group select {
   cursor: pointer;
 }
@@ -233,7 +257,7 @@ const downloadQRCode = async () => {
 }
 .download-section {
   margin-top: 10px;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border-color, #333);
   padding-top: 15px;
   display: flex;
   flex-direction: column;

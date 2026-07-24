@@ -83,10 +83,16 @@ const themes = [
 </template>
 
 <style scoped>
+.color-editor h3 {
+  color: var(--text-main, #333);
+  font-size: 1rem;
+  margin-bottom: 16px;
+}
+
 .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-.theme-card { border: 1px solid #ccc; border-radius: 8px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; height: 45px; }
+.theme-card { border: 1px solid var(--border-color, #ccc); border-radius: 8px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; height: 45px; }
 .card-text { font-weight: bold; font-size: 14px; }
 .color-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
 .color-pickers { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-.color-pickers label { display: flex; justify-content: space-between; align-items: center; color: #a0a0a0; font-size: 14px; }
+.color-pickers label { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted, #a0a0a0); font-size: 14px; }
 </style>
