@@ -15,6 +15,20 @@ import { useCart } from './composables/useCart';
 import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
 import PhoneMockupContent from './components/PhoneMockupContent.vue';
 
+// Импорт иконок из lucide-vue-next
+import { 
+  UtensilsCrossed, 
+  Palette, 
+  Sparkles, 
+  FileText, 
+  QrCode, 
+  ClipboardList, 
+  ArrowLeft, 
+  Sun, 
+  Moon, 
+  RotateCcw 
+} from 'lucide-vue-next';
+
 import type { MenuItem, MenuCategory, RestaurantInfo } from './types/menu';
 const { orders, stats, updateOrderStatus } = useOrders();
 const saveToLocalStorage = () => {
@@ -327,7 +341,7 @@ const triggerFileUpload = async (type: 'avatar' | 'cover') => {
 
 // Функция для возврата в админку
 const goToAdmin = () => {
-  router.push('admin'); // Плавный переход на главную страницу через роутер
+  router.push('admin');
 };
 </script>
 
@@ -348,10 +362,7 @@ const goToAdmin = () => {
               title="Вернуться в панель управления"
               style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 12H5"></path>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
+              <ArrowLeft :size="18" stroke-width="2" />
             </button>
             <h2 class="brand-title" style="margin: 0;">Daur Menu</h2>
           </div>
@@ -359,7 +370,7 @@ const goToAdmin = () => {
           <div class="header-actions-row">
             <span class="status-badge">Режим редактирования</span>
             <button class="btn-theme-toggle" @click="toggleTheme" :title="isLightTheme ? 'Включить темную тему' : 'Включить светлую тему'">
-              {{ isLightTheme ? '🌙' : '☀️' }}
+              <component :is="isLightTheme ? Moon : Sun" :size="16" stroke-width="2" />
             </button>
           </div>
         </div>
@@ -367,13 +378,20 @@ const goToAdmin = () => {
         <nav class="sidebar-menu">
           <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" 
             :key="tab" class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab">
-            <span class="icon">
-              {{ tab === 'navigation' ? '🍔' : tab === 'colors' ? '🎨' : tab === 'branding' ? '✨' : tab === 'general' ? '📄' : tab === 'qrcode' ? '📱' : '📋' }}
+            <span class="icon" style="display: flex; align-items: center;">
+              <UtensilsCrossed v-if="tab === 'navigation'" :size="18" stroke-width="2" />
+              <Palette v-else-if="tab === 'colors'" :size="18" stroke-width="2" />
+              <Sparkles v-else-if="tab === 'branding'" :size="18" stroke-width="2" />
+              <FileText v-else-if="tab === 'general'" :size="18" stroke-width="2" />
+              <QrCode v-else-if="tab === 'qrcode'" :size="18" stroke-width="2" />
+              <ClipboardList v-else-if="tab === 'orders'" :size="18" stroke-width="2" />
             </span>
             {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : tab === 'qrcode' ? 'QR-код меню' : 'Настройка заказов' }}
           </button>
         </nav>
-        <button @click="resetImport" class="btn-reset-sidebar">↩ Сбросить и загрузить заново</button>
+        <button @click="resetImport" class="btn-reset-sidebar" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <RotateCcw :size="14" stroke-width="2" /> Сбросить и загрузить заново
+        </button>
       </aside>
 
       <main class="editor-area">

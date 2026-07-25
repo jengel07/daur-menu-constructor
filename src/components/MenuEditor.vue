@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
+import { 
+  Search, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  ImagePlus, 
+  AlertTriangle 
+} from 'lucide-vue-next';
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -130,12 +138,16 @@ const closeModal = () => {
     
     <div class="toolbar">
       <div class="filter-group">
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          placeholder="Поиск блюда..." 
-          class="search-input"
-        />
+        <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
+          <Search :size="18" stroke-width="2" style="position: absolute; left: 12px; color: var(--text-muted, #888);" />
+          <input 
+            v-model="searchQuery" 
+            type="text" 
+            placeholder="Поиск блюда..." 
+            class="search-input"
+            style="padding-left: 38px; width: 100%; box-sizing: border-box;"
+          />
+        </div>
         
         <select v-model="selectedCategoryId" class="category-select">
           <option value="all">Все категории</option>
@@ -145,8 +157,8 @@ const closeModal = () => {
         </select>
       </div>
 
-      <button @click="openEditModal()" class="btn-add">
-        ➕ Добавить блюдо
+      <button @click="openEditModal()" class="btn-add" style="display: flex; align-items: center; gap: 6px;">
+        <Plus :size="16" stroke-width="2.5" /> Добавить блюдо
       </button>
     </div>
 
@@ -162,8 +174,12 @@ const closeModal = () => {
             {{ categories.find(c => c.id === item.categoryId)?.name || 'Без категории' }}
           </span>
           <div class="actions">
-            <button @click="openEditModal(item)" class="action-btn edit-btn" title="Редактировать">✏️</button>
-            <button @click="deleteItem(item.id)" class="action-btn delete-btn" title="Удалить">🗑️</button>
+            <button @click="openEditModal(item)" class="action-btn edit-btn" title="Редактировать">
+              <Pencil :size="15" stroke-width="2" />
+            </button>
+            <button @click="deleteItem(item.id)" class="action-btn delete-btn" title="Удалить">
+              <Trash2 :size="15" stroke-width="2" />
+            </button>
           </div>
         </div>
 
@@ -212,13 +228,15 @@ const closeModal = () => {
             </div>
 
             <div v-else-if="imageLoadError" class="error-message">
-              <span>⚠️ {{ imageLoadError }}</span>
+              <span style="display: flex; align-items: center; gap: 4px;"><AlertTriangle :size="16" /> {{ imageLoadError }}</span>
               <span class="retry-text">Нажмите, чтобы попробовать снова</span>
             </div>
 
             <template v-else>
               <img v-if="editingItem.image" :src="editingItem.image" class="preview-img" alt="Превью" />
-              <span v-else>+ Нажмите для загрузки фото</span>
+              <span v-else style="display: flex; align-items: center; gap: 6px;">
+                <ImagePlus :size="20" stroke-width="1.5" /> Нажмите для загрузки фото
+              </span>
             </template>
 
             <input 
@@ -290,7 +308,6 @@ const closeModal = () => {
 }
 
 .search-input {
-  flex-grow: 1;
   background: var(--bg-input, #1e1e1e);
   border: 1px solid var(--border-color, #2e2e2e);
   padding: 10px 16px;
@@ -377,13 +394,17 @@ const closeModal = () => {
   border: none;
   cursor: pointer;
   padding: 4px;
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #a0a0a0);
   border-radius: 4px;
-  transition: background 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .action-btn:hover {
   background: var(--action-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text-main, #fff);
 }
 
 .card-body {
@@ -647,5 +668,4 @@ input:checked + .slider:before {
     transform: rotate(360deg);
   }
 }
-
 </style>

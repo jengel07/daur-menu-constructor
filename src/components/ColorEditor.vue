@@ -1,23 +1,12 @@
 <script setup lang="ts">
+import { Moon, Sun } from 'lucide-vue-next';
 import type { RestaurantInfo } from '@/types/menu';
 
 const props = defineProps<{ modelValue: RestaurantInfo }>();
 const emit = defineEmits(['update:modelValue']);
 
-// Функция для вычисления контрастного цвета (черный или белый)
-const getContrastColor = (hex: string) => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return ((r * 299) + (g * 587) + (b * 114)) / 1000 >= 128 ? '#000000' : '#FFFFFF';
-};
-
-const update = (field: keyof RestaurantInfo, value: string) => {
+const update = (field: keyof RestaurantInfo, value: any) => {
   const updatedData = { ...props.modelValue, [field]: value };
-  
-  // Если меняется primaryColor, синхронизируем его для плавающей панели, 
-  // если она управляется через отдельное свойство или стиль в родительском компоненте.
-  // Здесь мы отправляем полный обновленный объект модели.
   emit('update:modelValue', updatedData);
 };
 
@@ -28,6 +17,12 @@ const applyTheme = (bg: string, text: string, primary: string) => {
     textColor: text, 
     primaryColor: primary 
   });
+};
+
+// Переключение темной темы плашек
+const toggleBottomSheetTheme = () => {
+  const current = props.modelValue.isDarkMode ?? true;
+  update('isDarkMode', !current);
 };
 
 const themes = [
@@ -60,7 +55,20 @@ const themes = [
 
 <template>
   <div class="color-editor">
-    <h3>ЦВЕТОВЫЕ ТЕМЫ</h3>
+    <div class="header-row">
+      <h3>ЦВЕТОВЫЕ ТЕМЫ</h3>
+      <!-- Кнопка переключения светлой/темной темы модалок -->
+      <button 
+        class="mode-toggle-btn" 
+        @click="toggleBottomSheetTheme"
+        :title="modelValue.isDarkMode ? 'Включить светлые плашки' : 'Включить темные плашки'"
+      >
+        <Moon v-if="modelValue.isDarkMode !== false" :size="16" />
+        <Sun v-else :size="16" />
+        <span>{{ modelValue.isDarkMode !== false ? 'Тёмные плашки' : 'Светлые плашки' }}</span>
+      </button>
+    </div>
+
     <div class="theme-grid">
       <button 
         v-for="(theme, index) in themes" 
@@ -77,7 +85,7 @@ const themes = [
     <div class="color-pickers">
       <label>Фон <input type="color" :value="modelValue.backgroundColor" @input="update('backgroundColor', ($event.target as HTMLInputElement).value)"></label>
       <label>Текст <input type="color" :value="modelValue.textColor" @input="update('textColor', ($event.target as HTMLInputElement).value)"></label>
-      <label>Основной <input type="color" :value="modelValue.primaryColor" @input="update('updateColor', ($event.target as HTMLInputElement).value) || update('primaryColor', ($event.target as HTMLInputElement).value)"></label>
+      <label>Основной <input type="color" :value="modelValue.primaryColor" @input="update('primaryColor', ($event.target as HTMLInputElement).value)"></label>
     </div>
   </div>
 </template>
@@ -86,9 +94,29 @@ const themes = [
 .color-editor h3 {
   color: var(--text-main, #333);
   font-size: 1rem;
+  margin: 0;
+}
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
-
+.mode-toggle-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #333;
+}
+.mode-toggle-btn:hover {
+  background: #e4e4e4;
+}
 .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
 .theme-card { border: 1px solid var(--border-color, #ccc); border-radius: 8px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; height: 45px; }
 .card-text { font-weight: bold; font-size: 14px; }
