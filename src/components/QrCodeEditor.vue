@@ -76,6 +76,16 @@ const downloadQRCode = async () => {
         <h3>Настройки QR-кода</h3>
         
         <div class="control-group">
+          <label>Ссылка для QR:</label> 
+          <input 
+            type="text" 
+            :value="modelValue.qrSettings.url" 
+            @input="update('url', ($event.target as HTMLInputElement).value)"
+            placeholder="https://example.com"
+          >
+        </div>
+
+        <div class="control-group">
           <label>Текст под QR:</label> 
           <input 
             type="text" 
@@ -163,7 +173,7 @@ const downloadQRCode = async () => {
         >
           <div class="qr-box-export" :style="{ background: modelValue.qrSettings.bgColor || '#ffffff' }">
             <QrcodeVue 
-              value="https://great-birds-rest.loca.lt" 
+              :value="modelValue.qrSettings.url || 'https://example.com'" 
               :size="150" 
               :background="modelValue.qrSettings.bgColor || '#ffffff'" 
               :foreground="modelValue.qrSettings.squareColor || '#000000'" 
@@ -194,7 +204,7 @@ const downloadQRCode = async () => {
     >
       <div class="qr-box-export" :style="{ background: modelValue.qrSettings.bgColor || '#ffffff' }">
         <QrcodeVue 
-          value="https://great-birds-rest.loca.lt" 
+          :value="modelValue.qrSettings.url || 'https://example.com'" 
           :size="200" 
           :background="modelValue.qrSettings.bgColor || '#ffffff'" 
           :foreground="modelValue.qrSettings.squareColor || '#000000'" 

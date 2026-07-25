@@ -1,5 +1,294 @@
 <template>
   <div class="preview-container">
+    <!-- Полноэкранный режим превью, если открыто -->
+    <div v-if="isFullscreenPreview" class="fullscreen-preview-overlay">
+      <div class="fullscreen-preview-header">
+        <span>📱 Мобильное превью меню</span>
+        <button class="close-fullscreen-btn" @click="isFullscreenPreview = false">✕ Закрыть предпросмотр</button>
+      </div>
+      <div class="fullscreen-phone-wrapper">
+        <div class="phone-mockup fullscreen-mode">
+          <div class="phone-screen">
+            <!-- Тот же самый контент телефона -->
+            <template v-if="currentScreen === 'menu'">
+              <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
+                cursor: 'pointer', 
+                backgroundColor: currentRestaurantInfo.secondaryColor, 
+                backgroundImage: currentRestaurantInfo.coverImage 
+                  ? (currentRestaurantInfo.showCoverGradient !== false 
+                    ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${currentRestaurantInfo.coverImage})` 
+                    : `url(${currentRestaurantInfo.coverImage})`) 
+                  : 'none', 
+                backgroundSize: 'cover', 
+                backgroundPosition: 'center' 
+              }">
+                <div class="phone-avatar-wrapper">
+                  <div class="phone-avatar-placeholder" @click.stop="triggerFileUpload('avatar')" style="cursor: pointer;">
+                    <span v-if="!currentRestaurantInfo.avatarImage">🍽️</span>
+                    <img v-else :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                  </div>
+                </div>
+                <div class="phone-logo">{{ currentRestaurantInfo.name || t('restaurantName') }}</div>
+              </div>
+              
+              <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
+                <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
+                  <div 
+                    class="qr-card-preview" 
+                    :style="{ background: currentRestaurantInfo.qrSettings?.textBgColor || '#000000' }"
+                  >
+                    <div class="qr-box-preview" :style="{ background: currentRestaurantInfo.qrSettings?.bgColor || '#ffffff' }">
+                      <QrcodeVue 
+                        :value="shareUrl" 
+                        :size="150" 
+                        :background="currentRestaurantInfo.qrSettings?.bgColor || '#ffffff'" 
+                        :foreground="currentRestaurantInfo.qrSettings?.squareColor || '#000000'" 
+                        level="H" 
+                      />
+                    </div>
+                    <div 
+                      class="qr-label-preview" 
+                      :style="{ 
+                        color: currentRestaurantInfo.qrSettings?.textColor || '#ffffff',
+                        fontFamily: currentRestaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
+                      }"
+                    >
+                      {{ currentRestaurantInfo.qrSettings?.text }}
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-else>
+                  <div v-if="currentRestaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
+                    <div class="wifi-icon-box">ℹ️</div>
+                    <div class="wifi-label" :style="{ color: currentRestaurantInfo.textColor }">
+                      <div class="title">{{ t('wifiTitle') }}</div>
+                      <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
+                        <div>{{ t('wifiNetwork') }}: {{ currentRestaurantInfo.wifiName || t('wifiNotSet') }}</div>
+                        <div style="font-weight: bold; margin-top: 2px;">{{ t('wifiPassword') }}: {{ currentRestaurantInfo.wifiPassword }}</div>
+                      </div>
+                    </div>
+                    <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: currentRestaurantInfo.textColor }">›</div>
+                  </div>
+
+                  <!-- Категории меню -->
+                  <div class="phone-categories">
+                    <button 
+                      class="phone-cat-badge" 
+                      :class="{ active: selectedCategory === null }"
+                      @click="selectedCategory = null"
+                      :style="{ backgroundColor: selectedCategory === null ? currentRestaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                    >
+                      {{ t('allCategories') }}
+                    </button>
+                    <button 
+                      v-for="cat in currentCategories" 
+                      :key="cat.id" 
+                      class="phone-cat-badge" 
+                      :class="{ active: selectedCategory === cat.name }"
+                      @click="selectedCategory = selectedCategory === cat.name ? null : cat.name"
+                      :style="{ backgroundColor: selectedCategory === cat.name ? currentRestaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                    >
+                      {{ getLocalizedCategoryName(cat.name) }}
+                    </button>
+                  </div>
+
+                  <div v-if="filteredItems.length === 0" class="empty-search-notice">
+                    {{ t('emptySearch') }}
+                  </div>
+
+                  <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : 'menu-items-list-phone'">
+                    <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
+                      <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
+                      <div class="card-content">
+                        <div>
+                          <h3>{{ getLocalizedItemName(item.name) }}</h3>
+                          <div class="price">RUB {{ Number(item.price).toFixed(2) }}</div>
+                        </div>
+
+                        <button 
+                          v-if="getItemQuantity(item.id) === 0" 
+                          class="add-to-cart-btn" 
+                          @click="addToCart(item)"
+                          :style="{ backgroundColor: currentRestaurantInfo.primaryColor }"
+                        >
+                          {{ t('addBtn') }}
+                        </button>
+
+                        <div v-else class="counter-controls">
+                          <button @click="decreaseQuantity(item.id)">-</button>
+                          <span>{{ getItemQuantity(item.id) }}</span>
+                          <button @click="increaseQuantity(item.id)">+</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Плавающая панель настроек внутри превью -->
+              <FloatingSettingsBar 
+                :primaryColor="currentRestaurantInfo.primaryColor"
+                :selectedLanguage="selectedLanguage"
+                :viewMode="viewMode"
+                @open-modal="(modalName) => activeModal = modalName"
+                @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
+              />
+
+              <!-- Тоаст -->
+              <div v-if="showToast" class="toast-notification">
+                {{ toastMessage }}
+              </div>
+
+              <!-- Модальное окно: Язык -->
+              <div v-if="activeModal === 'language'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
+                <div class="bottom-sheet">
+                  <div class="sheet-indicator"></div>
+                  <div class="sheet-header"><h3>{{ t('langTitle') }}</h3></div>
+                  <div class="languages-grid">
+                    <button class="lang-option" :class="{ active: selectedLanguage === 'Deutsch' }" @click="selectedLanguage = 'Deutsch'; activeModal = 'none'"><span class="flag-icon">🇩🇪</span> Deutsch</button>
+                    <button class="lang-option" :class="{ active: selectedLanguage === 'English' }" @click="selectedLanguage = 'English'; activeModal = 'none'"><span class="flag-icon">🇬🇧</span> English</button>
+                    <button class="lang-option" :class="{ active: selectedLanguage === 'Русский' }" @click="selectedLanguage = 'Русский'; activeModal = 'none'"><span class="flag-icon">🇷🇺</span> Русский</button>
+                    <button class="lang-option" :class="{ active: selectedLanguage === 'Аҧсшәа' }" @click="selectedLanguage = 'Аҧсшәа'; activeModal = 'none'"><span class="flag-icon">🟢</span> Аҧсшәа</button>
+                  </div>
+                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
+                </div>
+              </div>
+
+              <!-- Модальное окно: Поиск -->
+              <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
+                <div class="bottom-sheet">
+                  <div class="sheet-indicator"></div>
+                  <div class="sheet-header-flex">
+                    <h3>{{ t('searchTitle') }}</h3>
+                    <button class="clear-filters-text-btn" @click="searchQuery = ''">{{ t('clearFilters') }}</button>
+                  </div>
+                  <div class="search-input-wrapper">
+                    <span class="search-icon-prefix">🔍</span>
+                    <input v-model="searchQuery" type="text" class="search-modal-input" :placeholder="t('searchPlaceholder')" autofocus />
+                    <button v-if="searchQuery" class="clear-input-btn" @click="searchQuery = ''">✕</button>
+                  </div>
+                  <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }} ({{ filteredItems.length }})</button>
+                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
+                </div>
+              </div>
+
+              <!-- Модальное окно: Фильтры -->
+              <div v-if="activeModal === 'filters'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
+                <div class="bottom-sheet">
+                  <div class="sheet-indicator"></div>
+                  <div class="sheet-header-flex">
+                    <h3>{{ t('filtersTitle') }}</h3>
+                    <button class="clear-filters-text-btn" @click="clearAllFilters">{{ t('clearFilters') }}</button>
+                  </div>
+                  <div class="filters-section-content">
+                    <div class="filters-category-title">{{ t('nutritionTitle') }}</div>
+                    <div class="languages-grid">
+                      <button class="lang-option" :class="{ active: selectedFilters.includes('nuts') }" @click="toggleFilter('nuts')"><span class="flag-icon">🌰</span> Без орехов</button>
+                      <button class="lang-option" :class="{ active: selectedFilters.includes('lactose') }" @click="toggleFilter('lactose')"><span class="flag-icon">🥛</span> Без лактозы</button>
+                      <button class="lang-option" :class="{ active: selectedFilters.includes('gluten') }" @click="toggleFilter('gluten')"><span class="flag-icon">🌾</span> Без глютена</button>
+                    </div>
+                  </div>
+                  <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }}</button>
+                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
+                </div>
+              </div>
+
+              <!-- Модальное окно: Шеринг -->
+              <div v-if="activeModal === 'share'" class="share-modal-overlay" @click.self="activeModal = 'none'">
+                <div class="windows-share-dialog">
+                  <div class="win-share-header">
+                    <div class="win-share-title-row">
+                      <span class="win-share-icon">📤</span>
+                      <span class="win-share-heading">Поделиться ссылкой</span>
+                    </div>
+                    <button class="win-share-close" @click="activeModal = 'none'">✕</button>
+                  </div>
+                  <div class="win-link-card">
+                    <div class="win-link-preview-left">
+                      <div class="win-link-thumb">
+                        <img v-if="currentRestaurantInfo.avatarImage" :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                        <span v-else>🍽️</span>
+                      </div>
+                      <div class="win-link-text">
+                        <div class="win-link-url">{{ shareUrl }}</div>
+                        <div class="win-link-sub">Меню ресторана · {{ currentRestaurantInfo.name || t('restaurantName') }}</div>
+                      </div>
+                    </div>
+                    <div class="win-link-actions">
+                      <button class="win-action-icon-btn" title="QR-код" @click="activeTab = 'qrcode'; activeModal = 'none';">🔲</button>
+                      <button class="win-action-icon-btn" title="Копировать ссылку" @click="copyShareLink">🔗</button>
+                    </div>
+                  </div>
+                  <div class="win-share-section-title">Поделиться с помощью</div>
+                  <div class="win-apps-grid">
+                    <button class="win-app-item" @click="shareViaSocial('telegram')"><div class="win-app-icon" style="background: #229ED9;">✈️</div><span>Telegram</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('whatsapp')"><div class="win-app-icon" style="background: #25D366;">💬</div><span>WhatsApp</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('twitter')"><div class="win-app-icon" style="background: #000000;">𝕏</div><span>Twitter</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('facebook')"><div class="win-app-icon" style="background: #1877F2;">📘</div><span>Facebook</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('linkedin')"><div class="win-app-icon" style="background: #0A66C2;">💼</div><span>LinkedIn</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('gmail')"><div class="win-app-icon" style="background: #EA4335;">✉️</div><span>Gmail</span></button>
+                    <button class="win-app-item" @click="shareViaSocial('outlook')"><div class="win-app-icon" style="background: #0078D4;">📧</div><span>Outlook</span></button>
+                    <button class="win-app-item" @click="copyShareLink"><div class="win-app-icon" style="background: #646cff;">📋</div><span>Копировать</span></button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Плавающая плашка корзины -->
+              <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, zIndex: 20 }">
+                <span class="cart-title">{{ t('cartTitle') }}</span>
+                <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
+              </div>
+            </template>
+
+            <!-- ЭКРАН КОРЗИНЫ -->
+            <template v-else-if="currentScreen === 'cart'">
+              <div class="cart-screen-header">
+                <button class="cart-close-btn" @click="currentScreen = 'menu'">✕</button>
+                <h2>{{ t('cartHeader') }}</h2>
+                <button class="cart-clear-all-btn" @click="cartItems = []">🗑️</button>
+              </div>
+
+              <div class="cart-screen-body">
+                <div class="closed-notice" v-html="t('closedNotice')"></div>
+
+                <div class="cart-items-list">
+                  <div v-for="item in cartItems" :key="item.id" class="cart-item-row">
+                    <div class="cart-item-info">
+                      <div class="cart-item-name">{{ getLocalizedItemName(item.name) }}</div>
+                      <div class="cart-item-price">RUB {{ (item.price * item.quantity).toFixed(2) }}</div>
+                    </div>
+                    <div class="cart-item-actions" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }">
+                      <button @click="decreaseQuantity(item.id)">🗑️</button>
+                      <span class="cart-item-qty">{{ item.quantity }}</span>
+                      <button @click="increaseQuantity(item.id)">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                  Оформить заказ
+                </button>
+
+                <div class="add-more-link" @click="currentScreen = 'menu'" style="margin-top: 12px; text-align: center; cursor: pointer;">
+                  {{ t('addMore') }}
+                </div>
+              </div>
+
+              <div class="cart-screen-footer">
+                <div class="subtotal-row">
+                  <span>{{ t('subtotal') }}</span>
+                  <span class="subtotal-sum">RUB {{ totalPrice.toFixed(2) }}</span>
+                </div>
+                <div class="powered-by">{{ t('poweredBy') }}</div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Стандартная кнопка запуска превью в панели конструктора -->
     <button class="preview-copy-btn" @click="openPreview">🔗 Предпросмотр</button>
     
     <div class="phone-mockup">
@@ -9,62 +298,62 @@
         <template v-if="currentScreen === 'menu'">
           <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
             cursor: 'pointer', 
-            backgroundColor: restaurantInfo.secondaryColor, 
-            backgroundImage: restaurantInfo.coverImage 
-              ? (restaurantInfo.showCoverGradient !== false 
-                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
-                : `url(${restaurantInfo.coverImage})`) 
+            backgroundColor: currentRestaurantInfo.secondaryColor, 
+            backgroundImage: currentRestaurantInfo.coverImage 
+              ? (currentRestaurantInfo.showCoverGradient !== false 
+                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${currentRestaurantInfo.coverImage})` 
+                : `url(${currentRestaurantInfo.coverImage})`) 
               : 'none', 
             backgroundSize: 'cover', 
             backgroundPosition: 'center' 
           }">
             <div class="phone-avatar-wrapper">
               <div class="phone-avatar-placeholder" @click.stop="triggerFileUpload('avatar')" style="cursor: pointer;">
-                <span v-if="!restaurantInfo.avatarImage">🍽️</span>
-                <img v-else :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                <span v-if="!currentRestaurantInfo.avatarImage">🍽️</span>
+                <img v-else :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
               </div>
             </div>
-            <div class="phone-logo">{{ restaurantInfo.name || t('restaurantName') }}</div>
+            <div class="phone-logo">{{ currentRestaurantInfo.name || t('restaurantName') }}</div>
           </div>
           
-          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: restaurantInfo.backgroundColor, color: restaurantInfo.textColor }">
+          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
             <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
               <div 
                 class="qr-card-preview" 
-                :style="{ background: restaurantInfo.qrSettings?.textBgColor || '#000000' }"
+                :style="{ background: currentRestaurantInfo.qrSettings?.textBgColor || '#000000' }"
               >
-                <div class="qr-box-preview" :style="{ background: restaurantInfo.qrSettings?.bgColor || '#ffffff' }">
+                <div class="qr-box-preview" :style="{ background: currentRestaurantInfo.qrSettings?.bgColor || '#ffffff' }">
                   <QrcodeVue 
-                    :value="'https://great-birds-rest.loca.lt'" 
+                    :value="shareUrl" 
                     :size="150" 
-                    :background="restaurantInfo.qrSettings?.bgColor || '#ffffff'" 
-                    :foreground="restaurantInfo.qrSettings?.squareColor || '#000000'" 
+                    :background="currentRestaurantInfo.qrSettings?.bgColor || '#ffffff'" 
+                    :foreground="currentRestaurantInfo.qrSettings?.squareColor || '#000000'" 
                     level="H" 
                   />
                 </div>
                 <div 
                   class="qr-label-preview" 
                   :style="{ 
-                    color: restaurantInfo.qrSettings?.textColor || '#ffffff',
-                    fontFamily: restaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
+                    color: currentRestaurantInfo.qrSettings?.textColor || '#ffffff',
+                    fontFamily: currentRestaurantInfo.qrSettings?.fontFamily || 'Comfortaa'
                   }"
                 >
-                  {{ restaurantInfo.qrSettings?.text }}
+                  {{ currentRestaurantInfo.qrSettings?.text }}
                 </div>
               </div>
             </div>
             
             <div v-else>
-              <div v-if="restaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
+              <div v-if="currentRestaurantInfo.isWifiEnabled" class="phone-wifi-btn" @click="isWifiExpanded = !isWifiExpanded">
                 <div class="wifi-icon-box">ℹ️</div>
-                <div class="wifi-label" :style="{ color: restaurantInfo.textColor }">
+                <div class="wifi-label" :style="{ color: currentRestaurantInfo.textColor }">
                   <div class="title">{{ t('wifiTitle') }}</div>
                   <div v-if="isWifiExpanded" class="subtitle" style="margin-top: 5px;">
-                    <div>{{ t('wifiNetwork') }}: {{ restaurantInfo.wifiName || t('wifiNotSet') }}</div>
-                    <div style="font-weight: bold; margin-top: 2px;">{{ t('wifiPassword') }}: {{ restaurantInfo.wifiPassword }}</div>
+                    <div>{{ t('wifiNetwork') }}: {{ currentRestaurantInfo.wifiName || t('wifiNotSet') }}</div>
+                    <div style="font-weight: bold; margin-top: 2px;">{{ t('wifiPassword') }}: {{ currentRestaurantInfo.wifiPassword }}</div>
                   </div>
                 </div>
-                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: restaurantInfo.textColor }">›</div>
+                <div class="chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: currentRestaurantInfo.textColor }">›</div>
               </div>
 
               <!-- Категории меню -->
@@ -73,17 +362,17 @@
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === null }"
                   @click="selectedCategory = null"
-                  :style="{ backgroundColor: selectedCategory === null ? restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === null ? currentRestaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
                   {{ t('allCategories') }}
                 </button>
                 <button 
-                  v-for="cat in categories" 
+                  v-for="cat in currentCategories" 
                   :key="cat.id" 
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === cat.name }"
                   @click="selectedCategory = selectedCategory === cat.name ? null : cat.name"
-                  :style="{ backgroundColor: selectedCategory === cat.name ? restaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
+                  :style="{ backgroundColor: selectedCategory === cat.name ? currentRestaurantInfo.primaryColor : 'rgba(255,255,255,0.1)' }"
                 >
                   {{ getLocalizedCategoryName(cat.name) }}
                 </button>
@@ -106,7 +395,7 @@
                       v-if="getItemQuantity(item.id) === 0" 
                       class="add-to-cart-btn" 
                       @click="addToCart(item)"
-                      :style="{ backgroundColor: restaurantInfo.primaryColor }"
+                      :style="{ backgroundColor: currentRestaurantInfo.primaryColor }"
                     >
                       {{ t('addBtn') }}
                     </button>
@@ -124,7 +413,7 @@
 
           <!-- Плавающая панель настроек -->
           <FloatingSettingsBar 
-            :primaryColor="restaurantInfo.primaryColor"
+            :primaryColor="currentRestaurantInfo.primaryColor"
             :selectedLanguage="selectedLanguage"
             :viewMode="viewMode"
             @open-modal="(modalName) => activeModal = modalName"
@@ -203,12 +492,12 @@
               <div class="win-link-card">
                 <div class="win-link-preview-left">
                   <div class="win-link-thumb">
-                    <img v-if="restaurantInfo.avatarImage" :src="restaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img v-if="currentRestaurantInfo.avatarImage" :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
                     <span v-else>🍽️</span>
                   </div>
                   <div class="win-link-text">
                     <div class="win-link-url">{{ shareUrl }}</div>
-                    <div class="win-link-sub">Меню ресторана · {{ restaurantInfo.name || t('restaurantName') }}</div>
+                    <div class="win-link-sub">Меню ресторана · {{ currentRestaurantInfo.name || t('restaurantName') }}</div>
                   </div>
                 </div>
                 <div class="win-link-actions">
@@ -231,7 +520,7 @@
           </div>
 
           <!-- Плавающая плашка корзины -->
-          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor, zIndex: 20 }">
+          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, zIndex: 20 }">
             <span class="cart-title">{{ t('cartTitle') }}</span>
             <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
           </div>
@@ -254,7 +543,7 @@
                   <div class="cart-item-name">{{ getLocalizedItemName(item.name) }}</div>
                   <div class="cart-item-price">RUB {{ (item.price * item.quantity).toFixed(2) }}</div>
                 </div>
-                <div class="cart-item-actions" :style="{ backgroundColor: restaurantInfo.primaryColor }">
+                <div class="cart-item-actions" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }">
                   <button @click="decreaseQuantity(item.id)">🗑️</button>
                   <span class="cart-item-qty">{{ item.quantity }}</span>
                   <button @click="increaseQuantity(item.id)">+</button>
@@ -262,7 +551,7 @@
               </div>
             </div>
 
-            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: restaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
               Оформить заказ
             </button>
 
@@ -277,7 +566,6 @@
               <span class="subtotal-sum">RUB {{ totalPrice.toFixed(2) }}</span>
             </div>
             <div class="powered-by">{{ t('poweredBy') }}</div>
-            
           </div>
         </template>
 
@@ -293,13 +581,8 @@ import QrcodeVue from 'qrcode.vue';
 import FloatingSettingsBar from './FloatingSettingsBar.vue';
 import { useOrders } from '../composables/useOrders';
 
-
-
-
-
 const { addOrder } = useOrders();
 
-// Функция, вызываемая при подтверждении заказа клиентом в корзине:
 const handleCheckout = () => {
   if (cartItems.value.length === 0) return;
   addOrder(cartItems.value, totalPrice.value, 'delivery');
@@ -309,11 +592,45 @@ const handleCheckout = () => {
 };
 
 const props = defineProps<{
-  restaurantInfo: any;
-  items: any[];
-  categories: any[];
+  restaurantInfo?: any;
+  items?: any[];
+  categories?: any[];
 }>();
 
+// Реактивные локальные данные с подстраховкой из localStorage для режима превью
+const savedRestaurantInfo = localStorage.getItem('preview_restaurantInfo');
+const savedItems = localStorage.getItem('preview_items');
+const savedCategories = localStorage.getItem('preview_categories');
+
+const currentRestaurantInfo = computed(() => {
+  if (props.restaurantInfo && Object.keys(props.restaurantInfo).length > 0) {
+    return props.restaurantInfo;
+  }
+  if (savedRestaurantInfo) {
+    try { return JSON.parse(savedRestaurantInfo); } catch { /* ignore */ }
+  }
+  return {};
+});
+
+const currentItems = computed(() => {
+  if (props.items && props.items.length > 0) {
+    return props.items;
+  }
+  if (savedItems) {
+    try { return JSON.parse(savedItems); } catch { /* ignore */ }
+  }
+  return [];
+});
+
+const currentCategories = computed(() => {
+  if (props.categories && props.categories.length > 0) {
+    return props.categories;
+  }
+  if (savedCategories) {
+    try { return JSON.parse(savedCategories); } catch { /* ignore */ }
+  }
+  return [];
+});
 
 const currentScreen = ref<'menu' | 'cart'>('menu');
 const activeTab = ref<'menu' | 'qrcode'>('menu');
@@ -326,11 +643,11 @@ const selectedFilters = ref<string[]>([]);
 const isWifiExpanded = ref(false);
 const showToast = ref(false);
 const toastMessage = ref('');
-const shareUrl = ref('https://great-birds-rest.loca.lt');
+const shareUrl = ref(window.location.origin);
+const isFullscreenPreview = ref(false);
 
 const cartItems = ref<any[]>([]);
 
-// Словари локализации интерфейса
 const translations: Record<string, Record<string, string>> = {
   'Русский': {
     restaurantName: 'Мой Ресторан',
@@ -404,7 +721,7 @@ const translations: Record<string, Record<string, string>> = {
     allCategories: 'Alle Kategorien',
     poweredBy: '© Проект от Web-Visual-World | 2024'
   },
-  'Аԥсшәа': {
+  'Аҧсшәа': {
     restaurantName: 'Аресторан',
     wifiTitle: 'Wi-Fi Информация',
     wifiNetwork: 'Ашьаҭа',
@@ -516,13 +833,9 @@ const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
-
-
 const filteredItems = computed(() => {
-  return props.items.filter(item => {
-    // 🛑 Скрываем блюдо, если оно находится в стопе (isAvailable равно false/0)
+  return currentItems.value.filter(item => {
     if (item.isAvailable === false || item.isAvailable === 0) return false;
-
     const matchesCategory = selectedCategory.value === null || item.categoryId === selectedCategory.value || item.category === selectedCategory.value;
     const matchesSearch = searchQuery.value === '' || item.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -556,6 +869,22 @@ const triggerToast = (msg: string) => {
 };
 
 const openPreview = () => {
-  window.open(shareUrl.value, '_blank');
+  // Сохраняем актуальные данные в localStorage
+  if (props.restaurantInfo) localStorage.setItem('preview_restaurantInfo', JSON.stringify(props.restaurantInfo));
+  if (props.items) localStorage.setItem('preview_items', JSON.stringify(props.items));
+  if (props.categories) localStorage.setItem('preview_categories', JSON.stringify(props.categories));
+
+  // Открываем страницу клиента в новой вкладке (замените '/client' на ваш путь к клиентской части)
+  const targetUrl = `${window.location.origin}/client?preview=true`;
+  window.open(targetUrl, '_blank');
 };
 </script>
+
+<style scoped>
+.fullscreen-preview-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.fullscreen-preview-header { width: 100%; max-width: 480px; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; color: #fff; font-weight: bold; }
+.close-fullscreen-btn { background: #ff4d4f; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.fullscreen-phone-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 20px; }
+.phone-mockup.fullscreen-mode { transform: scale(1.1); }
+</style>
+

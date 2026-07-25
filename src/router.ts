@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Constructor from './Constructor.vue';
-import MenuPreview from './components/MenuPreview.vue';
 import AdminDashboard from './components/admin/AdminDashboard.vue';
 import AdminView from './views/AdminView.vue';
+import ClientView from './views/ClientView.vue'; // Импортируйте ваш клиентский компонент (путь может отличаться)
 
 const router = createRouter({
   history: createWebHistory(),
@@ -10,7 +10,7 @@ const router = createRouter({
     { 
       path: '/', 
       name: 'Home', 
-      component: AdminDashboard // Главная страница — дашборд
+      component: AdminDashboard 
     },
     { 
       path: '/constructor', 
@@ -18,15 +18,15 @@ const router = createRouter({
       component: Constructor 
     },
     { 
-      path: '/preview', 
-      name: 'Preview', 
-      component: MenuPreview 
-    },
-    { 
       path: '/admin', 
       name: 'Admin', 
-      component: AdminView // Страница заказов (канбан)
+      component: AdminView 
     },
+    { 
+      path: '/client', 
+      name: 'ClientPreview', 
+      component: ClientView 
+    }
   ]
 });
 

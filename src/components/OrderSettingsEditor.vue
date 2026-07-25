@@ -215,7 +215,6 @@ const orderMode = ref('order');
 const isLiabilityAgreed = ref(false);
 const isActivated = ref(true);
 
-// Дополнительные реактивные переменные для модального окна настроек
 const pickupAddress = ref('');
 const pickupCity = ref('');
 const pickupIndex = ref('');
@@ -225,6 +224,11 @@ const freeFrom = ref(0);
 const notifType = ref('dashboard');
 const whatsappNumber = ref('');
 const emailNotif = ref(false);
+
+// Генерация ссылки для предварительного просмотра в QR-коде
+const previewUrl = computed(() => {
+  return `${window.location.origin}/client?preview=true`;
+});
 
 const setOrderMode = (mode: string) => {
   orderMode.value = mode;
@@ -254,7 +258,6 @@ const onsiteActive = ref(false);
 </script>
 
 <style scoped>
-/* ТЕМНАЯ ТЕМА ПО УМОЛЧАНИЮ (Черная) */
 .order-hub-container { 
   display: flex; 
   flex-direction: column; 
@@ -358,7 +361,6 @@ const onsiteActive = ref(false);
 input:checked + .slider { background-color: #10b981; }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* Дополнительные стили для полей ввода внутри модалки настроек */
 .order-top-text { font-size: 13px; color: #4a5568; margin-bottom: 16px; line-height: 1.4; }
 .status-text { display: block; font-size: 12px; color: #718096; margin-top: 6px; margin-bottom: 12px; }
 .range-group { margin-top: 12px; margin-bottom: 12px; }
@@ -392,7 +394,6 @@ input:checked + .slider:before { transform: translateX(20px); }
 .notif-text-desc p { font-size: 11px; color: #718096; margin-top: 2px; }
 </style>
 
-<!-- СВЕТЛАЯ ТЕМА -->
 <style>
 .constructor-wrapper.light-theme .order-hub-container {
   background-color: #f4f5f7 !important;
