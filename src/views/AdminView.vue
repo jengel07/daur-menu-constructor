@@ -8,7 +8,7 @@
       
       <div class="hub-counters">
         <button 
-          v-for="tab in ['open', 'progress', 'done', 'cancelled']" 
+          v-for="tab in ['new', 'progress', 'done', 'cancelled']" 
           :key="tab" 
           class="counter-badge" 
           :class="[tab, { active: currentTab === tab }]" 
@@ -33,16 +33,16 @@
 
     <main class="hub-main-workspace">
       <!-- Если активна вкладка канбана -->
-      <div v-if="currentTab === 'open' || currentTab === 'progress' || currentTab === 'done'" class="admin-kanban">
+      <div v-if="currentTab === 'new' || currentTab === 'progress' || currentTab === 'done'" class="admin-kanban">
         <!-- Колонка: Новые -->
-        <div v-if="currentTab === 'open'" class="kanban-column full-width-col">
+        <div v-if="currentTab === 'new'" class="kanban-column full-width-col">
           <div class="column-header open">
             <span>Новые</span>
-            <span class="count-badge">{{ openOrders.length }}</span>
+            <span class="count-badge">{{ newOrders.length }}</span>
           </div>
           <div class="column-body">
-            <div v-if="openOrders.length === 0" class="empty-col">Нет новых заказов</div>
-            <div v-for="order in openOrders" :key="order.id" class="order-card">
+            <div v-if="newOrders.length === 0" class="empty-col">Нет новых заказов</div>
+            <div v-for="order in newOrders" :key="order.id" class="order-card">
               <div class="order-card-header">
                 <span class="order-id">{{ order.id }}</span>
                 <span class="order-time">{{ order.createdAt }}</span>
@@ -86,7 +86,7 @@
               <div class="order-footer">
                 <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
                 <div class="card-btn-group">
-                  <button class="btn-action prev" @click="updateOrderStatus(order.id, 'open')">◀ Назад</button>
+                  <button class="btn-action prev" @click="updateOrderStatus(order.id, 'new')">◀ Назад</button>
                   <button class="btn-action cancel" @click="updateOrderStatus(order.id, 'cancelled')">Отменить</button>
                   <button class="btn-action next" @click="updateOrderStatus(order.id, 'done')">Готово ✓</button>
                 </div>
@@ -145,7 +145,7 @@
               </div>
               <div class="order-footer">
                 <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
-                <button class="btn-action prev" @click="updateOrderStatus(order.id, 'open')">Вернуть в новые</button>
+                <button class="btn-action prev" @click="updateOrderStatus(order.id, 'new')">Вернуть в новые</button>
               </div>
             </div>
           </div>
@@ -276,21 +276,14 @@
 import { ref, computed } from 'vue';
 import { useOrders } from '../composables/useOrders';
 
-const { orders, updateOrderStatus, clearOrders, pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
+const { orders, stats, updateOrderStatus, clearOrders, pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
 
-const openOrders = computed(() => orders.value.filter(o => o.status === 'open'));
+const newOrders = computed(() => orders.value.filter(o => o.status === 'new'));
 const progressOrders = computed(() => orders.value.filter(o => o.status === 'progress'));
 const doneOrders = computed(() => orders.value.filter(o => o.status === 'done'));
 const cancelledOrders = computed(() => orders.value.filter(o => o.status === 'cancelled'));
 
-const stats = computed(() => ({
-  open: openOrders.value.length,
-  progress: progressOrders.value.length,
-  done: doneOrders.value.length,
-  cancelled: cancelledOrders.value.length
-}));
-
-const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
+const currentTab = ref<'new' | 'progress' | 'done' | 'cancelled'>('new');
 const isRefreshing = ref(false);
 const isOrderSettingsOpen = ref(false);
 const orderMode = ref('order');
@@ -314,7 +307,7 @@ const refreshOrders = () => {
 };
 
 const getTabName = (tab: string) => ({ 
-  open: 'Новые', 
+  new: 'Новые', 
   progress: 'В работу', 
   done: 'Готовы', 
   cancelled: 'Отменено' 
@@ -342,7 +335,7 @@ const freeFrom = ref(0);
 .counter-badge:hover { border-color: #4a5568; }
 .counter-badge.active { background: #2d2d2d; color: #fff; border-color: #555; }
 .counter-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
-.counter-badge.open .dot { background-color: #f97316; }
+.counter-badge.new .dot { background-color: #f97316; }
 .counter-badge.progress .dot { background-color: #3b82f6; }
 .counter-badge.done .dot { background-color: #10b981; }
 .counter-badge.cancelled .dot { background-color: #ef4444; }
@@ -386,7 +379,7 @@ const freeFrom = ref(0);
 .btn-action.cancel { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
 .btn-action.cancel:hover { background: rgba(239, 68, 68, 0.3); }
 
-/* Светлая тема (переопределение стилей при .light-theme) */
+/* Светлая тема */
 .order-hub-container.light-theme { background-color: #f4f6f8; color: #1a202c; }
 .order-hub-container.light-theme .hub-header { background-color: #ffffff; border-color: #e2e8f0; }
 .order-hub-container.light-theme .hub-main-workspace { background-color: #f4f6f8; }

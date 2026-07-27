@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 
 // Интерфейсы для элементов и заказа
 export interface OrderItem {
@@ -11,26 +11,50 @@ export interface OrderItem {
 export interface Order {
   id: string;
   createdAt: string | Date;
-  status: 'open' | 'progress' | 'done' | 'cancelled';
+  status: 'new' | 'progress' | 'done' | 'cancelled';
   items: OrderItem[];
   total: number;
   type: 'pickup' | 'delivery' | 'onsite';
 }
 
-// Глобальное состояние заказов с синхронизацией через localStorage
-const savedOrders = localStorage.getItem('yumzi_orders') || localStorage.getItem('restaurant_orders');
-const initialOrders: Order[] = savedOrders ? JSON.parse(savedOrders) : [
-  {
-    id: 'ORD-1092',
-    createdAt: 'Сегодня, 18:45',
-    status: 'open',
-    items: [{ id: 1, name: 'Main Menu - Пицца Пепперони', price: 650, quantity: 1 }],
-    total: 650,
-    type: 'delivery'
-  }
-];
+const STORAGE_KEY = 'yumzi_orders';
 
-const orders = ref<Order[]>(initialOrders);
+// Функция загрузки заказов из localStorage
+const getInitialOrders = (): Order[] => {
+  const savedOrders = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('restaurant_orders');
+  if (savedOrders) {
+    try {
+      return JSON.parse(savedOrders);
+    } catch (e) {
+      console.error('Ошибка парсинга заказов из localStorage:', e);
+    }
+  }
+  return [
+    {
+      id: 'ORD-1092',
+      createdAt: 'Сегодня, 18:45',
+      status: 'new',
+      items: [{ id: 1, name: 'Main Menu - Пицца Пепперони', price: 650, quantity: 1 }],
+      total: 650,
+      type: 'delivery'
+    }
+  ];
+};
+
+// Глобальное состояние заказов
+const orders = ref<Order[]>(getInitialOrders());
+
+// Функция принудительного обновления массива из хранилища
+const syncOrdersFromStorage = () => {
+  const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('restaurant_orders');
+  if (saved) {
+    try {
+      orders.value = JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+};
 
 // Статистика просмотров меню
 const totalViews = ref<number>(Number(localStorage.getItem('yumzi_views')) || 4);
@@ -52,10 +76,11 @@ const workDays = ref([
   { name: 'Воскресенье', active: false },
 ]);
 
-// Автосохранение при любых изменениях
+// Автосохранение при любых изменениях и генерация события для текущей вкладки
 watch(orders, (newVal) => {
-  localStorage.setItem('yumzi_orders', JSON.stringify(newVal));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal));
   localStorage.setItem('restaurant_orders', JSON.stringify(newVal));
+  window.dispatchEvent(new CustomEvent('orders-local-updated'));
 }, { deep: true });
 
 watch(totalViews, (newVal) => {
@@ -63,9 +88,32 @@ watch(totalViews, (newVal) => {
 });
 
 export function useOrders() {
+  // Обработчики событий синхронизации
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY || e.key === 'restaurant_orders') {
+      syncOrdersFromStorage();
+    }
+  };
+
+  const handleLocalUpdate = () => {
+    syncOrdersFromStorage();
+  };
+
+  onMounted(() => {
+    // Подписка на события других вкладок
+    window.addEventListener('storage', handleStorageChange);
+    // Подписка на события внутри этой же вкладки
+    window.addEventListener('orders-local-updated', handleLocalUpdate);
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener('orders-local-updated', handleLocalUpdate);
+  });
+
   // Счетчики для вкладок хаба
   const stats = computed(() => ({
-    open: orders.value.filter(o => o.status === 'open').length,
+    new: orders.value.filter(o => o.status === 'new').length,
     progress: orders.value.filter(o => o.status === 'progress').length,
     done: orders.value.filter(o => o.status === 'done').length,
     cancelled: orders.value.filter(o => o.status === 'cancelled').length,
@@ -80,7 +128,7 @@ export function useOrders() {
     const newOrder: Order = {
       id: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'open',
+      status: 'new',
       items: cartItems,
       total: total,
       type,

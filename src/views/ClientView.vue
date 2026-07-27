@@ -407,11 +407,25 @@ const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
+// Обновленный обработчик оформления заказа
 const handleCheckout = () => {
   if (cartItems.value.length === 0) return;
-  addOrder(cartItems.value, totalPrice.value, 'delivery');
+
+  // Форматируем товары из корзины для записи в заказ (приводим локализованное имя к строке)
+  const preparedItems = cartItems.value.map(item => ({
+    id: item.id,
+    name: getItemName(item),
+    price: Number(item.price || 0),
+    quantity: item.quantity
+  }));
+
+  // Сохраняем заказ
+  addOrder(preparedItems, totalPrice.value, 'delivery');
+
+  // Очищаем корзину и закрываем модальное окно
   cartItems.value = [];
   activeModal.value = 'none';
+
   alert('Заказ успешно оформлен и отправлен в дашборд!');
 };
 
