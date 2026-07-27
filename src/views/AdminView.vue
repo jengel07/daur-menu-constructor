@@ -15,7 +15,7 @@
           @click="currentTab = tab as any"
         >
           <span class="dot"></span> 
-          <span class="count-num">{{ stats[tab as keyof typeof stats] }}</span> 
+          <span class="count-num">{{ stats[tab as keyof typeof stats] || 0 }}</span> 
           {{ getTabName(tab) }}
         </button>
       </div>
@@ -32,29 +32,53 @@
     </header>
 
     <main class="hub-main-workspace">
-      <!-- Если активна вкладка канбана -->
-      <div v-if="currentTab === 'new' || currentTab === 'progress' || currentTab === 'done'" class="admin-kanban">
+      <!-- Канбан / Список заказов -->
+      <div v-if="['new', 'progress', 'done', 'cancelled'].includes(currentTab)" class="admin-kanban">
+        
         <!-- Колонка: Новые -->
         <div v-if="currentTab === 'new'" class="kanban-column full-width-col">
           <div class="column-header open">
-            <span>Новые</span>
+            <span>Новые заказы</span>
             <span class="count-badge">{{ newOrders.length }}</span>
           </div>
           <div class="column-body">
             <div v-if="newOrders.length === 0" class="empty-col">Нет новых заказов</div>
-            <div v-for="order in newOrders" :key="order.id" class="order-card">
-              <div class="order-card-header">
-                <span class="order-id">{{ order.id }}</span>
-                <span class="order-time">{{ order.createdAt }}</span>
+            <div v-for="order in newOrders" :key="order.id" class="receipt-card">
+              <div class="receipt-header">
+                <div class="receipt-id-group">
+                  <span class="receipt-id">#{{ String(order.id).padStart(3, '0') }}</span>
+                  <span class="order-type-badge" :class="order.type || 'onsite'">
+                    {{ getOrderTypeLabel(order.type) }}
+                  </span>
+                </div>
+                <div class="receipt-timer">
+                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                </div>
               </div>
-              <div class="order-items-list">
-                <div v-for="item in order.items" :key="item.id" class="order-item-row">
-                  <span>{{ item.name }} x{{ item.quantity }}</span>
+
+              <!-- Инфо по доставке / столу -->
+              <div class="receipt-location">
+                <template v-if="order.type === 'delivery'">
+                  <span>🚴 {{ order.deliveryAddress || 'Адрес не указан' }}</span>
+                </template>
+                <template v-else-if="order.type === 'pickup'">
+                  <span>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</span>
+                </template>
+                <template v-else>
+                  <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+                </template>
+                <div v-if="order.note" class="receipt-note">💬 {{ order.note }}</div>
+              </div>
+
+              <div class="receipt-items-list">
+                <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
+                  <span><b>{{ item.quantity }}x</b> {{ item.name }}</span>
                   <span>RUB {{ (item.price * item.quantity).toFixed(2) }}</span>
                 </div>
               </div>
-              <div class="order-footer">
-                <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
+
+              <div class="receipt-footer">
+                <span class="receipt-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
                 <div class="card-btn-group">
                   <button class="btn-action cancel" @click="updateOrderStatus(order.id, 'cancelled')">Отменить</button>
                   <button class="btn-action next" @click="updateOrderStatus(order.id, 'progress')">В работу ➔</button>
@@ -72,19 +96,52 @@
           </div>
           <div class="column-body">
             <div v-if="progressOrders.length === 0" class="empty-col">Нет заказов в работе</div>
-            <div v-for="order in progressOrders" :key="order.id" class="order-card">
-              <div class="order-card-header">
-                <span class="order-id">{{ order.id }}</span>
-                <span class="order-time">{{ order.createdAt }}</span>
+            <div v-for="order in progressOrders" :key="order.id" class="receipt-card">
+              <div class="receipt-header">
+                <div class="receipt-id-group">
+                  <span class="receipt-id">#{{ String(order.id).padStart(3, '0') }}</span>
+                  <span class="order-type-badge" :class="order.type || 'onsite'">
+                    {{ getOrderTypeLabel(order.type) }}
+                  </span>
+                </div>
+                <div class="receipt-timer">
+                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                </div>
               </div>
-              <div class="order-items-list">
-                <div v-for="item in order.items" :key="item.id" class="order-item-row">
-                  <span>{{ item.name }} x{{ item.quantity }}</span>
+
+              <div class="receipt-location">
+  <!-- Имя клиента и телефон, если они приходят -->
+  <div v-if="order.customerName || order.phone" class="receipt-customer-info">
+    👤 <b>{{ order.customerName || 'Клиент' }}</b> <span v-if="order.phone">({{ order.phone }})</span>
+  </div>
+
+  <template v-if="order.type === 'delivery'">
+    <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
+    <div v-if="order.apartment || order.doorCode" class="receipt-sub-info">
+      🚪 Кв/Офис: {{ order.apartment || '-' }}, Код двери: {{ order.doorCode || '-' }}
+    </div>
+  </template>
+  
+  <template v-else-if="order.type === 'pickup'">
+    <span>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</span>
+  </template>
+  
+  <template v-else>
+    <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+  </template>
+
+  <div v-if="order.note" class="receipt-note">💬 {{ order.note }}</div>
+</div>
+
+              <div class="receipt-items-list">
+                <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
+                  <span><b>{{ item.quantity }}x</b> {{ item.name }}</span>
                   <span>RUB {{ (item.price * item.quantity).toFixed(2) }}</span>
                 </div>
               </div>
-              <div class="order-footer">
-                <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
+
+              <div class="receipt-footer">
+                <span class="receipt-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
                 <div class="card-btn-group">
                   <button class="btn-action prev" @click="updateOrderStatus(order.id, 'new')">◀ Назад</button>
                   <button class="btn-action cancel" @click="updateOrderStatus(order.id, 'cancelled')">Отменить</button>
@@ -103,53 +160,82 @@
           </div>
           <div class="column-body">
             <div v-if="doneOrders.length === 0" class="empty-col">Нет завершенных заказов</div>
-            <div v-for="order in doneOrders" :key="order.id" class="order-card done-card">
-              <div class="order-card-header">
-                <span class="order-id">{{ order.id }}</span>
-                <span class="order-time">{{ order.createdAt }}</span>
+            <div v-for="order in doneOrders" :key="order.id" class="receipt-card done-card">
+              <div class="receipt-header">
+                <div class="receipt-id-group">
+                  <span class="receipt-id">#{{ String(order.id).padStart(3, '0') }}</span>
+                  <span class="order-type-badge" :class="order.type || 'onsite'">
+                    {{ getOrderTypeLabel(order.type) }}
+                  </span>
+                </div>
+                <div class="receipt-timer">
+                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                </div>
               </div>
-              <div class="order-items-list">
-                <div v-for="item in order.items" :key="item.id" class="order-item-row">
-                  <span>{{ item.name }} x{{ item.quantity }}</span>
+
+              <div class="receipt-location">
+                <template v-if="order.type === 'delivery'">
+                  <span>🚴 {{ order.deliveryAddress || 'Адрес не указан' }}</span>
+                </template>
+                <template v-else-if="order.type === 'pickup'">
+                  <span>📦 Самовывоз</span>
+                </template>
+                <template v-else>
+                  <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+                </template>
+              </div>
+
+              <div class="receipt-items-list">
+                <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
+                  <span><b>{{ item.quantity }}x</b> {{ item.name }}</span>
                   <span>RUB {{ (item.price * item.quantity).toFixed(2) }}</span>
                 </div>
               </div>
-              <div class="order-footer">
-                <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
-                <button class="btn-action archive" @click="updateOrderStatus(order.id, 'progress')">Вернуть</button>
+
+              <div class="receipt-footer">
+                <span class="receipt-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
+                <button class="btn-action prev" @click="updateOrderStatus(order.id, 'progress')">Вернуть в работу</button>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Вкладка Отмененные -->
-      <div v-else-if="currentTab === 'cancelled'" class="admin-kanban">
-        <div class="kanban-column full-width-col">
+        <!-- Колонка: Отмененные -->
+        <div v-if="currentTab === 'cancelled'" class="kanban-column full-width-col">
           <div class="column-header cancelled" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
             <span>Отмененные</span>
             <span class="count-badge">{{ cancelledOrders.length }}</span>
           </div>
           <div class="column-body">
             <div v-if="cancelledOrders.length === 0" class="empty-col">Нет отмененных заказов</div>
-            <div v-for="order in cancelledOrders" :key="order.id" class="order-card">
-              <div class="order-card-header">
-                <span class="order-id">{{ order.id }}</span>
-                <span class="order-time">{{ order.createdAt }}</span>
+            <div v-for="order in cancelledOrders" :key="order.id" class="receipt-card cancelled-card">
+              <div class="receipt-header">
+                <div class="receipt-id-group">
+                  <span class="receipt-id">#{{ String(order.id).padStart(3, '0') }}</span>
+                  <span class="order-type-badge" :class="order.type || 'onsite'">
+                    {{ getOrderTypeLabel(order.type) }}
+                  </span>
+                </div>
+                <div class="receipt-timer">
+                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                </div>
               </div>
-              <div class="order-items-list">
-                <div v-for="item in order.items" :key="item.id" class="order-item-row">
-                  <span>{{ item.name }} x{{ item.quantity }}</span>
+
+              <div class="receipt-items-list">
+                <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
+                  <span><b>{{ item.quantity }}x</b> {{ item.name }}</span>
                   <span>RUB {{ (item.price * item.quantity).toFixed(2) }}</span>
                 </div>
               </div>
-              <div class="order-footer">
-                <span class="order-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
+
+              <div class="receipt-footer">
+                <span class="receipt-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
                 <button class="btn-action prev" @click="updateOrderStatus(order.id, 'new')">Вернуть в новые</button>
               </div>
             </div>
           </div>
         </div>
+
       </div>
     </main>
 
@@ -273,12 +359,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useOrders } from '../composables/useOrders';
 
 const { orders, stats, updateOrderStatus, clearOrders, pickupActive, pickupTime, deliveryActive, deliveryTime, workDays } = useOrders();
 
-const newOrders = computed(() => orders.value.filter(o => o.status === 'new'));
+const newOrders = computed(() => orders.value.filter(o => o.status === 'new' || o.status === 'open'));
 const progressOrders = computed(() => orders.value.filter(o => o.status === 'progress'));
 const doneOrders = computed(() => orders.value.filter(o => o.status === 'done'));
 const cancelledOrders = computed(() => orders.value.filter(o => o.status === 'cancelled'));
@@ -289,6 +375,46 @@ const isOrderSettingsOpen = ref(false);
 const orderMode = ref('order');
 const isLiabilityAgreed = ref(false);
 const isActivated = ref(true);
+
+// Таймер реального времени для подсчета прошедшего времени заказов
+const now = ref(Date.now());
+let timerInterval: any = null;
+
+onMounted(() => {
+  timerInterval = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
+
+const getElapsedTime = (createdTime: number | string) => {
+  let startTime = typeof createdTime === 'number' ? createdTime : Date.now();
+
+  if (typeof createdTime === 'string' && createdTime.includes(':')) {
+    const [hrs, mins] = createdTime.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hrs || 0, mins || 0, 0, 0);
+    startTime = d.getTime();
+  }
+
+  const diffMs = Math.max(0, now.value - startTime);
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
+const getOrderTypeLabel = (type?: string) => {
+  switch (type) {
+    case 'delivery': return '🚲 Доставка';
+    case 'pickup': return '📦 Самовывоз';
+    default: return '🍽️ На месте';
+  }
+};
 
 // Логика темной/светлой темы
 const isLightTheme = ref(false);
@@ -313,7 +439,7 @@ const getTabName = (tab: string) => ({
   cancelled: 'Отменено' 
 }[tab] || tab);
 
-const onsiteActive = ref(false);
+const onsiteActive = ref(true);
 const notifType = ref('whatsapp');
 const whatsappNumber = ref('+7');
 const emailNotif = ref(true);
@@ -361,33 +487,40 @@ const freeFrom = ref(0);
 .column-header.progress { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-bottom: 1px solid rgba(59, 130, 246, 0.2); }
 .column-header.done { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-bottom: 1px solid rgba(34, 197, 94, 0.2); }
 .count-badge { background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 12px; font-size: 12px; }
-.column-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.column-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .empty-col { text-align: center; color: #71717a; padding: 32px 0; }
-.order-card { background: #202023; border: 1px solid #2f2f35; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; transition: background-color 0.3s, border-color 0.3s; }
-.order-card-header { display: flex; justify-content: space-between; font-size: 13px; color: #a1a1aa; }
-.order-id { font-weight: bold; color: #fff; }
-.order-items-list { font-size: 14px; border-top: 1px solid #2a2a2e; border-bottom: 1px solid #2a2a2e; padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
-.order-item-row { display: flex; justify-content: space-between; }
-.order-footer { display: flex; flex-direction: column; gap: 8px; }
-.order-total { font-weight: bold; font-size: 13px; }
+
+/* ---- НОВЫЕ СТИЛИ ЧЕКОВ (RECEIPT STYLE) ---- */
+.receipt-card { background: #ffffff; color: #111827; border-radius: 8px; padding: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; }
+.receipt-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
+.receipt-id-group { display: flex; align-items: center; gap: 8px; }
+.receipt-id { font-weight: 800; font-size: 16px; color: #111827; }
+.order-type-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+.order-type-badge.onsite { background: #fef3c7; color: #92400e; }
+.order-type-badge.delivery { background: #e0e7ff; color: #3730a3; }
+.order-type-badge.pickup { background: #d1fae5; color: #065f46; }
+.receipt-timer { font-size: 12px; font-weight: bold; color: #d97706; background: #fffbe3; padding: 2px 8px; border-radius: 6px; border: 1px solid #fef3c7; }
+.receipt-location { font-size: 13px; color: #4b5563; padding-bottom: 6px; border-bottom: 1px dashed #e5e7eb; }
+.receipt-note { font-style: italic; color: #dc2626; font-size: 12px; margin-top: 4px; }
+.receipt-items-list { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.receipt-item-row { display: flex; justify-content: space-between; color: #1f2937; }
+.receipt-footer { border-top: 1px dashed #e5e7eb; padding-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.receipt-total { font-weight: 800; font-size: 15px; color: #111827; }
+
 .card-btn-group { display: flex; gap: 8px; }
-.btn-action { width: 100%; padding: 6px; border-radius: 4px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; }
-.btn-action.next { background: #6366f1; color: white; }
-.btn-action.next:hover { background: #4f46e5; }
-.btn-action.prev, .btn-action.archive { background: #27272a; color: #a1a1aa; }
-.btn-action.prev:hover, .btn-action.archive:hover { background: #3f3f46; color: white; }
-.btn-action.cancel { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-.btn-action.cancel:hover { background: rgba(239, 68, 68, 0.3); }
+.btn-action { width: 100%; padding: 8px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-action.next { background: #4f46e5; color: white; }
+.btn-action.next:hover { background: #4338ca; }
+.btn-action.prev { background: #e5e7eb; color: #374151; }
+.btn-action.prev:hover { background: #d1d5db; }
+.btn-action.cancel { background: #fee2e2; color: #dc2626; }
+.btn-action.cancel:hover { background: #fca5a5; }
 
 /* Светлая тема */
 .order-hub-container.light-theme { background-color: #f4f6f8; color: #1a202c; }
 .order-hub-container.light-theme .hub-header { background-color: #ffffff; border-color: #e2e8f0; }
 .order-hub-container.light-theme .hub-main-workspace { background-color: #f4f6f8; }
 .order-hub-container.light-theme .kanban-column { background: #ffffff; border-color: #e2e8f0; }
-.order-hub-container.light-theme .order-card { background: #ffffff; border-color: #e2e8f0; }
-.order-hub-container.light-theme .order-id { color: #1a202c; }
-.order-hub-container.light-theme .order-card-header { color: #718096; }
-.order-hub-container.light-theme .order-items-list { border-color: #edf2f7; }
 .order-hub-container.light-theme .counter-badge { background: #edf2f7; border-color: #cbd5e0; color: #4a5568; }
 .order-hub-container.light-theme .counter-badge.active { background: #e2e8f0; color: #1a202c; border-color: #a0aec0; }
 .order-hub-container.light-theme .count-num { background: rgba(0,0,0,0.06); color: #1a202c; }

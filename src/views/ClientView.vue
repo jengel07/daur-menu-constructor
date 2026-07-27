@@ -63,14 +63,12 @@
               <div class="card-content">
                 <div class="card-text-block">
                   <h3>{{ getItemName(item) }}</h3>
-                  <!-- Цена сразу под названием блюда в режиме списка -->
                   <span v-if="viewMode === 'list'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
                   <p v-if="viewMode === 'grid' && getItemDescription(item)">{{ getItemDescription(item) }}</p>
                 </div>
                 <div class="card-bottom-row">
                   <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
                   
-                  <!-- Кнопка добавления или счетчик количества -->
                   <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff' }">
                     <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
                     <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
@@ -83,7 +81,7 @@
           </div>
         </div>
 
-        <!-- Подключаемый компонент панели управления и модалок -->
+        <!-- Подключаемый компонент панели управления -->
         <SettingsbarForClient
           :active-modal="activeModal"
           :primary-color="restaurantInfo.primaryColor || '#646cff'"
@@ -104,13 +102,239 @@
           @clear-cart="cartItems = []"
           @increase="increaseQuantity"
           @decrease="decreaseQuantity"
-          @checkout="handleCheckout"
+          @checkout="startCheckout"
           @toggle-filter="toggleFilter"
           @clear-filters="selectedFilters = []"
         />
 
+        <!-- Модальное окно: Шаг 1 (Ввод данных) и Шаг 2 (Проверка заказа) -->
+        <div v-if="showCheckoutModal" class="checkout-modal-overlay" @click.self="closeModal">
+          <div class="checkout-modal">
+            
+            <!-- ШАГ 1: Форма ввода данных -->
+            <template v-if="checkoutStep === 1">
+              <div class="checkout-header">
+                <h3>Оформление заказа</h3>
+                <button class="close-modal-btn" @click="closeModal">✕</button>
+              </div>
+              
+              <form @submit.prevent="goToReviewStep" class="checkout-form">
+                
+                <!-- Тип заказа -->
+                <div class="form-group">
+                  <label>Тип заказа</label>
+                  <select v-model="customerForm.orderType">
+                    <option value="dine_in">🍽️ В заведении (Столик)</option>
+                    <option value="takeaway">🏃 С собой (Самовывоз)</option>
+                    <option value="delivery">🚗 Доставка</option>
+                  </select>
+                </div>
+
+                <!-- Имя -->
+                <div class="form-group">
+                  <label>Имя {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
+                  <input 
+                    v-model="customerForm.name" 
+                    type="text" 
+                    placeholder="Введите ваше имя" 
+                    :required="customerForm.orderType !== 'dine_in'" 
+                  />
+                </div>
+
+                <!-- Телефон -->
+                <div class="form-group">
+                  <label>Телефон {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
+                  <input 
+                    v-model="customerForm.phone" 
+                    type="tel" 
+                    placeholder="+7 (999) 000-00-00" 
+                    :required="customerForm.orderType !== 'dine_in'" 
+                  />
+                </div>
+
+                <!-- Номер столика -->
+                <div v-if="customerForm.orderType === 'dine_in'" class="form-group">
+                  <label>Номер столика</label>
+                  <input v-model="customerForm.tableNumber" type="text" placeholder="Например: 5" required />
+                </div>
+
+                <!-- Адрес доставки -->
+                <div v-if="customerForm.orderType === 'delivery'" class="form-group">
+                  <label>Адрес доставки</label>
+                  <input v-model="customerForm.address" type="text" placeholder="Улица, дом, квартира" required />
+                </div>
+
+                <!-- Время самовывоза -->
+                <div v-if="customerForm.orderType === 'takeaway'" class="time-picker-block">
+                  <label class="block-title">Когда приготовить?</label>
+                  <div class="time-inputs-row">
+                    <input v-model="customerForm.scheduledTime" type="time" class="time-input" />
+                    <input v-model="customerForm.scheduledDate" type="date" class="date-input" />
+                  </div>
+                  <span class="hint-text">Нам нужно около 15–20 минут на приготовление</span>
+                </div>
+
+                <!-- Время доставки -->
+                <div v-if="customerForm.orderType === 'delivery'" class="time-picker-block">
+                  <label class="block-title">Когда доставить?</label>
+                  <div class="time-inputs-row">
+                    <input v-model="customerForm.scheduledTime" type="time" class="time-input" />
+                    <input v-model="customerForm.scheduledDate" type="date" class="date-input" />
+                  </div>
+                </div>
+
+                <!-- Примечание -->
+                <div class="form-group">
+                  <label>Примечание (необязательно)</label>
+                  <textarea v-model="customerForm.comment" placeholder="Напр., соусы отдельно? всё в один пакет?"></textarea>
+                </div>
+
+                <div class="checkout-summary">
+                  <span>Итого к оплате:</span>
+                  <strong>{{ totalPrice.toFixed(2) }} ₽</strong>
+                </div>
+
+                <button 
+                  type="submit" 
+                  class="submit-order-btn"
+                  :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }"
+                >
+                  Далее: Проверить заказ
+                </button>
+              </form>
+            </template>
+
+            <!-- ШАГ 2: Проверка заказа (Экран подтверждения) -->
+            <template v-else-if="checkoutStep === 2">
+              <div class="checkout-header">
+                <button class="back-btn" @click="checkoutStep = 1">〈</button>
+                <h3>Проверка заказа</h3>
+                <button class="close-modal-btn" @click="closeModal">✕</button>
+              </div>
+
+              <div class="review-screen-content">
+                
+                <!-- Состав заказа / Итоги -->
+                <div class="review-card-block">
+                  <div class="review-card-title">Итого заказа</div>
+                  <div class="review-items-list">
+                    <div v-for="item in cartItems" :key="item.id" class="review-item-row">
+                      <span class="r-name"><b>{{ item.quantity }}x</b> {{ getItemName(item) }}</span>
+                      <span class="r-price">RUB {{ (Number(item.price || 0) * item.quantity).toFixed(2) }}</span>
+                    </div>
+                  </div>
+                  <div class="review-totals-divider"></div>
+                  <div class="review-total-line">
+                    <span>Подытог</span>
+                    <span>RUB {{ totalPrice.toFixed(2) }}</span>
+                  </div>
+                  <div class="review-total-line">
+                    <span>Доставка / Сбор</span>
+                    <span>RUB 0.00</span>
+                  </div>
+                  <div class="review-total-line main-total">
+                    <span>Итого</span>
+                    <span>RUB {{ totalPrice.toFixed(2) }}</span>
+                  </div>
+                </div>
+
+                <!-- Ваши данные -->
+                <div class="review-card-block">
+                  <div class="review-card-title">Ваши данные</div>
+                  <div class="data-row" v-if="customerForm.name">
+                    <span class="icon">👤</span>
+                    <div>
+                      <div class="label-muted">Имя</div>
+                      <div class="val">{{ customerForm.name }}</div>
+                    </div>
+                  </div>
+                  <div class="data-row" v-if="customerForm.phone">
+                    <span class="icon">📞</span>
+                    <div>
+                      <div class="label-muted">Телефон</div>
+                      <div class="val">{{ customerForm.phone }}</div>
+                    </div>
+                  </div>
+                  <div class="data-row" v-if="customerForm.comment">
+                    <span class="icon">📝</span>
+                    <div>
+                      <div class="label-muted">Примечание</div>
+                      <div class="val">{{ customerForm.comment }}</div>
+                    </div>
+                  </div>
+                  <div class="data-row" v-if="customerForm.orderType === 'dine_in'">
+                    <span class="icon">🪑</span>
+                    <div>
+                      <div class="label-muted">Столик</div>
+                      <div class="val">№ {{ customerForm.tableNumber }}</div>
+                    </div>
+                  </div>
+                  <div class="data-row" v-if="customerForm.orderType === 'delivery'">
+                    <span class="icon">📍</span>
+                    <div>
+                      <div class="label-muted">Адрес доставки</div>
+                      <div class="val">{{ customerForm.address }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Время самовывоза или доставки -->
+                <div class="review-card-block">
+                  <div class="review-card-title">
+                    {{ customerForm.orderType === 'takeaway' ? 'Время самовывоза' : (customerForm.orderType === 'delivery' ? 'Время доставки' : 'Время визита') }}
+                  </div>
+                  <div class="time-badge-box">
+                    📅 {{ customerForm.scheduledDate }} в {{ customerForm.scheduledTime }}
+                  </div>
+                  <div class="hint-text" style="margin-top: 4px;">Пожалуйста, приходите вовремя</div>
+                </div>
+
+                <!-- 🗺️ БЛОК ЯНДЕКС КАРТЫ ДЛЯ САМОВЫВОЗА -->
+                <div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
+                  <div class="review-card-title">Как добраться (Самовывоз)</div>
+                  <div class="map-container">
+                    <!-- Яндекс Карта (интеграция через iframe или интерактивный контейнер) -->
+                    <iframe 
+                      src="https://yandex.ru/map-widget/v1/?um=constructor%3A1d0a5190835de3973c52a3279f1dbf7f1bc3d2fa1a1154c148283a0058e390c5&amp;source=constructor" 
+                      width="100%" 
+                      height="140" 
+                      frameborder="0"
+                      style="border-radius: 8px;"
+                    ></iframe>
+                  </div>
+                  <a 
+                    :href="yandexNavigatorUrl" 
+                    target="_blank" 
+                    class="yandex-map-btn"
+                  >
+                    🗺️ Открыть в Яндекс Картах
+                  </a>
+                </div>
+
+                <div class="legal-notice">
+                  Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.
+                </div>
+
+                <!-- Кнопки управления шага 2 -->
+                <div class="review-actions-row">
+                  <button class="btn-secondary-action" @click="checkoutStep = 1">Назад</button>
+                  <button 
+                    class="btn-primary-action" 
+                    @click="confirmOrder"
+                    :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }"
+                  >
+                    Разместить заказ
+                  </button>
+                </div>
+
+              </div>
+            </template>
+
+          </div>
+        </div>
+
         <!-- Кнопка корзины -->
-        <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
+        <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
             <ShoppingCart :size="18" stroke-width="2" /> 
             {{ t('cart') }} ({{ totalQuantity }})
@@ -137,7 +361,8 @@ const restaurantInfo = ref<any>({
   textColor: '#ffffff',
   secondaryColor: '#333333',
   primaryColor: '#646cff',
-  name: 'Jazzve'
+  name: 'Jazzve',
+  address: 'ул. Пушкина, 10'
 });
 const items = ref<any[]>([]);
 const categories = ref<any[]>([]);
@@ -149,6 +374,41 @@ const searchQuery = ref<string>('');
 const selectedFilters = ref<string[]>([]);
 
 const cartItems = ref<any[]>([]);
+
+// Функция получения текущей даты YYYY-MM-DD
+const getTodayDateStr = () => {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+};
+
+// Функция получения текущего времени HH:MM
+const getCurrentTimeStr = () => {
+  const d = new Date();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+// Состояние модалки оформления и шагов (1 - ввод данных, 2 - проверка заказа)
+const showCheckoutModal = ref(false);
+const checkoutStep = ref<1 | 2>(1);
+
+const customerForm = ref({
+  name: '',
+  phone: '',
+  orderType: 'dine_in',
+  tableNumber: '',
+  address: '',
+  comment: '',
+  scheduledTime: getCurrentTimeStr(),
+  scheduledDate: getTodayDateStr()
+});
+
+// Ссылка для Яндекс Навигатора/Карт на основе адреса заведения
+const yandexNavigatorUrl = computed(() => {
+  const query = encodeURIComponent(restaurantInfo.value.address || 'Ресторан');
+  return `https://yandex.ru/maps/?text=${query}`;
+});
 
 const translations: Record<string, Record<string, string>> = {
   ru: {
@@ -163,99 +423,7 @@ const translations: Record<string, Record<string, string>> = {
     clear: 'Очистить',
     total: 'Итого',
     checkout: 'Оформить заказ',
-    languageTitle: 'Язык',
-    nutrition: 'Питание',
-    nutFree: 'Без орехов',
-    lactoseFree: 'Без лактозы',
-    glutenFree: 'Без глютена',
-    showResults: 'Показать результаты',
-    shareMenu: 'Поделиться меню',
-    shareDesc: 'Скопируйте ссылку на электронное меню:',
-    copyLink: 'Копировать ссылку',
-    searchMenu: 'Поиск по меню',
-    searchPlaceholder: 'Введите название блюда...',
-    find: 'Найти',
-    closePreview: 'Закрыть предпросмотр',
-    shareLinkTitle: 'Поделиться ссылкой',
-    shareVia: 'Поделиться с помощью'
-  },
-  en: {
-    allCategories: 'All categories',
-    noDishes: 'No dishes in this category yet',
-    add: 'add',
-    filters: 'Filters',
-    share: 'Share',
-    search: 'Search',
-    cart: 'Cart',
-    yourOrder: 'Your order',
-    clear: 'Clear',
-    total: 'Total',
-    checkout: 'Checkout',
-    languageTitle: 'Language',
-    nutrition: 'Dietary',
-    nutFree: 'Nut-free',
-    lactoseFree: 'Lactose-free',
-    glutenFree: 'Gluten-free',
-    showResults: 'Show results',
-    shareMenu: 'Share menu',
-    shareDesc: 'Copy the link to the digital menu:',
-    copyLink: 'Copy link',
-    searchMenu: 'Search menu',
-    searchPlaceholder: 'Enter dish name...',
-    find: 'Find',
-    closePreview: 'Close preview'
-  },
-  de: {
-    allCategories: 'Alle Kategorien',
-    noDishes: 'Noch keine Gerichte in dieser Kategorie',
-    add: 'hinzufügen',
-    filters: 'Filter',
-    share: 'Teilen',
-    search: 'Suchen',
-    cart: 'Warenkorb',
-    yourOrder: 'Ihre Bestellung',
-    clear: 'Löschen',
-    total: 'Gesamt',
-    checkout: 'Zur Kasse',
-    languageTitle: 'Sprache',
-    nutrition: 'Ernährung',
-    nutFree: 'Nussfrei',
-    lactoseFree: 'Laktosefrei',
-    glutenFree: 'Glutenfrei',
-    showResults: 'Ergebnisse anzeigen',
-    shareMenu: 'Menü teilen',
-    shareDesc: 'Kopieren Sie den Link zum digitalen Menü:',
-    copyLink: 'Link kopieren',
-    searchMenu: 'Menü durchsuchen',
-    searchPlaceholder: 'Gericht eingeben...',
-    find: 'Suchen',
-    closePreview: 'Vorschau schließen'
-  },
-  ab: {
-    allCategories: 'Акатегориақəа зегьы',
-    noDishes: 'Ари акатегориаҿы абжьарҩқəа ыҟам',
-    add: 'аҵахра',
-    filters: 'Афильтрқəа',
-    share: 'Ибжьышьҭа',
-    search: 'Аҧшаара',
-    cart: 'Аҭыҧ',
-    yourOrder: 'Ижәарҵәа',
-    clear: 'Иԥышәа',
-    total: 'Зегьы еицҵаны',
-    checkout: 'Азҵаара аҿкаара',
-    languageTitle: 'Абызшəа',
-    nutrition: 'Аџьаны',
-    nutFree: 'Аҟьақəа рыда',
-    lactoseFree: 'Лаクトoза ыҟам',
-    glutenFree: 'Глютен ыҟам',
-    showResults: 'Арезультатқəа рыба',
-    shareMenu: 'Аменю ахыҵшьҭа',
-    shareDesc: 'Икопируит ассылка ацифртə меню ахь:',
-    copyLink: 'Ассылка аира',
-    searchMenu: 'Аменю аҧшаара',
-    searchPlaceholder: 'Иҭажəа ажьарҩы...',
-    find: 'Иҧшаа',
-    closePreview: 'Апредпросмотр аҿкуara'
+    closePreview: 'Закрыть предпросмотр'
   }
 };
 
@@ -328,7 +496,6 @@ onUnmounted(() => {
   }
 });
 
-// Логика фильтрации блюд (категории, поиск и активные диетические фильтры)
 const filteredItems = computed(() => {
   let result = items.value;
 
@@ -345,7 +512,6 @@ const filteredItems = computed(() => {
     });
   }
 
-  // Фильтрация по питанию (если выбраны чекбоксы)
   if (selectedFilters.value.length > 0) {
     result = result.filter((item: any) => {
       return selectedFilters.value.every(f => {
@@ -407,11 +573,26 @@ const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
-// Обновленный обработчик оформления заказа
-const handleCheckout = () => {
+// Открытие модалки оформления (начинаем с Шага 1)
+const startCheckout = () => {
   if (cartItems.value.length === 0) return;
+  activeModal.value = 'none';
+  checkoutStep.value = 1;
+  showCheckoutModal.value = true;
+};
 
-  // Форматируем товары из корзины для записи в заказ (приводим локализованное имя к строке)
+// Переход к Шагу 2 (Проверка заказа)
+const goToReviewStep = () => {
+  checkoutStep.value = 2;
+};
+
+const closeModal = () => {
+  showCheckoutModal.value = false;
+  checkoutStep.value = 1;
+};
+
+// Окончательная отправка заказа
+const confirmOrder = () => {
   const preparedItems = cartItems.value.map(item => ({
     id: item.id,
     name: getItemName(item),
@@ -419,14 +600,30 @@ const handleCheckout = () => {
     quantity: item.quantity
   }));
 
-  // Сохраняем заказ
-  addOrder(preparedItems, totalPrice.value, 'delivery');
+  addOrder(preparedItems, totalPrice.value, customerForm.value.orderType, {
+    customerName: customerForm.value.name,
+    customerPhone: customerForm.value.phone,
+    tableNumber: customerForm.value.tableNumber,
+    address: customerForm.value.address,
+    comment: customerForm.value.comment,
+    scheduledTime: customerForm.value.scheduledTime,
+    scheduledDate: customerForm.value.scheduledDate
+  });
 
-  // Очищаем корзину и закрываем модальное окно
   cartItems.value = [];
-  activeModal.value = 'none';
+  closeModal();
+  customerForm.value = { 
+    name: '', 
+    phone: '', 
+    orderType: 'dine_in', 
+    tableNumber: '', 
+    address: '', 
+    comment: '',
+    scheduledTime: getCurrentTimeStr(),
+    scheduledDate: getTodayDateStr()
+  };
 
-  alert('Заказ успешно оформлен и отправлен в дашборд!');
+  alert('Заказ успешно отправлен на кухню/дашборд!');
 };
 
 const selectLanguage = (lang: string) => {
@@ -473,18 +670,11 @@ const goToConstructor = () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.close-preview-btn:hover {
-  background: rgba(0, 0, 0, 0.9);
-}
-
-.close-preview-btn:active {
-  transform: scale(0.95);
-}
+.close-preview-btn:hover { background: rgba(0, 0, 0, 0.9); }
+.close-preview-btn:active { transform: scale(0.95); }
 
 @media (max-width: 600px) {
-  .close-preview-btn {
-    display: none;
-  }
+  .close-preview-btn { display: none; }
 }
 
 .phone-mockup {
@@ -584,9 +774,7 @@ const goToConstructor = () => {
   background: rgba(255, 255, 255, 0.8);
 }
 
-.phone-cat-badge.active { 
-  color: #ffffff; 
-}
+.phone-cat-badge.active { color: #ffffff; }
 
 .menu-items-grid-phone {
   display: grid !important;
@@ -662,9 +850,7 @@ const goToConstructor = () => {
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-.add-to-cart-btn:active {
-  opacity: 0.8;
-}
+.add-to-cart-btn:active { opacity: 0.8; }
 
 .counter-controls {
   display: flex;
@@ -770,5 +956,292 @@ const goToConstructor = () => {
   font-size: 10px;
   margin-top: 25px;
   color: #888;
+}
+
+/* Стили модалки */
+.checkout-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+
+.checkout-modal {
+  background: #f4f5f7;
+  color: #111;
+  width: 100%;
+  max-height: 92%;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.checkout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.checkout-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.close-modal-btn, .back-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+}
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #555;
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 11px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.form-group textarea {
+  resize: none;
+  height: 45px;
+}
+
+/* Выбор времени */
+.time-picker-block {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #eee;
+}
+
+.block-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #333;
+}
+
+.time-inputs-row {
+  display: flex;
+  gap: 8px;
+}
+
+.time-input, .date-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 11px;
+  background: #fff;
+  outline: none;
+}
+
+.hint-text {
+  font-size: 9px;
+  color: #777;
+}
+
+.checkout-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed #ddd;
+  font-size: 12px;
+}
+
+.submit-order-btn {
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+/* Стили для Шага 2 (Проверка заказа) */
+.review-screen-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-card-block {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  text-align: left;
+}
+
+.review-card-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.review-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #333;
+  gap: 10px;
+}
+
+.r-name { flex: 1; line-height: 1.3; }
+.r-price { white-space: nowrap; font-weight: 500; }
+
+.review-totals-divider {
+  height: 1px;
+  background: #eee;
+  margin: 8px 0;
+}
+
+.review-total-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.review-total-line.main-total {
+  font-size: 13px;
+  font-weight: bold;
+  color: #111;
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.data-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.data-row:last-child { margin-bottom: 0; }
+.data-row .icon { font-size: 13px; margin-top: 1px; }
+.label-muted { font-size: 9px; color: #888; }
+.val { font-weight: 500; color: #222; }
+
+.time-badge-box {
+  background: #f1f3f5;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+}
+
+.map-container {
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.yandex-map-btn {
+  display: block;
+  text-align: center;
+  background: #fc3f1d;
+  color: #fff;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.legal-notice {
+  font-size: 9px;
+  color: #888;
+  text-align: center;
+  line-height: 1.2;
+  padding: 0 10px;
+}
+
+.review-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-secondary-action {
+  flex: 1;
+  background: #e2e8f0;
+  color: #333;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-primary-action {
+  flex: 2;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
 }
 </style>

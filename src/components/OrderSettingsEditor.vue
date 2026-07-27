@@ -25,17 +25,56 @@
         <p>Нет заказов в категории "{{ getTabName(currentTab) }}"</p>
       </div>
       <div v-else class="orders-list">
-        <div v-for="order in getFilteredOrders" :key="order.id" class="order-card-item">
+        <!-- Карточка заказа (Чек) -->
+        <div v-for="order in getFilteredOrders" :key="order.id" class="order-card-item receipt-style">
           <div class="order-card-header">
-            <span class="order-id">ORD-{{ order.id }}</span>
-            <span class="order-time">{{ order.time || '14:44' }}</span>
+            <div class="order-id-group">
+              <span class="order-id">#{{ String(order.id).padStart(3, '0') }}</span>
+              <!-- Бейдж типа заказа -->
+              <span class="order-type-badge" :class="order.type">
+                {{ getOrderTypeLabel(order.type) }}
+              </span>
+            </div>
+            
+            <!-- Таймер реального времени выполнения -->
+            <div class="order-timer-badge">
+              ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+            </div>
           </div>
+
+          <!-- Детали места / доставки -->
+          <div class="order-location-info">
+            <template v-if="order.type === 'onsite'">
+              <strong>Стол №{{ order.tableNumber || 1 }}</strong>
+            </template>
+            
+            <template v-else-if="order.type === 'delivery'">
+              <div v-if="order.customerName || order.customerPhone" class="customer-info">
+                <b>{{ order.customerName }}</b> <span v-if="order.customerPhone">({{ order.customerPhone }})</span>
+              </div>
+              <div>🚴 {{ order.deliveryAddress }}</div>
+              <div v-if="order.deliveryTime" class="time-subtext">Доставить к: {{ order.deliveryTime }}</div>
+            </template>
+            
+            <template v-else-if="order.type === 'pickup'">
+              <div v-if="order.customerName || order.customerPhone" class="customer-info">
+                <b>{{ order.customerName }}</b> <span v-if="order.customerPhone">({{ order.customerPhone }})</span>
+              </div>
+              <div>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</div>
+            </template>
+
+            <div v-if="order.customerEmail" class="email-subtext">✉️ {{ order.customerEmail }}</div>
+            <div v-if="order.note" class="order-note">💬 {{ order.note }}</div>
+          </div>
+
+          <!-- Список позиций -->
           <div class="order-items-summary">
             <div v-for="(item, idx) in order.items" :key="idx" class="order-item-row">
-              <span>{{ item.name }} x{{ item.quantity }}</span>
+              <span><b>{{ item.quantity }}x</b> {{ item.name }}</span>
               <span>RUB {{ item.price * item.quantity }}</span>
             </div>
           </div>
+
           <div class="order-card-footer">
             <span class="order-total">Итого: RUB {{ order.total }}</span>
             <div class="order-actions-btns">
@@ -44,14 +83,14 @@
                 class="btn-cancel-order" 
                 @click="updateOrderStatus(order.id, 'cancelled')"
               >
-                Отменить
+                ✕
               </button>
               <button 
                 v-if="order.status === 'open'" 
                 class="btn-progress-order" 
                 @click="updateOrderStatus(order.id, 'progress')"
               >
-                В работу ➔
+                Начало подготовки ➔
               </button>
               <button 
                 v-if="order.status === 'progress'" 
@@ -82,11 +121,22 @@
         </div>
 
         <div class="mode-tabs">
-          <button v-for="m in [{id:'menu',label:'📖 Меню'}, {id:'cart',label:'🛒 Корзина'}, {id:'order',label:'📄 Заказ'}]" :key="m.id" :class="{ active: orderMode === m.id }" @click="setOrderMode(m.id)">{{ m.label }}</button>
+          <button 
+            v-for="m in [{id:'menu',label:'📖 Меню'}, {id:'cart',label:'🛒 Корзина'}, {id:'order',label:'📄 Заказ'}]" 
+            :key="m.id" 
+            :class="{ active: orderMode === m.id }" 
+            @click="setOrderMode(m.id)"
+          >
+            {{ m.label }}
+          </button>
         </div>
 
-        <div v-if="orderMode === 'menu'" class="mode-description-card"><p>Классический цифровой опыт. Гости могут просматривать ваши позиции, но не могут добавлять их в корзину.</p></div>
-        <div v-if="orderMode === 'cart'" class="mode-description-card"><p>Дайте вашим гостям «Список желаемого». Пользователи могут добавлять позиции в корзину, чтобы отслеживать свои любимые и видеть общую стоимость.</p></div>
+        <div v-if="orderMode === 'menu'" class="mode-description-card">
+          <p>Классический цифровой опыт. Гости могут просматривать ваши позиции, но не могут добавлять их в корзину.</p>
+        </div>
+        <div v-if="orderMode === 'cart'" class="mode-description-card">
+          <p>Дайте вашим гостям «Список желаемого». Пользователи могут добавлять позиции в корзину, чтобы отслеживать свои любимые и видеть общую стоимость.</p>
+        </div>
 
         <template v-if="orderMode === 'order'">
           <template v-if="!isActivated">
@@ -105,7 +155,7 @@
 
           <template v-else>
             <div class="activated-settings-scroll">
-              <p class="order-top-text">Принимай заказы клиентов прямо в Dashboard и по email. Быстрый и простой способ увеличить выручку без лишних заморочек.</p>
+              <p class="order-top-text">Принимай заказы клиентов прямо в Dashboard и по email.</p>
 
               <!-- Самовывоз -->
               <div class="setting-block">
@@ -165,7 +215,7 @@
                 </div>
               </div>
 
-              <!-- Уведомление -->
+              <!-- Уведомления -->
               <div class="setting-block">
                 <div class="setting-label-with-icon mb-12"><span class="block-icon">🔔</span><span>Уведомление</span></div>
                 <div class="notification-tabs">
@@ -193,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { RestaurantInfo } from '../types/menu';
 import { useOrders } from '../composables/useOrders';
 
@@ -224,15 +274,48 @@ const freeFrom = ref(0);
 const notifType = ref('dashboard');
 const whatsappNumber = ref('');
 const emailNotif = ref(false);
+const onsiteActive = ref(true);
 
-// Генерация ссылки для предварительного просмотра в QR-коде
-const previewUrl = computed(() => {
-  return `${window.location.origin}/client?preview=true`;
+// Реактивный таймер для обновления минут/секунд на чеках
+const now = ref(Date.now());
+let timerInterval: any = null;
+
+onMounted(() => {
+  timerInterval = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
 });
 
-const setOrderMode = (mode: string) => {
-  orderMode.value = mode;
-  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
+
+// Расчет времени с момента создания заказа MM:SS
+const getElapsedTime = (createdTime: number | string) => {
+  let startTime = typeof createdTime === 'number' ? createdTime : Date.now();
+  
+  if (typeof createdTime === 'string' && createdTime.includes(':')) {
+    const [hrs, mins] = createdTime.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hrs, mins, 0, 0);
+    startTime = d.getTime();
+  }
+
+  const diffMs = Math.max(0, now.value - startTime);
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
+const getOrderTypeLabel = (type: string) => {
+  switch (type) {
+    case 'onsite': return '🍽️ НА МЕСТЕ';
+    case 'delivery': return '🚲 ДОСТАВКА';
+    case 'pickup': return '📦 САМОВЫВОЗ';
+    default: return '🍽️ НА МЕСТЕ';
+  }
 };
 
 const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
@@ -254,76 +337,35 @@ const getTabName = (tab: string) => ({
   cancelled: 'Отменено' 
 }[tab] || tab);
 
-const onsiteActive = ref(false);
+const setOrderMode = (mode: string) => {
+  orderMode.value = mode;
+  if (mode !== 'order' && !isActivated.value) isLiabilityAgreed.value = false;
+};
 </script>
 
 <style scoped>
-.order-hub-container { 
-  display: flex; 
-  flex-direction: column; 
-  min-height: 100vh; 
-  font-family: inherit; 
-  background-color: #121212;
-  color: #fff;
-}
-.hub-header {
-  background-color: #1a1a1a;
-  border-bottom: 1px solid #2d2d2d;
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  padding: 12px 24px; 
-  gap: 16px;
-}
-.counter-badge {
-  background: #262626;
-  border: 1px solid #333;
-  color: #a0aec0;
-  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
-}
-.counter-badge.active {
-  background: #2d2d2d;
-  color: #fff;
-  border-color: #555;
-}
-.btn-action-top {
-  background: #2d2d2d;
-  border: 1px solid #3d3d3d;
-  color: #fff;
-  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
-}
-.hub-main-workspace {
-  background-color: #18181b;
-  flex: 1; padding: 24px;
-}
-.order-card-item {
-  background: #1a1a1a;
-  border: 1px solid #2d2d2d;
-  color: #fff;
-  border-radius: 12px; padding: 16px 20px;
-}
-.order-card-header {
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  color: #fff;
-  display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin-bottom: 12px; padding-bottom: 8px;
-}
-.order-card-footer {
-  border-top: 1px solid rgba(255,255,255,0.08);
-  display: flex; justify-content: space-between; align-items: center; padding-top: 12px;
-}
-.order-item-row {
-  color: #d1d5db;
-  display: flex; justify-content: space-between;
-}
-.order-total {
-  color: #10b981;
-  font-weight: 600; font-size: 14px;
-}
-.count-num {
-  font-weight: 600; padding: 1px 6px; border-radius: 10px; font-size: 11px;
-  color: #fff; background: rgba(255,255,255,0.1);
-}
-.order-time { color: #a0aec0; font-size: 13px; }
+.order-hub-container { display: flex; flex-direction: column; min-height: 100vh; font-family: inherit; background-color: #121212; color: #fff; }
+.hub-header { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; gap: 16px; }
+.counter-badge { background: #262626; border: 1px solid #333; color: #a0aec0; display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+.counter-badge.active { background: #2d2d2d; color: #fff; border-color: #555; }
+.btn-action-top { background: #2d2d2d; border: 1px solid #3d3d3d; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.hub-main-workspace { background-color: #18181b; flex: 1; padding: 24px; }
+.receipt-style { background: #fff; color: #111; border-radius: 8px; padding: 16px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; border: 1px solid #e2e8f0; }
+.order-id-group { display: flex; align-items: center; gap: 10px; }
+.order-type-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+.order-type-badge.onsite { background: #fef3c7; color: #92400e; }
+.order-type-badge.delivery { background: #e0e7ff; color: #3730a3; }
+.order-type-badge.pickup { background: #d1fae5; color: #065f46; }
+.order-timer-badge { font-size: 13px; font-weight: bold; color: #d97706; background: #fffbe3; padding: 2px 8px; border-radius: 6px; border: 1px solid #fef3c7; }
+.order-location-info { font-size: 13px; color: #4b5563; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #e5e7eb; display: flex; flex-direction: column; gap: 4px; }
+.customer-info { color: #111827; }
+.time-subtext, .email-subtext { font-size: 12px; color: #6b7280; }
+.order-note { font-style: italic; color: #dc2626; margin-top: 2px; }
+.order-card-header { border-bottom: 1px solid #e5e7eb; color: #111827; display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin-bottom: 8px; padding-bottom: 8px; align-items: center; }
+.order-card-footer { border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; padding-top: 12px; margin-top: 8px; }
+.order-item-row { color: #1f2937; display: flex; justify-content: space-between; }
+.order-total { color: #111827; font-weight: 700; font-size: 16px; }
+.count-num { font-weight: 600; padding: 1px 6px; border-radius: 10px; font-size: 11px; color: #fff; background: rgba(255,255,255,0.1); }
 
 .hub-counters { display: flex; gap: 10px; align-items: center; }
 .counter-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -337,12 +379,12 @@ const onsiteActive = ref(false);
 .refresh-btn.rotating { opacity: 0.7; }
 .no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 200px; font-size: 14px; color: #71717a; }
 .orders-list { display: flex; flex-direction: column; gap: 16px; max-width: 750px; }
-.order-items-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 14px; }
+.order-items-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 14px; }
 .order-actions-btns { display: flex; gap: 8px; }
-.btn-cancel-order { background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-progress-order, .btn-done-order { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-cancel-order { background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-progress-order, .btn-done-order { background: #111827; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
 .btn-restore-order { background: #6b7280; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-cancel-order:hover, .btn-progress-order:hover, .btn-done-order:hover, .btn-restore-order:hover { opacity: 0.9; }
+
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content.order-settings-modal { background: #fff; color: #1a202c; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; display: flex; flex-direction: column; }
 .activated-settings-scroll { overflow-y: auto; padding-right: 4px; max-height: 65vh; }
@@ -370,7 +412,6 @@ input:checked + .slider:before { transform: translateX(20px); }
 .input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .input-group label { font-size: 12px; color: #4a5568; font-weight: 500; }
 .text-input { padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; background: #fff; color: #1a202c; }
-.text-input:focus { border-color: #3b82f6; }
 .row-inputs { display: flex; gap: 12px; }
 .row-inputs .input-group { flex: 1; }
 .row-inputs-three { display: flex; gap: 8px; }
@@ -392,59 +433,4 @@ input:checked + .slider:before { transform: translateX(20px); }
 .phone-input { border: none !important; border-radius: 0 !important; }
 .notif-text-desc span { font-size: 13px; font-weight: 500; color: #2d3748; display: block; }
 .notif-text-desc p { font-size: 11px; color: #718096; margin-top: 2px; }
-</style>
-
-<style>
-.constructor-wrapper.light-theme .order-hub-container {
-  background-color: #f4f5f7 !important;
-  color: #1a202c !important;
-}
-.constructor-wrapper.light-theme .hub-header {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #d1d5db !important;
-}
-.constructor-wrapper.light-theme .counter-badge {
-  background: #f1f3f5 !important;
-  border: 1px solid #d1d5db !important;
-  color: #4a5568 !important;
-}
-.constructor-wrapper.light-theme .counter-badge.active {
-  background: #e2e8f0 !important;
-  color: #1a202c !important;
-  border-color: #cbd5e0 !important;
-}
-.constructor-wrapper.light-theme .btn-action-top {
-  background: #ffffff !important;
-  border: 1px solid #d1d5db !important;
-  color: #1a202c !important;
-}
-.constructor-wrapper.light-theme .hub-main-workspace {
-  background-color: #f4f5f7 !important;
-}
-.constructor-wrapper.light-theme .order-card-item {
-  background: #ffffff !important;
-  border: 1px solid #d1d5db !important;
-  color: #1a202c !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-.constructor-wrapper.light-theme .order-card-header {
-  border-bottom: 1px solid #e2e8f0 !important;
-  color: #1a202c !important;
-}
-.constructor-wrapper.light-theme .order-card-footer {
-  border-top: 1px solid #e2e8f0 !important;
-}
-.constructor-wrapper.light-theme .order-item-row {
-  color: #2d3748 !important;
-}
-.constructor-wrapper.light-theme .order-total {
-  color: #047857 !important;
-}
-.constructor-wrapper.light-theme .count-num {
-  color: #1a202c !important;
-  background: rgba(0,0,0,0.06) !important;
-}
-.constructor-wrapper.light-theme .order-time {
-  color: #718096 !important;
-}
 </style>
