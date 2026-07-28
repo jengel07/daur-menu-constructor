@@ -600,15 +600,18 @@ const confirmOrder = () => {
     quantity: item.quantity
   }));
 
-  addOrder(preparedItems, totalPrice.value, customerForm.value.orderType, {
-    customerName: customerForm.value.name,
-    customerPhone: customerForm.value.phone,
-    tableNumber: customerForm.value.tableNumber,
-    address: customerForm.value.address,
-    comment: customerForm.value.comment,
-    scheduledTime: customerForm.value.scheduledTime,
-    scheduledDate: customerForm.value.scheduledDate
-  });
+addOrder({
+  items: preparedItems,
+  total: totalPrice.value,
+  type: customerForm.value.orderType,
+  customerName: customerForm.value.name,
+  customerPhone: customerForm.value.phone,
+  tableNumber: customerForm.value.tableNumber,
+  address: customerForm.value.address,
+  comment: customerForm.value.comment,
+  scheduledTime: customerForm.value.scheduledTime,
+  createdAt: new Date().toISOString()
+} as any);
 
   cartItems.value = [];
   closeModal();

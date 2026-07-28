@@ -131,7 +131,7 @@
                 :primaryColor="currentRestaurantInfo.primaryColor"
                 :selectedLanguage="selectedLanguage"
                 :viewMode="viewMode"
-                @open-modal="(modalName) => activeModal = modalName"
+                @open-modal="(modalName: any) => activeModal = modalName"
                 @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
               />
 
@@ -416,7 +416,7 @@
             :primaryColor="currentRestaurantInfo.primaryColor"
             :selectedLanguage="selectedLanguage"
             :viewMode="viewMode"
-            @open-modal="(modalName) => activeModal = modalName"
+            @open-modal="(modalName: any) => activeModal = modalName"
             @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
           />
 
@@ -834,7 +834,7 @@ const totalPrice = computed(() => {
 });
 
 const filteredItems = computed(() => {
-  return currentItems.value.filter(item => {
+  return currentItems.value.filter((item: any) => {
     if (item.isAvailable === false || item.isAvailable === 0) return false;
     const matchesCategory = selectedCategory.value === null || item.categoryId === selectedCategory.value || item.category === selectedCategory.value;
     const matchesSearch = searchQuery.value === '' || item.name.toLowerCase().includes(searchQuery.value.toLowerCase());

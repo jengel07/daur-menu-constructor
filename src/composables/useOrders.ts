@@ -10,11 +10,26 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  createdAt: string | Date;
-  status: 'new' | 'progress' | 'done' | 'cancelled';
+  createdAt: string;
+  status: 'new' | 'open' |'progress' | 'done' | 'cancelled';
   items: OrderItem[];
   total: number;
   type: 'pickup' | 'delivery' | 'onsite';
+  time?: string;
+  tableNumber?: string | number;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryTime?: string;
+  pickupTimeMin?: string | number;
+  customerEmail?: string;
+  note?: string;
+  phone?: string;
+  address?: string;
+  street?: string;
+  comment?: string;
+  apartment?: string;
+  doorCode?: string;
 }
 
 const STORAGE_KEY = 'yumzi_orders';
@@ -135,6 +150,8 @@ export function useOrders() {
     };
     orders.value.unshift(newOrder);
   };
+
+  
 
   // Изменение статуса заказа
   const updateOrderStatus = (id: string, status: Order['status']) => {

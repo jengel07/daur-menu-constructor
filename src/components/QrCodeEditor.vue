@@ -23,7 +23,7 @@ const downloadQRCode = async () => {
   if (downloadFormat.value === 'PNG') {
     const canvas = await html2canvas(exportRef.value, {
       scale: 3,
-      backgroundColor: props.modelValue.qrSettings.textBgColor || '#000000',
+      backgroundColor: props.modelValue?.qrSettings?.textBgColor || '#000000',
       useCORS: true
     });
     
@@ -37,20 +37,20 @@ const downloadQRCode = async () => {
 
     const fullSvg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="300" height="340" viewBox="0 0 300 340">
-        <rect width="100%" height="100%" rx="16" fill="${props.modelValue.qrSettings.textBgColor || '#000000'}" />
+        <rect width="100%" height="100%" rx="16" fill="${props.modelValue.qrSettings?.textBgColor || '#000000'}" />
         <g transform="translate(30, 20)">
-          <rect width="240" height="240" rx="10" fill="${props.modelValue.qrSettings.bgColor || '#ffffff'}" />
+          <rect width="240" height="240" rx="10" fill="${props.modelValue?.qrSettings?.textBgColor || '#ffffff'}" />
           <g transform="translate(20, 20)">
             ${svgElement.innerHTML}
           </g>
         </g>
         <text x="150" y="300" 
-            fill="${props.modelValue.qrSettings.textColor || '#ffffff'}" 
-            font-family="${props.modelValue.qrSettings.fontFamily || 'Comfortaa'}" 
+            fill="${props.modelValue.qrSettings?.textColor || '#ffffff'}" 
+            font-family="${props.modelValue.qrSettings?.fontFamily || 'Comfortaa'}" 
             font-size="16" 
             font-weight="bold" 
             text-anchor="middle">
-          ${props.modelValue.qrSettings.text || ''}
+          ${props.modelValue.qrSettings?.text || ''}
         </text>
       </svg>
     `;
@@ -79,7 +79,7 @@ const downloadQRCode = async () => {
           <label>Ссылка для QR:</label> 
           <input 
             type="text" 
-            :value="modelValue.qrSettings.url" 
+            :value="modelValue.qrSettings?.url" 
             @input="update('url', ($event.target as HTMLInputElement).value)"
             placeholder="https://example.com"
           >
@@ -89,7 +89,7 @@ const downloadQRCode = async () => {
           <label>Текст под QR:</label> 
           <input 
             type="text" 
-            :value="modelValue.qrSettings.text" 
+            :value="modelValue.qrSettings?.text" 
             @input="update('text', ($event.target as HTMLInputElement).value)"
           >
         </div>
@@ -97,7 +97,7 @@ const downloadQRCode = async () => {
         <div class="control-group">
           <label>Шрифт текста:</label>
           <select 
-            :value="modelValue.qrSettings.fontFamily || 'Comfortaa'" 
+            :value="modelValue.qrSettings?.fontFamily || 'Comfortaa'" 
             @change="update('fontFamily', ($event.target as HTMLSelectElement).value)"
           >
             <option value="Comfortaa">Comfortaa</option>
@@ -117,7 +117,7 @@ const downloadQRCode = async () => {
           <label>Фон QR:</label> 
           <input 
             type="color" 
-            :value="modelValue.qrSettings.bgColor" 
+            :value="modelValue.qrSettings?.bgColor" 
             @input="update('bgColor', ($event.target as HTMLInputElement).value)"
           >
         </div>
@@ -126,7 +126,7 @@ const downloadQRCode = async () => {
           <label>Квадраты:</label> 
           <input 
             type="color" 
-            :value="modelValue.qrSettings.squareColor" 
+            :value="modelValue.qrSettings?.squareColor" 
             @input="update('squareColor', ($event.target as HTMLInputElement).value)"
           >
         </div>
@@ -135,7 +135,7 @@ const downloadQRCode = async () => {
           <label>Текст Фон:</label> 
           <input 
             type="color" 
-            :value="modelValue.qrSettings.textBgColor" 
+            :value="modelValue.qrSettings?.textBgColor" 
             @input="update('textBgColor', ($event.target as HTMLInputElement).value)"
           >
         </div>
@@ -144,7 +144,7 @@ const downloadQRCode = async () => {
           <label>Текст Цвет:</label> 
           <input 
             type="color" 
-            :value="modelValue.qrSettings.textColor" 
+            :value="modelValue.qrSettings?.textColor" 
             @input="update('textColor', ($event.target as HTMLInputElement).value)"
           >
         </div>
@@ -169,25 +169,25 @@ const downloadQRCode = async () => {
         <span class="preview-title">Предпросмотр</span>
         <div 
           class="qr-card-export" 
-          :style="{ background: modelValue.qrSettings.textBgColor || '#000000' }"
+          :style="{ background: modelValue.qrSettings?.textBgColor || '#000000' }"
         >
-          <div class="qr-box-export" :style="{ background: modelValue.qrSettings.bgColor || '#ffffff' }">
+          <div class="qr-box-export" :style="{ background: modelValue.qrSettings?.bgColor || '#ffffff' }">
             <QrcodeVue 
-              :value="modelValue.qrSettings.url || 'https://example.com'" 
+              :value="modelValue.qrSettings?.url || 'https://example.com'" 
               :size="150" 
-              :background="modelValue.qrSettings.bgColor || '#ffffff'" 
-              :foreground="modelValue.qrSettings.squareColor || '#000000'" 
+              :background="modelValue.qrSettings?.bgColor || '#ffffff'" 
+              :foreground="modelValue.qrSettings?.squareColor || '#000000'" 
               level="H" 
             />
           </div>
           <div 
             class="qr-label-export" 
             :style="{ 
-              color: modelValue.qrSettings.textColor || '#ffffff',
-              fontFamily: modelValue.qrSettings.fontFamily || 'Comfortaa'
+              color: modelValue.qrSettings?.textColor || '#ffffff',
+              fontFamily: modelValue.qrSettings?.fontFamily || 'Comfortaa'
             }"
           >
-            {{ modelValue.qrSettings.text }}
+            {{ modelValue.qrSettings?.text }}
           </div>
         </div>
       </div>
@@ -200,25 +200,25 @@ const downloadQRCode = async () => {
     <div 
       ref="exportRef" 
       class="qr-card-export" 
-      :style="{ background: modelValue.qrSettings.textBgColor || '#000000' }"
+      :style="{ background: modelValue.qrSettings?.textBgColor || '#000000' }"
     >
-      <div class="qr-box-export" :style="{ background: modelValue.qrSettings.bgColor || '#ffffff' }">
+      <div class="qr-box-export" :style="{ background: modelValue.qrSettings?.bgColor || '#ffffff' }">
         <QrcodeVue 
-          :value="modelValue.qrSettings.url || 'https://example.com'" 
+          :value="modelValue.qrSettings?.url || 'https://example.com'" 
           :size="200" 
-          :background="modelValue.qrSettings.bgColor || '#ffffff'" 
-          :foreground="modelValue.qrSettings.squareColor || '#000000'" 
+          :background="modelValue.qrSettings?.bgColor || '#ffffff'" 
+          :foreground="modelValue.qrSettings?.squareColor || '#000000'" 
           level="H" 
         />
       </div>
       <div 
         class="qr-label-export" 
         :style="{ 
-          color: modelValue.qrSettings.textColor || '#ffffff',
-          fontFamily: modelValue.qrSettings.fontFamily || 'Comfortaa'
+          color: modelValue.qrSettings?.textColor || '#ffffff',
+          fontFamily: modelValue.qrSettings?.fontFamily || 'Comfortaa'
         }"
       >
-        {{ modelValue.qrSettings.text }}
+        {{ modelValue.qrSettings?.text }}
       </div>
     </div>
   </div>

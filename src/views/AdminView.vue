@@ -52,23 +52,33 @@
                   </span>
                 </div>
                 <div class="receipt-timer">
-                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                  ⏱️ {{ getElapsedTime(order.createdAt || '') }}
                 </div>
               </div>
+<!-- Инфо по доставке / столу -->
+<div class="receipt-location">
+  <!-- Имя клиента и телефон -->
+  <div v-if="order.customerName || order.phone" class="receipt-customer-info">
+    👤 <b>{{ order.customerName || 'Клиент' }}</b> <span v-if="order.phone">({{ order.phone }})</span>
+  </div>
 
-              <!-- Инфо по доставке / столу -->
-              <div class="receipt-location">
-                <template v-if="order.type === 'delivery'">
-                  <span>🚴 {{ order.deliveryAddress || 'Адрес не указан' }}</span>
-                </template>
-                <template v-else-if="order.type === 'pickup'">
-                  <span>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</span>
-                </template>
-                <template v-else>
-                  <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
-                </template>
-                <div v-if="order.note" class="receipt-note">💬 {{ order.note }}</div>
-              </div>
+  <template v-if="order.type === 'delivery'">
+    <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
+  </template>
+  
+  <template v-else-if="order.type === 'pickup'">
+    <span>📦 Самовывоз</span>
+  </template>
+  
+  <template v-else>
+    <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+  </template>
+
+  <!-- Примечание клиента -->
+  <div v-if="order.note || order.comment" class="receipt-note">
+    💬 {{ order.note || order.comment }}
+  </div>
+</div>
 
               <div class="receipt-items-list">
                 <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
@@ -105,7 +115,7 @@
                   </span>
                 </div>
                 <div class="receipt-timer">
-                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                  ⏱️ {{ getElapsedTime(order.createdAt || '') }}
                 </div>
               </div>
 
@@ -169,7 +179,7 @@
                   </span>
                 </div>
                 <div class="receipt-timer">
-                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                  ⏱️ {{ getElapsedTime(order.createdAt || '') }}
                 </div>
               </div>
 
@@ -217,7 +227,7 @@
                   </span>
                 </div>
                 <div class="receipt-timer">
-                  ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+                  ⏱️ {{ getElapsedTime(order.createdAt || '') }}
                 </div>
               </div>
 

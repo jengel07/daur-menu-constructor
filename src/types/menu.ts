@@ -20,6 +20,8 @@ export interface QrSettings {
   textColor: string;
   textBgColor: string;
   font: string;
+  url?: string;
+  fontFamily?: string;
 }
 
 export interface RestaurantInfo {
@@ -35,6 +37,10 @@ export interface RestaurantInfo {
   wifiName?: string;
   wifiPassword?: string;
   qrSettings?: QrSettings; // Поле для настроек QR-кода
+  coverImage?: string;
+  avatarImage?: string;
+  isDarkMode?: boolean;     // Добавьте это поле для ColorEditor
+  isWifiEnabled?: boolean;
 }
 
 export interface MenuState {

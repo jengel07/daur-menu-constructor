@@ -38,7 +38,7 @@
             
             <!-- Таймер реального времени выполнения -->
             <div class="order-timer-badge">
-              ⏱️ {{ getElapsedTime(order.createdAt || order.time) }}
+              ⏱️ {{ getElapsedTime(order.createdAt || '') }}
             </div>
           </div>
 
