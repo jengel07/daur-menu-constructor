@@ -1,4 +1,4 @@
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 
 // Интерфейсы для элементов и заказа
 export interface OrderItem {
@@ -11,7 +11,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   createdAt: string;
-  status: 'new' | 'open' |'progress' | 'done' | 'cancelled';
+  status: 'new' | 'open' | 'progress' | 'done' | 'cancelled';
   items: OrderItem[];
   total: number;
   type: 'pickup' | 'delivery' | 'onsite';
@@ -59,15 +59,15 @@ const getInitialOrders = (): Order[] => {
 // Глобальное состояние заказов
 const orders = ref<Order[]>(getInitialOrders());
 
-// Функция принудительного обновления массива из хранилища
-const syncOrdersFromStorage = () => {
-  const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('restaurant_orders');
-  if (saved) {
-    try {
-      orders.value = JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
+// Функция сохранения заказов в хранилище
+const saveOrdersToStorage = () => {
+  try {
+    const data = JSON.stringify(orders.value);
+    localStorage.setItem(STORAGE_KEY, data);
+    localStorage.setItem('restaurant_orders', data);
+    window.dispatchEvent(new Event('orders-local-updated'));
+  } catch (e) {
+    console.error('Ошибка сохранения заказов:', e);
   }
 };
 
@@ -91,40 +91,26 @@ const workDays = ref([
   { name: 'Воскресенье', active: false },
 ]);
 
-// Автосохранение при любых изменениях и генерация события для текущей вкладки
-watch(orders, (newVal) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal));
-  localStorage.setItem('restaurant_orders', JSON.stringify(newVal));
-  window.dispatchEvent(new CustomEvent('orders-local-updated'));
-}, { deep: true });
-
-watch(totalViews, (newVal) => {
-  localStorage.setItem('yumzi_views', String(newVal));
-});
-
 export function useOrders() {
-  // Обработчики событий синхронизации
-  const handleStorageChange = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY || e.key === 'restaurant_orders') {
-      syncOrdersFromStorage();
+  // Синхронизация между вкладками и компонентами через кастомное событие
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('orders-local-updated', handleStorageUpdate as EventListener);
+    window.addEventListener('orders-local-updated', handleStorageUpdate as EventListener);
+  }
+
+  function handleStorageUpdate() {
+    const saved = localStorage.getItem('restaurant_orders') || localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (JSON.stringify(parsed) !== JSON.stringify(orders.value)) {
+          orders.value = parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
-  };
-
-  const handleLocalUpdate = () => {
-    syncOrdersFromStorage();
-  };
-
-  onMounted(() => {
-    // Подписка на события других вкладок
-    window.addEventListener('storage', handleStorageChange);
-    // Подписка на события внутри этой же вкладки
-    window.addEventListener('orders-local-updated', handleLocalUpdate);
-  });
-
-  onUnmounted(() => {
-    window.removeEventListener('storage', handleStorageChange);
-    window.removeEventListener('orders-local-updated', handleLocalUpdate);
-  });
+  }
 
   // Счетчики для вкладок хаба
   const stats = computed(() => ({
@@ -135,40 +121,61 @@ export function useOrders() {
   }));
 
   // Расширенная функция добавления нового заказа (из корзины)
-  const addOrder = (cartItems: OrderItem[], totalSum?: number, type: 'pickup' | 'delivery' | 'onsite' = 'delivery') => {
-    const total = totalSum !== undefined 
-      ? totalSum 
-      : cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const addOrder = (orderData: {
+    items: OrderItem[];
+    total?: number;
+    type: 'pickup' | 'delivery' | 'onsite';
+    customerName?: string;
+    customerPhone?: string;
+    phone?: string;
+    tableNumber?: string;
+    address?: string;
+    comment?: string;
+    scheduledTime?: string;
+    createdAt?: string;
+  }) => {
+    const total = orderData.total !== undefined
+      ? orderData.total
+      : (orderData.items || []).reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const newOrder: Order = {
       id: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
-      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: orderData.createdAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'new',
-      items: cartItems,
-      total: total,
-      type,
+      items: orderData.items,
+      total,
+      type: orderData.type,
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone || orderData.phone,
+      tableNumber: orderData.tableNumber,
+      deliveryAddress: orderData.address,
+      deliveryTime: orderData.scheduledTime,
+      comment: orderData.comment
     };
-    orders.value.unshift(newOrder);
-  };
 
-  
+    orders.value.unshift(newOrder);
+    saveOrdersToStorage();
+  };
 
   // Изменение статуса заказа
   const updateOrderStatus = (id: string, status: Order['status']) => {
     const order = orders.value.find(o => o.id === id);
     if (order) {
       order.status = status;
+      saveOrdersToStorage();
     }
   };
 
   // Полная очистка истории заказов
   const clearOrders = () => {
     orders.value = [];
+    saveOrdersToStorage();
   };
 
   // Увеличение счетчика просмотров статистики
   const incrementViews = () => {
     totalViews.value += 1;
+    localStorage.setItem('yumzi_views', String(totalViews.value));
   };
 
   // Проверка, работает ли заведение прямо сейчас

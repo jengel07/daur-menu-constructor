@@ -585,7 +585,11 @@ const { addOrder } = useOrders();
 
 const handleCheckout = () => {
   if (cartItems.value.length === 0) return;
-  addOrder(cartItems.value, totalPrice.value, 'delivery');
+  addOrder({
+  items: cartItems.value,
+  total: totalPrice.value,
+  type: 'delivery'
+});
   cartItems.value = [];
   currentScreen.value = 'menu';
   alert('Заказ успешно оформлен и отправлен в дашборд!');

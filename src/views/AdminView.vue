@@ -58,9 +58,12 @@
 <!-- Инфо по доставке / столу -->
 <div class="receipt-location">
   <!-- Имя клиента и телефон -->
-  <div v-if="order.customerName || order.phone" class="receipt-customer-info">
-    👤 <b>{{ order.customerName || 'Клиент' }}</b> <span v-if="order.phone">({{ order.phone }})</span>
-  </div>
+  <div v-if="order.customerName || order.customerPhone || order.phone" class="receipt-customer-info">
+  👤 <b>{{ order.customerName || 'Клиент' }}</b> 
+  <span v-if="order.customerPhone || order.phone" class="text-sm text-gray-600 ml-1">
+    📞 <a :href="`tel:${order.customerPhone || order.phone}`" class="hover:underline">{{ order.customerPhone || order.phone }}</a>
+  </span>
+</div>
 
   <template v-if="order.type === 'delivery'">
     <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>

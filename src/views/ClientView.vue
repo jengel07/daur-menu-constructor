@@ -289,27 +289,27 @@
                   <div class="hint-text" style="margin-top: 4px;">Пожалуйста, приходите вовремя</div>
                 </div>
 
-                <!-- 🗺️ БЛОК ЯНДЕКС КАРТЫ ДЛЯ САМОВЫВОЗА -->
-                <div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
-                  <div class="review-card-title">Как добраться (Самовывоз)</div>
-                  <div class="map-container">
-                    <!-- Яндекс Карта (интеграция через iframe или интерактивный контейнер) -->
-                    <iframe 
-                      src="https://yandex.ru/map-widget/v1/?um=constructor%3A1d0a5190835de3973c52a3279f1dbf7f1bc3d2fa1a1154c148283a0058e390c5&amp;source=constructor" 
-                      width="100%" 
-                      height="140" 
-                      frameborder="0"
-                      style="border-radius: 8px;"
-                    ></iframe>
-                  </div>
-                  <a 
-                    :href="yandexNavigatorUrl" 
-                    target="_blank" 
-                    class="yandex-map-btn"
-                  >
-                    🗺️ Открыть в Яндекс Картах
-                  </a>
-                </div>
+<!-- 🗺️ БЛОК ЯНДЕКС КАРТЫ ДЛЯ САМОВЫВОЗА -->
+<div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
+  <div class="review-card-title">Как добраться (Самовывоз)</div>
+  <div class="map-container">
+  <div style="position:relative;overflow:hidden;border-radius:8px;">
+    <a href="https://yandex.com/maps/org/jazzve/43328610653/?utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:0px;display:none;">Jazzve</a>
+    <a href="https://yandex.com/maps/10281/suhum/category/cafe/184106390/?utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:14px;display:none;">Кафе в Сухуме</a>
+    <iframe src="https://yandex.ru/map-widget/v1/?ll=41.024008%2C43.001192&mode=poi&poi%5Bpoint%5D=41.023803%2C43.001167&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D43328610653&z=19.47" width="100%" height="140" frameborder="0" allowfullscreen="true" style="position:relative;"></iframe>
+  </div>
+</div>
+
+  <!-- Кнопка со ссылкой на карты -->
+  <a 
+    href="https://yandex.com/maps/-/CTrKi8~b" 
+    target="_blank" 
+    rel="noopener noreferrer" 
+    class="yandex-map-btn"
+  >
+    Открыть в Яндекс Картах
+  </a>
+</div>
 
                 <div class="legal-notice">
                   Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.
@@ -603,15 +603,16 @@ const confirmOrder = () => {
 addOrder({
   items: preparedItems,
   total: totalPrice.value,
-  type: customerForm.value.orderType,
+  type: customerForm.value.orderType === 'dine_in' 
+    ? 'onsite' 
+    : (customerForm.value.orderType === 'takeaway' ? 'pickup' : 'delivery'),
   customerName: customerForm.value.name,
   customerPhone: customerForm.value.phone,
   tableNumber: customerForm.value.tableNumber,
   address: customerForm.value.address,
   comment: customerForm.value.comment,
-  scheduledTime: customerForm.value.scheduledTime,
-  createdAt: new Date().toISOString()
-} as any);
+  scheduledTime: customerForm.value.scheduledTime
+});
 
   cartItems.value = [];
   closeModal();
