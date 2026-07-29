@@ -2,7 +2,8 @@
 import { useRouter } from 'vue-router';
 const router = useRouter();
 import { useOrders } from './composables/useOrders';
-import { ref, reactive, watch, onMounted, } from 'vue';
+import { ref, watch, onMounted } from 'vue';
+import { useMenuStore } from './store/menuStore';
 import MenuImport from './components/MenuImport.vue';
 import MenuEditor from './components/MenuEditor.vue';
 import BrandingEditor from './components/BrandingEditor.vue';
@@ -11,6 +12,7 @@ import ColorEditor from './components/ColorEditor.vue';
 import QrCodeEditor from './components/QrCodeEditor.vue';
 import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
 import PhoneMockupContent from './components/PhoneMockupContent.vue';
+import type { MenuCategory } from './types/menu';
 
 // Импорт иконок из lucide-vue-next
 import { 
@@ -26,10 +28,10 @@ import {
   RotateCcw 
 } from 'lucide-vue-next';
 
-import type { MenuItem, MenuCategory, RestaurantInfo } from './types/menu';
-
 // Инициализация заказов (если потребуется в будущем)
 const { } = useOrders();
+
+const menuStore = useMenuStore();
 
 const activeTab = ref<'navigation' | 'colors' | 'branding' | 'general' | 'qrcode' | 'orders'>('navigation');
 
@@ -40,38 +42,65 @@ const toggleTheme = () => {
   localStorage.setItem('constructorTheme', isLightTheme.value ? 'light' : 'dark');
 };
 
-const categories = ref<MenuCategory[]>([]);
-const items = ref<MenuItem[]>([]);
-const hasImported = ref(false);
+const hasImported = ref(menuStore.items.length > 0 || menuStore.categories.length > 0);
 
-const restaurantInfo = reactive<RestaurantInfo>({
-  name: 'Мой Ресторан',
-  primaryColor: '#646cff',
-  secondaryColor: '#242424',
-  backgroundColor: '#121212',
-  textColor: '#ffffff',
-  coverImage: undefined,
-  avatarImage: undefined,
-  wifiName: '',
-  wifiPassword: '',
-  isWifiEnabled: false,
-  qrSettings: {
-    text: 'Сканируй меня',
-    bgColor: '#ffffff',
-    squareColor: '#000000',
-    textColor: '#000000',
-    textBgColor: 'transparent',
-    font: 'Arial'
+// Функция синхронизации данных с ключом, который читает таблица данных (/menu-data)
+const syncToTableStorage = () => {
+  // Превращаем плоский список items и категории в структуру, удобную для таблицы
+ const formattedData = menuStore.categories.map((cat: MenuCategory) => {
+    return {
+      id: cat.id || 'cat-' + Math.random(),
+      name: cat.name,
+      expanded: true,
+      items: menuStore.items
+        .filter((item: any) => item.categoryId === cat.id || item.category === cat.name)
+        .map((item: any) => ({
+          id: item.id || 'item-' + Math.random(),
+          name: item.name,
+          description: item.description || '',
+          price: item.price || 0,
+          isAvailable: item.isAvailable !== false,
+          image: item.image || ''
+        }))
+    };
+  });
+
+  // Если категории в сторе не привязаны напрямую через ID, но блюда содержат категории, сгруппируем их:
+  if (formattedData.length === 0 && menuStore.items.length > 0) {
+    const grouped: Record<string, any[]> = {};
+    menuStore.items.forEach((item: any) => {
+      const catName = item.category || 'Основное меню';
+      if (!grouped[catName]) grouped[catName] = [];
+      grouped[catName].push({
+        id: item.id || 'item-' + Math.random(),
+        name: item.name,
+        description: item.description || '',
+        price: item.price || 0,
+        isAvailable: item.isAvailable !== false,
+        image: item.image || ''
+      });
+    });
+
+    const fallbackData = Object.keys(grouped).map((catName, idx) => ({
+      id: 'cat-' + idx,
+      name: catName,
+      expanded: true,
+      items: grouped[catName]
+    }));
+    
+    localStorage.setItem('constructor_menu_data', JSON.stringify(fallbackData));
+    return;
   }
-});
 
-watch([restaurantInfo, items, categories], () => {
-  localStorage.setItem('restaurantData', JSON.stringify({
-    info: restaurantInfo,
-    items: items.value,
-    cats: categories.value,
-    hasImported: hasImported.value
-  }));
+  localStorage.setItem('constructor_menu_data', JSON.stringify(formattedData));
+};
+
+// Следим за состоянием элементов и категорий, чтобы автоматически обновлять localStorage для таблицы
+watch([() => menuStore.items, () => menuStore.categories], ([newItems, newCats]) => {
+  if (newItems.length > 0 || newCats.length > 0) {
+    hasImported.value = true;
+    syncToTableStorage();
+  }
 }, { deep: true });
 
 onMounted(() => {
@@ -80,35 +109,29 @@ onMounted(() => {
     isLightTheme.value = true;
   }
 
-  const savedData = localStorage.getItem('restaurantData');
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      Object.assign(restaurantInfo, parsed.info);
-      items.value = parsed.items || [];
-      categories.value = parsed.cats || [];
-      hasImported.value = parsed.hasImported;
-    } catch (e) {
-      console.error("Ошибка при чтении данных:", e);
-    }
+  if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
+    hasImported.value = true;
+    syncToTableStorage();
   }
 });
 
-const handleImportSuccess = (data: { categories: MenuCategory[]; items: MenuItem[] }) => {
-  categories.value = data.categories;
-  items.value = data.items;
+const handleImportSuccess = (data: { categories: typeof menuStore.categories; items: typeof menuStore.items }) => {
+  menuStore.updateCategories(data.categories);
+  menuStore.updateItems(data.items);
   hasImported.value = true;
+  syncToTableStorage();
 };
 
 const resetImport = () => {
-  categories.value = [];
-  items.value = [];
+  menuStore.updateCategories([]);
+  menuStore.updateItems([]);
   hasImported.value = false;
   localStorage.removeItem('restaurantData');
+  localStorage.removeItem('constructor_menu_data');
 };
 
-const updateRestaurantInfo = (newData: RestaurantInfo) => {
-  Object.assign(restaurantInfo, newData);
+const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
+  menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...newData };
 };
 </script>
 
@@ -165,21 +188,27 @@ const updateRestaurantInfo = (newData: RestaurantInfo) => {
           <h1 class="tab-title">Настройка раздела</h1>
         </header>
         <div class="editor-content">
-          <MenuEditor v-if="activeTab === 'navigation'" :items="items" :categories="categories" @update-items="items = $event" @update-categories="categories = $event" />
-          <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <GeneralSettings v-else-if="activeTab === 'general'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <ColorEditor v-else-if="activeTab === 'colors'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <OrderSettingsEditor v-else-if="activeTab === 'orders'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <MenuEditor 
+            v-if="activeTab === 'navigation'" 
+            :items="menuStore.items" 
+            :categories="menuStore.categories" 
+            @update-items="(items) => { menuStore.updateItems(items); syncToTableStorage(); }" 
+            @update-categories="(cats) => { menuStore.updateCategories(cats); syncToTableStorage(); }" 
+          />
+          <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <GeneralSettings v-else-if="activeTab === 'general'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <ColorEditor v-else-if="activeTab === 'colors'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <OrderSettingsEditor v-else-if="activeTab === 'orders'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
         </div>
       </main>
 
       <section class="preview-area">
         <div class="preview-container">
           <PhoneMockupContent 
-            :restaurantInfo="restaurantInfo" 
-            :items="items" 
-            :categories="categories" 
+            :restaurantInfo="menuStore.restaurantInfo" 
+            :items="menuStore.items" 
+            :categories="menuStore.categories" 
           />
         </div>
       </section>

@@ -81,6 +81,11 @@
         </div>
       </div>
 
+      <!-- Кнопка отправки в конструктор -->
+      <button class="btn-secondary-light btn-to-constructor" @click="sendToConstructor">
+        🚀 В конструктор
+      </button>
+
       <div class="search-box-wrapper">
         <span class="search-icon">🔍</span>
         <input type="text" v-model="searchQuery" placeholder="Поиск..." />
@@ -111,26 +116,27 @@
                 <span class="folder-icon" @click="toggleCategoryExpand(row.catIdx)" style="cursor: pointer;">
                   {{ row.data.expanded !== false ? '📂' : '📁' }}
                 </span> 
-                <div>
-                  <input type="text" v-model="row.data.name" class="inline-edit-input cat-input" />
-                  <div class="sub-count">{{ row.data.items.length }} предметов</div>
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                  <input type="text" v-model="row.data.name" @input="saveToStorage" class="inline-edit-input cat-input" />
+                  <span class="sub-count">{{ row.data.items.length }} предметов</span>
                 </div>
+                <button class="btn-delete-row" @click="removeCategory(row.catIdx)" title="Удалить категорию">🗑️</button>
               </td>
               <td v-if="visibleColumns.desc && !isNameOnlyColspan()">-</td>
               <td v-if="visibleColumns.price && !isNameOnlyColspan()">-</td>
             </tr>
 
-            <!-- Если это строка элемента (скрывается, если категория свернута) -->
+            <!-- Если это строка элемента -->
             <tr v-else-if="row.type === 'item' && isCategoryExpanded(row.catIdx)" class="item-row">
               <td><input type="checkbox" /></td>
               <td v-if="visibleColumns.status">
                 <span 
                   class="badge-visible" 
-                  :class="{ 'badge-hidden': !row.data.visible }"
-                  @click="row.data.visible = !row.data.visible"
+                  :class="{ 'badge-hidden': row.data.isAvailable === false }" 
+                  @click="toggleItemVisibility(row.catIdx, row.itemIdx)"
                   title="Нажмите, чтобы переключить видимость"
                 >
-                  {{ row.data.visible ? '● Видимо' : '○ Скрыто' }}
+                  {{ row.data.isAvailable !== false ? '● Видимо' : '○ Скрыто' }}
                 </span>
               </td>
               <td v-if="visibleColumns.image" class="img-cell">
@@ -141,14 +147,17 @@
               </td>
               <td v-if="visibleColumns.name" class="item-name-cell">
                 <span class="file-icon">📄</span> 
-                <input type="text" v-model="row.data.name" class="inline-edit-input" />
+                <input type="text" v-model="row.data.name" @input="saveToStorage" class="inline-edit-input" />
                 <button class="btn-variants" v-if="row.data.variants">{{ row.data.variants.length }} варианта ▾</button>
               </td>
               <td v-if="visibleColumns.desc" class="item-desc-cell">
-                <input type="text" v-model="row.data.desc" class="inline-edit-input desc-input" placeholder="Введите описание..." />
+                <input type="text" v-model="row.data.description" @input="saveToStorage" class="inline-edit-input desc-input" placeholder="Введите описание..." />
               </td>
-              <td v-if="visibleColumns.price" class="item-price-cell">
-                <input type="number" v-model.number="row.data.price" class="inline-edit-input price-input" placeholder="350" /> ₽
+              <td v-if="visibleColumns.price" class="item-price-cell" style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <input type="number" v-model.number="row.data.price" @input="saveToStorage" class="inline-edit-input price-input" placeholder="350" /> ₽
+                </div>
+                <button class="btn-delete-row" @click="removeItem(row.catIdx, row.itemIdx)" title="Удалить элемент">🗑️</button>
               </td>
             </tr>
           </template>
@@ -188,11 +197,11 @@
           <div v-for="(cat, cIdx) in categories" :key="'print-cat-' + cIdx" class="print-category-block">
             <h2 class="print-category-title">{{ cat.name }}</h2>
             <div class="print-items-list">
-              <template v-for="(item, iIdx) in cat.items.filter(i => i.visible)" :key="'print-item-' + iIdx">
+              <template v-for="(item,) in cat.items.filter((i: MenuItem) => i.isAvailable !== false)">
                 <div class="print-menu-item">
                   <div class="print-item-left">
                     <span class="print-item-name">{{ item.name }}</span>
-                    <span v-if="item.desc && item.desc !== '-'" class="print-item-desc">{{ item.desc }}</span>
+                    <span v-if="item.description" class="print-item-desc">{{ item.description }}</span>
                   </div>
                   <div class="print-item-dots"></div>
                   <div class="print-item-price">{{ item.price || 350 }} ₽</div>
@@ -216,6 +225,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import type { MenuItem } from '../types/menu';
 
 const router = useRouter();
 const isDarkMode = ref(false);
@@ -227,7 +237,6 @@ const isSubCategoryMenuOpen = ref(false);
 const columnsDropdownRef = ref<HTMLElement | null>(null);
 const subCategoryDropdownRef = ref<HTMLElement | null>(null);
 
-// Управление видимостью колонок
 const visibleColumns = ref({
   status: true,
   image: true,
@@ -236,7 +245,6 @@ const visibleColumns = ref({
   price: true
 });
 
-// Закрытие выпадающих меню при клике вне их
 const handleClickOutside = (event: MouseEvent) => {
   if (columnsDropdownRef.value && !columnsDropdownRef.value.contains(event.target as Node)) {
     isColumnsMenuOpen.value = false;
@@ -248,15 +256,15 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  loadFromStorage();
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
 });
 
-// Вычисление colspan для строки категории в зависимости от скрытых колонок
 const getCategoryColspan = () => {
-  let count = 1; // название всегда учитывается базово
+  let count = 1;
   if (visibleColumns.value.status) count++;
   if (visibleColumns.value.image) count++;
   if (visibleColumns.value.desc) count++;
@@ -268,66 +276,91 @@ const isNameOnlyColspan = () => {
   return !visibleColumns.value.status && !visibleColumns.value.image && !visibleColumns.value.desc && !visibleColumns.value.price;
 };
 
-// Параметры пагинации
 const currentPage = ref(1);
 const rowsPerPage = ref(10);
 
-const categories = ref([
-  {
-    name: 'Блюда на завтрак',
-    expanded: true,
-    items: [
-      { name: 'Яичница с ветчиной', desc: 'с помидорами и зеленью', price: 150, visible: true, image: '' },
-      { name: 'Омлет с овощами', desc: 'болгарский перец, цукини', price: 150, visible: true, image: '' },
-      { name: 'Омлет с ветчиной и помидорами', desc: 'сырная корочка', price: 150, visible: true, image: '' },
-      { name: 'Пельмени домашние', desc: 'со сметаной и маслом', price: 150, visible: true, image: '' },
-      { name: 'Вареники с сулугуни', desc: 'с сыром, творогом', price: 150, visible: true, image: '' },
-      { name: 'Вареники с картошкой', desc: 'с жареным луком', price: 120, visible: true, image: '' },
-      { name: 'Блины фирменные', desc: 'с творогом со сметаной', price: 120, visible: true, image: '' },
-      { name: 'Сырники из фермерского творога', desc: 'с ягодами со сметаной', price: 180, visible: true, image: '' },
-    ]
-  },
-  {
-    name: 'Гарниры и закуски',
-    expanded: true,
-    items: [
-      { name: 'Пюре картофельное', desc: 'нежное с маслом и сливками', price: 100, visible: true, image: '', variants: ['Стандартный', 'Большой'] },
-      { name: 'Картофель фри', desc: 'золотистый соус тартар', price: 130, visible: true, image: '' },
-      { name: 'Рис отварной', desc: 'ароматный басмати', price: 90, visible: true, image: '' },
-      { name: 'Гречка рассыпчатая', desc: 'с сливочным маслом', price: 90, visible: true, image: '' },
-    ]
+const categories = ref<any[]>([]);
+
+const loadFromStorage = () => {
+  const savedData = localStorage.getItem('constructor_menu_data');
+  if (savedData) {
+    try {
+      categories.value = JSON.parse(savedData);
+    } catch (e) {
+      console.error('Ошибка чтения данных из localStorage', e);
+      setDefaultCategories();
+    }
+  } else {
+    setDefaultCategories();
   }
-]);
+};
+
+const setDefaultCategories = () => {
+  categories.value = [
+    {
+      id: 'cat-1',
+      name: 'Блюда на завтрак',
+      expanded: true,
+      items: [
+        { id: 'item-1', name: 'Яичница с ветчиной', description: 'с помидорами и зеленью', price: 150, isAvailable: true, image: '' }
+      ]
+    }
+  ];
+  saveToStorage();
+};
+
+const saveToStorage = () => {
+  localStorage.setItem('constructor_menu_data', JSON.stringify(categories.value));
+  localStorage.setItem('preview_items', JSON.stringify(categories.value.flatMap(c => c.items)));
+  localStorage.setItem('preview_categories', JSON.stringify(categories.value));
+};
 
 const totalItemsCount = computed(() => {
-  return categories.value.reduce((acc, cat) => acc + cat.items.length, 0);
+  return categories.value.reduce((acc, cat) => acc + (cat.items ? cat.items.length : 0), 0);
 });
 
-// Функции для Expand / Collapse всего дерева
 const expandAll = () => {
   categories.value.forEach(cat => { cat.expanded = true; });
+  saveToStorage();
 };
 
 const collapseAll = () => {
   categories.value.forEach(cat => { cat.expanded = false; });
+  saveToStorage();
 };
 
 const toggleCategoryExpand = (catIdx: number) => {
   categories.value[catIdx].expanded = categories.value[catIdx].expanded === false ? true : false;
+  saveToStorage();
 };
 
 const isCategoryExpanded = (catIdx: number) => {
   return categories.value[catIdx].expanded !== false;
 };
 
-// Плоский список всех строк таблицы (категории + элементы) с учетом поиска
+const toggleItemVisibility = (catIdx: number, itemIdx: number) => {
+  const item = categories.value[catIdx].items[itemIdx];
+  item.isAvailable = item.isAvailable === false ? true : false;
+  saveToStorage();
+};
+
+const removeItem = (catIdx: number, itemIdx: number) => {
+  categories.value[catIdx].items.splice(itemIdx, 1);
+  saveToStorage();
+};
+
+const removeCategory = (catIdx: number) => {
+  categories.value.splice(catIdx, 1);
+  saveToStorage();
+};
+
 const allFlattenedRows = computed(() => {
   const q = searchQuery.value.toLowerCase().trim();
   const rows: Array<any> = [];
 
   categories.value.forEach((cat, catIdx) => {
-    const filteredItems = cat.items.filter(item => 
-      !q || item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q)
+    const filteredItems = (cat.items || []).filter((item: any) => 
+      !q || item.name.toLowerCase().includes(q) || (item.description && item.description.toLowerCase().includes(q))
     );
 
     const catMatches = !q || cat.name.toLowerCase().includes(q);
@@ -339,7 +372,7 @@ const allFlattenedRows = computed(() => {
       catIdx
     });
 
-    filteredItems.forEach((item) => {
+    filteredItems.forEach((item: any) => {
       const itemIdx = cat.items.indexOf(item);
       rows.push({
         type: 'item',
@@ -373,44 +406,61 @@ const paginationRangeText = computed(() => {
 });
 
 const handleRefresh = () => {
-  window.location.reload();
+  loadFromStorage();
 };
 
 const addCategory = () => {
-  categories.value.push({
+  categories.value.unshift({
+    id: 'cat-' + Date.now(),
     name: 'Новая категория',
     expanded: true,
     items: [
-      { name: 'Новое блюдо в категории', desc: 'описание новинки', price: 200, visible: true, image: '' }
+      { id: 'item-' + Date.now(), name: 'Новое блюдо в категории', description: 'описание новинки', price: 200, isAvailable: true, image: '' }
     ]
   });
-  currentPage.value = totalPages.value;
+  saveToStorage();
+  currentPage.value = 1;
 };
 
 const addSubcategoryTo = (catIndex: number) => {
-  categories.value[catIndex].items.push({
-    name: 'Новая подкатегория / элемент',
-    desc: 'свежеприготовленное блюдо',
+  if (!categories.value[catIndex].items) {
+    categories.value[catIndex].items = [];
+  }
+  // Добавляем элемент в НАЧАЛО массива (сверху)
+  categories.value[catIndex].items.unshift({
+    id: 'item-' + Date.now(),
+    name: 'Новый элемент',
+    description: 'свежеприготовленное блюдо',
     price: 200,
-    visible: true,
+    isAvailable: true,
     image: ''
   });
   isSubCategoryMenuOpen.value = false;
-  currentPage.value = totalPages.value;
+  saveToStorage();
+  currentPage.value = 1;
 };
 
 const addItem = () => {
   if (categories.value.length === 0) {
     addCategory();
+    return;
   }
-  categories.value[0].items.push({
+  // Добавляем элемент в НАЧАЛО первой категории (сверху)
+  categories.value[0].items.unshift({
+    id: 'item-' + Date.now(),
     name: 'Новый элемент меню',
-    desc: 'рекомендуется шеф-поваром',
+    description: 'рекомендуется шеф-поваром',
     price: 250,
-    visible: true,
+    isAvailable: true,
     image: ''
   });
-  currentPage.value = totalPages.value;
+  saveToStorage();
+  currentPage.value = 1;
+};
+
+const sendToConstructor = () => {
+  saveToStorage();
+  router.push('/constructor');
 };
 
 const triggerUpload = (catIdx: number, itemIdx: number) => {
@@ -425,6 +475,7 @@ const triggerUpload = (catIdx: number, itemIdx: number) => {
       reader.onload = (uploadEvent) => {
         if (uploadEvent.target?.result) {
           categories.value[catIdx].items[itemIdx].image = uploadEvent.target.result as string;
+          saveToStorage();
         }
       };
       reader.readAsDataURL(file);
@@ -560,6 +611,7 @@ const triggerBrowserPrint = () => {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   position: relative;
+  flex-wrap: wrap;
 }
 
 .dropdown-container {
@@ -615,6 +667,16 @@ const triggerBrowserPrint = () => {
   border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.btn-to-constructor {
+  border-color: #f97316;
+  color: #ea580c;
+  font-weight: 600;
+}
+
+.btn-to-constructor:hover {
+  background: #fff7ed;
 }
 
 .search-box-wrapper {
@@ -751,6 +813,21 @@ const triggerBrowserPrint = () => {
   width: 60px;
 }
 
+.btn-delete-row {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.6;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.btn-delete-row:hover {
+  opacity: 1;
+  background: #fee2e2;
+}
+
 .btn-variants {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
@@ -795,7 +872,6 @@ const triggerBrowserPrint = () => {
   cursor: not-allowed;
 }
 
-/* Стили модального окна печати */
 .print-modal-overlay {
   position: fixed;
   top: 0;

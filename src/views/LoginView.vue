@@ -5,17 +5,32 @@
       <div class="brand-logo">ConstructorMenu</div>
     </header>
 
-    <!-- Основная карточка входа -->
+    <!-- Основная карточка входа/регистрации -->
     <main class="login-container">
-      <h1 class="title">Вход в систему</h1>
-      <p class="welcome-text">С возвращением! Пожалуйста, введите ваши данные.</p>
+      <h1 class="title">{{ isRegistering ? 'Создать аккаунт' : 'Вход в систему' }}</h1>
+      <p class="welcome-text">
+        {{ isRegistering ? 'Заполните данные для регистрации.' : 'С возвращением! Пожалуйста, введите ваши данные.' }}
+      </p>
       
       <p class="signup-prompt">
-        Ещё нет аккаунта? 
-        <a href="#" @click.prevent="handleSubmit">Зарегистрироваться</a>
+        {{ isRegistering ? 'Уже есть аккаунт?' : 'Ещё нет аккаунта?' }} 
+        <a href="#" @click.prevent="isRegistering = !isRegistering">
+          {{ isRegistering ? 'Войти' : 'Зарегистрироваться' }}
+        </a>
       </p>
 
       <form @submit.prevent="handleSubmit" class="login-form">
+        <!-- Поле имени (только для регистрации) -->
+        <div class="form-group" v-if="isRegistering">
+          <label>Имя</label>
+          <input 
+            v-model="name" 
+            type="text" 
+            placeholder="Ваше имя" 
+            required 
+          />
+        </div>
+
         <!-- Email field -->
         <div class="form-group">
           <label>Email адрес</label>
@@ -47,13 +62,13 @@
           </div>
         </div>
 
-        <div class="forgot-wrapper">
+        <div class="forgot-wrapper" v-if="!isRegistering">
           <a href="#" class="forgot-link">Забыли пароль?</a>
         </div>
 
         <!-- Submit Button -->
         <button type="submit" class="btn-primary">
-          Продолжить с Email
+          {{ isRegistering ? 'Зарегистрироваться' : 'Продолжить с Email' }}
         </button>
       </form>
 
@@ -84,15 +99,30 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
+const isRegistering = ref(false);
+const name = ref('');
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
 
 const handleSubmit = () => {
+  // Определяем имя пользователя: если это регистрация, берем введенное имя, иначе часть email до @
+  const userName = isRegistering.value && name.value 
+    ? name.value 
+    : email.value.split('@')[0] || 'User';
+
+  // Сохраняем данные в localStorage для использования в Dashboard
+  localStorage.setItem('userName', userName);
+  localStorage.setItem('userEmail', email.value || 'user@example.com');
+
   router.push('/dashboard');
 };
 
 const handleGoogleAuth = () => {
+  // Заглушка для входа через Google
+  localStorage.setItem('userName', 'Евгения');
+  localStorage.setItem('userEmail', 'apsny.sklad@gmail.com');
+  
   router.push('/dashboard');
 };
 </script>

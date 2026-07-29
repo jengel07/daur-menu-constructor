@@ -111,10 +111,10 @@
               <p>Настроить QR-код меню</p>
             </div>
             <div class="op-card" @click="router.push('/menu-data')">
-  <div class="op-icon data">田</div>
-  <h3>Данные</h3>
-  <p>Массовое управление данными меню</p>
-</div>
+              <div class="op-icon data">田</div>
+              <h3>Данные</h3>
+              <p>Массовое управление данными меню</p>
+            </div>
             <div class="op-card" @click="openRoute('/admin')">
               <div class="op-icon orders">📋</div>
               <h3>Центр заказов</h3>
@@ -196,7 +196,7 @@
         </section>
       </main>
 
-      <!-- ТАБ: УПРАВЛЕНИЕ ПЕРСОНАЛОМ (НОВЫЙ) -->
+      <!-- ТАБ: УПРАВЛЕНИЕ ПЕРСОНАЛОМ -->
       <main v-if="activeTab === 'staff'">
         <section class="section-block">
           <div class="staff-header-row">
@@ -275,7 +275,7 @@ const viewsCount = ref(1);
 
 const userProfile = reactive({
   firstName: 'Евгения',
-  lastName: 'User',
+  lastName: '',
   email: 'apsny.sklad@gmail.com',
   role: 'Владелец/Партнёр',
   timezone: 'Istanbul (GMT+3)',
@@ -283,11 +283,31 @@ const userProfile = reactive({
   wideView: false
 });
 
+// Загружаем данные пользователя из localStorage при монтировании компонента
+onMounted(() => {
+  window.addEventListener('click', closeDropdowns);
+
+  const savedName = localStorage.getItem('userName');
+  const savedEmail = localStorage.getItem('userEmail');
+
+  if (savedName) {
+    userProfile.firstName = savedName;
+  }
+  if (savedEmail) {
+    userProfile.email = savedEmail;
+    // Обновляем также первого сотрудника в списке персонала, если это текущий владелец
+    if (staffMembers.value.length > 0) {
+      staffMembers.value[0].firstName = savedName || userProfile.firstName;
+      staffMembers.value[0].email = savedEmail;
+    }
+  }
+});
+
 // Список персонала
 const staffMembers = ref([
   {
     firstName: 'Евгения',
-    lastName: 'User',
+    lastName: '',
     email: 'apsny.sklad@gmail.com',
     role: 'owner',
     status: 'active'
@@ -392,10 +412,6 @@ const toggleDropdown = (idx: number) => {
 const closeDropdowns = () => {
   activeDropdown.value = null;
 };
-
-onMounted(() => {
-  window.addEventListener('click', closeDropdowns);
-});
 
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdowns);

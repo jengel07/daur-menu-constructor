@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
+import axios from 'axios';
 import { 
   Search, 
   Plus, 
@@ -24,6 +25,25 @@ const emit = defineEmits<{
   (e: 'update-items', items: MenuItem[]): void;
   (e: 'update-categories', categories: MenuCategory[]): void;
 }>();
+
+// Синхронизация с сервером и локальным хранилищем
+const syncWithServer = async (updatedItems: MenuItem[]) => {
+  const dataToSave = {
+    categories: props.categories,
+    items: updatedItems
+  };
+
+  // Сохраняем локально для ПК
+  localStorage.setItem('preview_items', JSON.stringify(updatedItems));
+  localStorage.setItem('preview_categories', JSON.stringify(props.categories));
+
+  // Отправляем на ваш Node.js сервер, чтобы телефон отображал те же данные
+  try {
+    await axios.post('http://192.168.31.240:3000/api/preview-menu', dataToSave);
+  } catch (e) {
+    console.error('Ошибка сохранения на сервер', e);
+  }
+};
 
 const searchQuery = ref('');
 const selectedCategoryId = ref<string>('all');
@@ -83,12 +103,14 @@ const toggleAvailability = (itemId: string | number) => {
     return item;
   });
   emit('update-items', updated);
+  syncWithServer(updated);
 };
 
 const deleteItem = (itemId: string | number) => {
   if (confirm('Вы уверены, что хотите удалить это блюдо?')) {
     const updated = props.items.filter(item => item.id !== itemId);
     emit('update-items', updated);
+    syncWithServer(updated);
   }
 };
 
@@ -103,7 +125,7 @@ const openEditModal = (item?: MenuItem) => {
       description: '',
       price: 150,
       image: '',
-      categoryId: firstCat?.id || '',
+      categoryId: firstCat ? firstCat.id : '',
       isAvailable: true
     };
   }
@@ -114,7 +136,7 @@ const saveItem = () => {
   if (!editingItem.value || !editingItem.value.name || isImageLoading.value) return;
 
   const updatedItems = [...props.items];
-  const index = updatedItems.findIndex(item => item.id === editingItem.value?.id);
+  const index = updatedItems.findIndex(i => String(i.id) === String(editingItem.value?.id));
 
   if (index !== -1) {
     updatedItems[index] = { ...updatedItems[index], ...editingItem.value } as MenuItem;
@@ -123,6 +145,7 @@ const saveItem = () => {
   }
 
   emit('update-items', updatedItems);
+  syncWithServer(updatedItems);
   closeModal();
 };
 
@@ -215,7 +238,7 @@ const closeModal = () => {
     <div v-if="isModalOpen && editingItem" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
         <h2 class="modal-title">
-          {{ props.items.some(i => i.id === (editingItem?.id ?? '')) ? 'Редактировать блюдо' : 'Новое блюдо' }}
+          {{ props.items.some(i => String(i.id) === String(editingItem?.id)) ? 'Редактировать блюдо' : 'Новое блюдо' }}
         </h2>
       
         <div class="form-group">

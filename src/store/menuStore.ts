@@ -16,6 +16,16 @@ export const useMenuStore = defineStore('menu', () => {
   const categories = ref(parsed.cats || []);
   const items = ref(parsed.items || []);
 
+  // Функция обновления списка блюд
+  const updateItems = (newItems: typeof items.value) => {
+    items.value = newItems;
+  };
+
+  // Функция обновления категорий
+  const updateCategories = (newCategories: typeof categories.value) => {
+    categories.value = newCategories;
+  };
+
   // Следим за любыми изменениями и сразу пишем в localStorage
   watch(
     [restaurantInfo, categories, items],
@@ -33,6 +43,8 @@ export const useMenuStore = defineStore('menu', () => {
   return {
     restaurantInfo,
     categories,
-    items
+    items,
+    updateItems,
+    updateCategories
   };
 });
