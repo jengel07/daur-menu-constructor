@@ -110,11 +110,11 @@
               <h3>Цифровое</h3>
               <p>Настроить QR-код меню</p>
             </div>
-            <div class="op-card" @click="openRoute('/constructor')">
-              <div class="op-icon data">田</div>
-              <h3>Данные</h3>
-              <p>Массовое управление данными меню</p>
-            </div>
+            <div class="op-card" @click="router.push('/menu-data')">
+  <div class="op-icon data">田</div>
+  <h3>Данные</h3>
+  <p>Массовое управление данными меню</p>
+</div>
             <div class="op-card" @click="openRoute('/admin')">
               <div class="op-icon orders">📋</div>
               <h3>Центр заказов</h3>

@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 const router = useRouter();
-import AdminPanel from './components/admin/AdminDashboard.vue';
 import { useOrders } from './composables/useOrders';
-import { ref, reactive, nextTick, watch, onMounted, computed } from 'vue';
+import { ref, reactive, watch, onMounted, } from 'vue';
 import MenuImport from './components/MenuImport.vue';
 import MenuEditor from './components/MenuEditor.vue';
 import BrandingEditor from './components/BrandingEditor.vue';
 import GeneralSettings from './components/GeneralSettings.vue';
 import ColorEditor from './components/ColorEditor.vue';
 import QrCodeEditor from './components/QrCodeEditor.vue';
-import QrcodeVue from 'qrcode.vue'; 
-import { useCart } from './composables/useCart';
 import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
 import PhoneMockupContent from './components/PhoneMockupContent.vue';
 
@@ -30,21 +27,11 @@ import {
 } from 'lucide-vue-next';
 
 import type { MenuItem, MenuCategory, RestaurantInfo } from './types/menu';
-const { orders, stats, updateOrderStatus } = useOrders();
-const saveToLocalStorage = () => {
-  const dataToSave = {
-    info: restaurantInfo,
-    items: items.value,
-    cats: categories.value
-  };
-  localStorage.setItem('restaurantData', JSON.stringify(dataToSave));
-};
+
+// Инициализация заказов (если потребуется в будущем)
+const { } = useOrders();
 
 const activeTab = ref<'navigation' | 'colors' | 'branding' | 'general' | 'qrcode' | 'orders'>('navigation');
-const brandingEditorRef = ref<any>(null);
-const isWifiExpanded = ref(false);
-const showToast = ref(false);
-const toastMessage = ref('');
 
 // Тема интерфейса конструктора (светлая/темная)
 const isLightTheme = ref(false);
@@ -53,188 +40,9 @@ const toggleTheme = () => {
   localStorage.setItem('constructorTheme', isLightTheme.value ? 'light' : 'dark');
 };
 
-const triggerToast = (msg: string) => {
-  toastMessage.value = msg;
-  showToast.value = true;
-  setTimeout(() => {
-    showToast.value = false;
-  }, 2500);
-};
-
-const currentScreen = ref<'menu' | 'cart'>('menu');
-
-const activeModal = ref<'none' | 'language' | 'filters' | 'share' | 'search' | 'categories'>('none');
-const selectedLanguage = ref('Русский');
-
-// Поисковый запрос
-const searchQuery = ref('');
-
-// Активная выбранная категория в шапке (null — все категории)
-const selectedCategory = ref<string | null>(null);
-
-// Выбранные фильтры питания
-const selectedFilters = ref<string[]>([]);
-
-const toggleFilter = (filterKey: string) => {
-  const index = selectedFilters.value.indexOf(filterKey);
-  if (index > -1) {
-    selectedFilters.value.splice(index, 1);
-  } else {
-    selectedFilters.value.push(filterKey);
-  }
-};
-
-const clearAllFilters = () => {
-  selectedFilters.value = [];
-};
-
-const shareUrl = computed(() => {
-  return window.location.href;
-});
-
-const copyShareLink = async () => {
-  try {
-    await navigator.clipboard.writeText(shareUrl.value);
-    triggerToast('Ссылка скопирована в буфер обмена!');
-  } catch (err) {
-    triggerToast('Не удалось скопировать ссылку');
-  }
-};
-
-const shareViaSocial = (platform: 'whatsapp' | 'telegram' | 'twitter' | 'facebook' | 'linkedin' | 'gmail' | 'outlook') => {
-  const url = encodeURIComponent(shareUrl.value);
-  const title = encodeURIComponent(`Посмотрите меню ресторана "${currentRestaurantName.value}"!`);
-  
-  let targetLink = '';
-  switch (platform) {
-    case 'whatsapp':
-      targetLink = `https://api.whatsapp.com/send?text=${title}%20${url}`;
-      break;
-    case 'telegram':
-      targetLink = `https://t.me/share/url?url=${url}&text=${title}`;
-      break;
-    case 'twitter':
-      targetLink = `https://twitter.com/intent/tweet?url=${url}&text=${title}`;
-      break;
-    case 'facebook':
-      targetLink = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
-      break;
-    case 'linkedin':
-      targetLink = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
-      break;
-    case 'gmail':
-      targetLink = `https://mail.google.com/mail/?view=cm&fs=1&su=${title}&body=${url}`;
-      break;
-    case 'outlook':
-      targetLink = `https://outlook.live.com/owa/?path=/mail/action/compose&subject=${title}&body=${url}`;
-      break;
-  }
-  
-  if (targetLink) {
-    window.open(targetLink, '_blank');
-  }
-};
-
-const handleShare = async () => {
-  const shareData = {
-    title: currentRestaurantName.value,
-    text: `Посмотрите меню ресторана "${currentRestaurantName.value}"!`,
-    url: shareUrl.value
-  };
-
-  if (navigator.share) {
-    try {
-      await navigator.share(shareData);
-      return;
-    } catch (err) {
-      // Игнорируем ошибку/отмену и открываем кастомную модалку
-    }
-  }
-  
-  activeModal.value = 'share';
-};
-
-// Пример функции смены языка, которая срабатывает при выборе языка в модалке
-const changeLanguage = (lang: string) => {
-  selectedLanguage.value = lang;
-  activeModal.value = 'none'; // закрыть модалку
-};
-
-const getLocalizedItemName = (originalName: string) => {
-  if (!originalName) return '';
-  return originalName;
-};
-
-const getLocalizedCategoryName = (originalCatName: string) => {
-  if (!originalCatName) return '';
-  return originalCatName;
-};
-
-const t = computed(() => {
-  return { restaurantName: 'Мой Ресторан' };
-});
-
-const viewMode = ref<'grid' | 'list'>('grid');
-
 const categories = ref<MenuCategory[]>([]);
 const items = ref<MenuItem[]>([]);
 const hasImported = ref(false);
-
-const isBottomBarVisible = ref(true);
-const lastScrollTop = ref(0);
-
-const { cartItems, addToCart } = useCart();
-
-const increaseQuantity = (id: string | number) => {
-  const item = cartItems.value.find(i => i.id === id);
-  if (item) item.quantity += 1;
-};
-
-const decreaseQuantity = (id: string | number) => {
-  const index = cartItems.value.findIndex(i => i.id === id);
-  if (index !== -1) {
-    if (cartItems.value[index].quantity > 1) {
-      cartItems.value[index].quantity -= 1;
-    } else {
-      cartItems.value.splice(index, 1);
-    }
-  }
-};
-
-const handleTrashClick = (id: string | number) => {
-  decreaseQuantity(id);
-};
-
-const totalPrice = computed(() => {
-  return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-});
-
-// Отфильтрованные товары с учетом поиска и выбранной категории
-const filteredItems = computed(() => {
-  return items.value.filter(item => {
-    if (!item.isAvailable) return false;
-    
-    // Фильтрация по категории, если она выбрана
-    if (selectedCategory.value !== null) {
-      const itemCat = (item.categoryId || item.category || '').toString().trim().toLowerCase();
-      const selCat = selectedCategory.value.toString().trim().toLowerCase();
-      if (itemCat !== selCat) {
-        return false;
-      }
-    }
-
-    // Фильтрация по поисковому запросу
-    if (searchQuery.value.trim() !== '') {
-      const q = searchQuery.value.trim().toLowerCase();
-      const locName = getLocalizedItemName(item.name).toLowerCase();
-      const origName = item.name.toLowerCase();
-      if (!locName.includes(q) && !origName.includes(q)) {
-        return false;
-      }
-    }
-    return true;
-  });
-});
 
 const restaurantInfo = reactive<RestaurantInfo>({
   name: 'Мой Ресторан',
@@ -242,8 +50,8 @@ const restaurantInfo = reactive<RestaurantInfo>({
   secondaryColor: '#242424',
   backgroundColor: '#121212',
   textColor: '#ffffff',
-  coverImage: null,
-  avatarImage: null,
+  coverImage: undefined,
+  avatarImage: undefined,
   wifiName: '',
   wifiPassword: '',
   isWifiEnabled: false,
@@ -256,30 +64,6 @@ const restaurantInfo = reactive<RestaurantInfo>({
     font: 'Arial'
   }
 });
-
-const currentRestaurantName = computed(() => {
-  if (!restaurantInfo.name || restaurantInfo.name === 'Мой Ресторан' || restaurantInfo.name === 'My Restaurant' || restaurantInfo.name === 'Mein Restaurant' || restaurantInfo.name === 'Аресторан') {
-    return t.value.restaurantName;
-  }
-  return restaurantInfo.name;
-});
-
-const getItemQuantity = (id: string | number) => {
-  const item = cartItems.value.find(i => i.id === id);
-  return item ? item.quantity : 0;
-};
-
-const handlePhoneScroll = (e: Event) => {
-  const target = e.target as HTMLElement;
-  const currentScroll = target.scrollTop;
-
-  if (currentScroll > lastScrollTop.value && currentScroll > 30) {
-    isBottomBarVisible.value = false;
-  } else {
-    isBottomBarVisible.value = true;
-  }
-  lastScrollTop.value = currentScroll;
-};
 
 watch([restaurantInfo, items, categories], () => {
   localStorage.setItem('restaurantData', JSON.stringify({
@@ -310,10 +94,6 @@ onMounted(() => {
   }
 });
 
-const openPreview = () => {
-  window.open('/preview', '_blank');
-};
-
 const handleImportSuccess = (data: { categories: MenuCategory[]; items: MenuItem[] }) => {
   categories.value = data.categories;
   items.value = data.items;
@@ -330,19 +110,6 @@ const resetImport = () => {
 const updateRestaurantInfo = (newData: RestaurantInfo) => {
   Object.assign(restaurantInfo, newData);
 };
-
-const triggerFileUpload = async (type: 'avatar' | 'cover') => {
-  if (activeTab.value !== 'branding') activeTab.value = 'branding';
-  await nextTick();
-  if (brandingEditorRef.value) {
-    type === 'avatar' ? brandingEditorRef.value.triggerAvatarUpload() : brandingEditorRef.value.triggerCoverUpload();
-  }
-};
-
-// Функция для возврата в админку
-const goToAdmin = () => {
-  router.push('admin');
-};
 </script>
 
 <template>
@@ -354,7 +121,6 @@ const goToAdmin = () => {
     <div v-else class="constructor-layout">
       <aside class="sidebar">
         <div class="sidebar-header">
-          <!-- Восстановленная кнопка назад и логотип -->
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <button 
               @click="router.push('/')" 
@@ -377,7 +143,7 @@ const goToAdmin = () => {
         
         <nav class="sidebar-menu">
           <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" 
-            :key="tab" class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab">
+            :key="tab" class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab as any">
             <span class="icon" style="display: flex; align-items: center;">
               <UtensilsCrossed v-if="tab === 'navigation'" :size="18" stroke-width="2" />
               <Palette v-else-if="tab === 'colors'" :size="18" stroke-width="2" />
@@ -400,7 +166,7 @@ const goToAdmin = () => {
         </header>
         <div class="editor-content">
           <MenuEditor v-if="activeTab === 'navigation'" :items="items" :categories="categories" @update-items="items = $event" @update-categories="categories = $event" />
-          <BrandingEditor v-else-if="activeTab === 'branding'" ref="brandingEditorRef" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
           <GeneralSettings v-else-if="activeTab === 'general'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
           <ColorEditor v-else-if="activeTab === 'colors'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />
           <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="restaurantInfo" @update:model-value="updateRestaurantInfo" />

@@ -404,11 +404,7 @@ const customerForm = ref({
   scheduledDate: getTodayDateStr()
 });
 
-// Ссылка для Яндекс Навигатора/Карт на основе адреса заведения
-const yandexNavigatorUrl = computed(() => {
-  const query = encodeURIComponent(restaurantInfo.value.address || 'Ресторан');
-  return `https://yandex.ru/maps/?text=${query}`;
-});
+
 
 const translations: Record<string, Record<string, string>> = {
   ru: {

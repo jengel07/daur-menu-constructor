@@ -4,6 +4,7 @@ import AdminDashboard from './components/admin/AdminDashboard.vue';
 import AdminView from './views/AdminView.vue';
 import ClientView from './views/ClientView.vue'; 
 import LoginView from './views/LoginView.vue';
+import MenuDataPage from './views/MenuDataPage.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,6 +22,11 @@ const router = createRouter({
       path: '/dashboard', 
       name: 'Dashboard', 
       component: AdminDashboard 
+    },
+    {
+      path: '/menu-data', // <-- Новый маршрут для страницы данных
+      name: 'MenuData',
+      component: MenuDataPage
     },
     { 
       path: '/constructor', 

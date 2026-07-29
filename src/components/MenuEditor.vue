@@ -29,7 +29,6 @@ const searchQuery = ref('');
 const selectedCategoryId = ref<string>('all');
 
 const isModalOpen = ref(false);
-
 const editingItem = ref<(Partial<MenuItem> & { image?: string }) | null>(null);
 
 const handleImageUpload = (event: Event) => {
@@ -45,7 +44,6 @@ const handleImageUpload = (event: Event) => {
     }
 
     const reader = new FileReader();
-    
     isImageLoading.value = true;
 
     reader.onload = (e) => {
@@ -54,7 +52,7 @@ const handleImageUpload = (event: Event) => {
           editingItem.value.image = e.target?.result as string;
         }
         isImageLoading.value = false;
-      }, 1500);
+      }, 1000);
     };
 
     reader.onerror = () => {
@@ -69,13 +67,15 @@ const handleImageUpload = (event: Event) => {
 const filteredItems = computed(() => {
   return props.items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-                          item.description.toLowerCase().includes(searchQuery.value.toLowerCase());
-    const matchesCategory = selectedCategoryId.value === 'all' || item.categoryId === selectedCategoryId.value;
+                          (item.description && item.description.toLowerCase().includes(searchQuery.value.toLowerCase()));
+    
+    const matchesCategory = selectedCategoryId.value === 'all' || String(item.categoryId) === String(selectedCategoryId.value);
+    
     return matchesSearch && matchesCategory;
   });
 });
 
-const toggleAvailability = (itemId: string) => {
+const toggleAvailability = (itemId: string | number) => {
   const updated = props.items.map(item => {
     if (item.id === itemId) {
       return { ...item, isAvailable: !item.isAvailable };
@@ -85,7 +85,7 @@ const toggleAvailability = (itemId: string) => {
   emit('update-items', updated);
 };
 
-const deleteItem = (itemId: string) => {
+const deleteItem = (itemId: string | number) => {
   if (confirm('Вы уверены, что хотите удалить это блюдо?')) {
     const updated = props.items.filter(item => item.id !== itemId);
     emit('update-items', updated);
@@ -96,13 +96,14 @@ const openEditModal = (item?: MenuItem) => {
   if (item) {
     editingItem.value = { ...item };
   } else {
+    const firstCat = props.categories[0];
     editingItem.value = {
       id: 'item-' + Date.now(),
       name: '',
       description: '',
-      price: 0,
+      price: 150,
       image: '',
-      categoryId: props.categories[0]?.id || '',
+      categoryId: firstCat?.id || '',
       isAvailable: true
     };
   }
@@ -135,7 +136,6 @@ const closeModal = () => {
 
 <template>
   <div class="menu-editor">
-    
     <div class="toolbar">
       <div class="filter-group">
         <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
@@ -169,9 +169,13 @@ const closeModal = () => {
         class="item-card"
         :class="{ 'not-available': !item.isAvailable }"
       >
+        <div class="card-image-wrapper" v-if="item.image">
+          <img :src="item.image" :alt="item.name" class="card-thumb" />
+        </div>
+
         <div class="card-header">
           <span class="category-badge">
-            {{ categories.find(c => c.id === item.categoryId)?.name || 'Без категории' }}
+            {{ categories.find(c => String(c.id) === String(item.categoryId))?.name || 'Без категории' }}
           </span>
           <div class="actions">
             <button @click="openEditModal(item)" class="action-btn edit-btn" title="Редактировать">
@@ -210,7 +214,6 @@ const closeModal = () => {
 
     <div v-if="isModalOpen && editingItem" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
-
         <h2 class="modal-title">
           {{ props.items.some(i => i.id === (editingItem?.id ?? '')) ? 'Редактировать блюдо' : 'Новое блюдо' }}
         </h2>
@@ -251,7 +254,7 @@ const closeModal = () => {
         
         <div class="form-group">
           <label>Название блюда</label>
-          <input v-model="editingItem.name" type="text" placeholder="Например, Суп Том Ям" />
+          <input v-model="editingItem.name" type="text" placeholder="Например, Яичница с ветчиной" />
         </div>
 
         <div class="form-group">
@@ -281,7 +284,6 @@ const closeModal = () => {
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -357,6 +359,20 @@ const closeModal = () => {
   justify-content: space-between;
   min-height: 200px;
   transition: transform 0.2s, border-color 0.2s;
+  overflow: hidden;
+}
+
+.card-image-wrapper {
+  width: calc(100% + 32px);
+  height: 140px;
+  margin: -16px -16px 12px -16px;
+  overflow: hidden;
+}
+
+.card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .item-card:hover {
