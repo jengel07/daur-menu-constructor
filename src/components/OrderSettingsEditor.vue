@@ -1,9 +1,9 @@
 <template>
-  <div class="order-hub-container">
+  <div class="order-hub-container" :class="{ 'light-theme': isLightTheme }">
     <header class="hub-header">
       <div class="hub-counters">
         <button 
-          v-for="tab in ['open', 'progress', 'done', 'cancelled']" 
+          v-for="tab in ['new', 'progress', 'done', 'cancelled']" 
           :key="tab" 
           class="counter-badge" 
           :class="[tab, { active: currentTab === tab }]" 
@@ -79,14 +79,14 @@
             <span class="order-total">Итого: RUB {{ order.total }}</span>
             <div class="order-actions-btns">
               <button 
-                v-if="order.status === 'open'" 
+                v-if="order.status === 'new'" 
                 class="btn-cancel-order" 
                 @click="updateOrderStatus(order.id, 'cancelled')"
               >
                 ✕
               </button>
               <button 
-                v-if="order.status === 'open'" 
+                v-if="order.status === 'new'" 
                 class="btn-progress-order" 
                 @click="updateOrderStatus(order.id, 'progress')"
               >
@@ -102,7 +102,7 @@
               <button 
                 v-if="order.status === 'cancelled'" 
                 class="btn-restore-order" 
-                @click="updateOrderStatus(order.id, 'open')"
+                @click="updateOrderStatus(order.id, 'new')"
               >
                 ↺ Вернуть
               </button>
@@ -247,7 +247,13 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { RestaurantInfo } from '../types/menu';
 import { useOrders } from '../composables/useOrders';
 
-defineProps<{ modelValue: RestaurantInfo }>();
+const props = defineProps<{ modelValue: RestaurantInfo }>();
+
+const isLightTheme = computed(() => {
+  const propTheme = (props.modelValue as any)?.theme === 'light' || (props.modelValue as any)?.isLight === true;
+  const hasParentLightClass = typeof document !== 'undefined' && !!document.querySelector('.constructor-wrapper.light-theme, .light-theme');
+  return propTheme || hasParentLightClass;
+});
 
 const { 
   pickupActive, 
@@ -276,7 +282,6 @@ const whatsappNumber = ref('');
 const emailNotif = ref(false);
 const onsiteActive = ref(true);
 
-// Реактивный таймер для обновления минут/секунд на чеках
 const now = ref(Date.now());
 let timerInterval: any = null;
 
@@ -290,7 +295,6 @@ onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
 });
 
-// Расчет времени с момента создания заказа MM:SS
 const getElapsedTime = (createdTime: number | string) => {
   let startTime = typeof createdTime === 'number' ? createdTime : Date.now();
   
@@ -318,7 +322,7 @@ const getOrderTypeLabel = (type: string) => {
   }
 };
 
-const currentTab = ref<'open' | 'progress' | 'done' | 'cancelled'>('open');
+const currentTab = ref<'new' | 'progress' | 'done' | 'cancelled'>('new');
 const isRefreshing = ref(false);
 
 const refreshOrders = () => {
@@ -331,7 +335,7 @@ const getFilteredOrders = computed(() => {
 });
 
 const getTabName = (tab: string) => ({ 
-  open: 'Новые', 
+  new: 'Новые', 
   progress: 'В работу', 
   done: 'Готовы', 
   cancelled: 'Отменено' 
@@ -344,12 +348,87 @@ const setOrderMode = (mode: string) => {
 </script>
 
 <style scoped>
-.order-hub-container { display: flex; flex-direction: column; min-height: 100vh; font-family: inherit; background-color: #121212; color: #fff; }
+/* Базовые стили контейнера и тем */
+.order-hub-container { display: flex; flex-direction: column; min-height: 100vh; font-family: inherit; background-color: #121212; color: #fff; transition: background-color 0.2s, color 0.2s; }
 .hub-header { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; gap: 16px; }
 .counter-badge { background: #262626; border: 1px solid #333; color: #a0aec0; display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
 .counter-badge.active { background: #2d2d2d; color: #fff; border-color: #555; }
+.count-num { font-weight: 600; padding: 1px 6px; border-radius: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,0.2); }
 .btn-action-top { background: #2d2d2d; border: 1px solid #3d3d3d; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
-.hub-main-workspace { background-color: #18181b; flex: 1; padding: 24px; }
+.hub-main-workspace { background-color: #18181b; flex: 1; padding: 24px; transition: background-color 0.2s; }
+
+/* Светлая тема */
+.order-hub-container.light-theme { background-color: #f8fafc; color: #1e293b; }
+.order-hub-container.light-theme .hub-header { background-color: #ffffff; border-bottom: 1px solid #e2e8f0; }
+.order-hub-container.light-theme .hub-main-workspace { background-color: #f1f5f9; }
+.order-hub-container.light-theme .counter-badge { background: #f1f5f9; border-color: #cbd5e1; color: #64748b; }
+.order-hub-container.light-theme .counter-badge.active { background: #e2e8f0; color: #0f172a; border-color: #94a3b8; }
+.order-hub-container.light-theme .count-num { color: #0f172a !important; background: rgba(0,0,0,0.08) !important; }
+.order-hub-container.light-theme .btn-action-top { background: #ffffff; border-color: #cbd5e1; color: #334155; }
+.order-hub-container.light-theme .no-orders-placeholder { color: #64748b; }
+
+/* Светлая тема для карточек заказов */
+.order-hub-container.light-theme .receipt-style { background: #ffffff; color: #1e293b; border-color: #cbd5e1; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.order-hub-container.light-theme .order-card-header { border-bottom-color: #e2e8f0; color: #0f172a; }
+.order-hub-container.light-theme .order-location-info { color: #475569; border-bottom-color: #e2e8f0; }
+.order-hub-container.light-theme .customer-info { color: #0f172a; }
+.order-hub-container.light-theme .time-subtext, 
+.order-hub-container.light-theme .email-subtext { color: #64748b; }
+.order-hub-container.light-theme .order-item-row { color: #334155; }
+.order-hub-container.light-theme .order-card-footer { border-top-color: #e2e8f0; }
+.order-hub-container.light-theme .order-total { color: #0f172a; }
+
+/* Модальное окно (Темная тема по умолчанию) */
+.modal-content.order-settings-modal { background: #1a1a1a; color: #f3f4f6; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; display: flex; flex-direction: column; border: 1px solid #2d2d2d; }
+.close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #9ca3af; }
+.mode-tabs { display: flex; background: #262626; padding: 4px; border-radius: 12px; margin-bottom: 20px; }
+.mode-tabs button { flex: 1; background: transparent; border: none; padding: 10px; font-size: 14px; color: #9ca3af; border-radius: 8px; cursor: pointer; }
+.mode-tabs button.active { background: #374151; color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.setting-block { background: #222225; border: 1px solid #2d2d2d; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+.setting-label-with-icon { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: #f3f4f6; }
+.order-top-text { font-size: 13px; color: #9ca3af; margin-bottom: 16px; line-height: 1.4; }
+.status-text { display: block; font-size: 12px; color: #9ca3af; margin-top: 6px; margin-bottom: 12px; }
+.range-label { display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af; margin-bottom: 6px; }
+.text-input { padding: 8px 12px; border: 1px solid #3f3f46; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; background: #27272a; color: #f3f4f6; }
+.input-with-unit { display: flex; align-items: center; border: 1px solid #3f3f46; border-radius: 8px; background: #27272a; overflow: hidden; }
+.input-with-unit span { padding: 0 8px; font-size: 12px; color: #a1a1aa; background: #323238; height: 100%; display: flex; align-items: center; }
+.work-day-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #2d2d2d; font-size: 13px; }
+.day-action-right { font-weight: 500; color: #9ca3af; }
+.notification-tabs { display: flex; background: #262626; padding: 3px; border-radius: 8px; gap: 4px; }
+.notification-tabs button { flex: 1; background: transparent; border: none; padding: 8px; font-size: 13px; color: #9ca3af; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.notification-tabs button.active { background: #374151; color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.phone-input-wrapper { display: flex; align-items: center; border: 1px solid #3f3f46; border-radius: 8px; overflow: hidden; background: #27272a; }
+.country-select { display: flex; align-items: center; gap: 4px; padding: 0 10px; background: #323238; border-right: 1px solid #3f3f46; font-size: 13px; color: #f3f4f6; }
+.notif-text-desc span { font-size: 13px; font-weight: 500; color: #f3f4f6; display: block; }
+.notif-text-desc p { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.input-group label { font-size: 12px; color: #9ca3af; font-weight: 500; }
+
+/* Модальное окно (Светлая тема) */
+.light-theme .modal-content.order-settings-modal { background: #ffffff; color: #1a202c; border-color: #e2e8f0; }
+.light-theme .close-btn { color: #718096; }
+.light-theme .mode-tabs { background: #edf2f7; }
+.light-theme .mode-tabs button { color: #4a5568; }
+.light-theme .mode-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.light-theme .setting-block { background: #fdfdfd; border-color: #edf2f7; }
+.light-theme .setting-label-with-icon { color: #2d3748; }
+.light-theme .order-top-text { color: #4a5568; }
+.light-theme .status-text { color: #718096; }
+.light-theme .range-label { color: #4a5568; }
+.light-theme .text-input { background: #fff; color: #1a202c; border-color: #cbd5e0; }
+.light-theme .input-with-unit { background: #fff; border-color: #cbd5e0; }
+.light-theme .input-with-unit span { background: #f7fafc; color: #718096; }
+.light-theme .work-day-row { border-bottom-color: #f7fafc; }
+.light-theme .day-action-right { color: #4a5568; }
+.light-theme .notification-tabs { background: #edf2f7; }
+.light-theme .notification-tabs button { color: #4a5568; }
+.light-theme .notification-tabs button.active { background: #fff; color: #1a202c; }
+.light-theme .phone-input-wrapper { background: #fff; border-color: #cbd5e0; }
+.light-theme .country-select { background: #f7fafc; border-right-color: #cbd5e0; }
+.light-theme .notif-text-desc span { color: #2d3748; }
+.light-theme .notif-text-desc p { color: #718096; }
+.light-theme .input-group label { color: #4a5568; }
+
+/* Общие стили карточек заказов */
 .receipt-style { background: #fff; color: #111; border-radius: 8px; padding: 16px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; border: 1px solid #e2e8f0; }
 .order-id-group { display: flex; align-items: center; gap: 10px; }
 .order-type-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
@@ -365,11 +444,10 @@ const setOrderMode = (mode: string) => {
 .order-card-footer { border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; padding-top: 12px; margin-top: 8px; }
 .order-item-row { color: #1f2937; display: flex; justify-content: space-between; }
 .order-total { color: #111827; font-weight: 700; font-size: 16px; }
-.count-num { font-weight: 600; padding: 1px 6px; border-radius: 10px; font-size: 11px; color: #fff; background: rgba(255,255,255,0.1); }
 
 .hub-counters { display: flex; gap: 10px; align-items: center; }
 .counter-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
-.counter-badge.open .dot { background-color: #f97316; }
+.counter-badge.new .dot { background-color: #f97316; }
 .counter-badge.progress .dot { background-color: #3b82f6; }
 .counter-badge.done .dot { background-color: #10b981; }
 .counter-badge.cancelled .dot { background-color: #ef4444; }
@@ -377,7 +455,7 @@ const setOrderMode = (mode: string) => {
 .refresh-btn { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
 .refresh-btn:hover { background: #1d4ed8 !important; }
 .refresh-btn.rotating { opacity: 0.7; }
-.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 200px; font-size: 14px; color: #71717a; }
+.no-orders-placeholder { display: flex; justify-content: center; align-items: center; height: 200px; font-size: 14px; }
 .orders-list { display: flex; flex-direction: column; gap: 16px; max-width: 750px; }
 .order-items-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 14px; }
 .order-actions-btns { display: flex; gap: 8px; }
@@ -386,16 +464,8 @@ const setOrderMode = (mode: string) => {
 .btn-restore-order { background: #6b7280; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.modal-content.order-settings-modal { background: #fff; color: #1a202c; width: 100%; max-width: 520px; max-height: 85vh; padding: 24px; border-radius: 16px; display: flex; flex-direction: column; }
 .activated-settings-scroll { overflow-y: auto; padding-right: 4px; max-height: 65vh; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #718096; }
-.mode-tabs { display: flex; background: #edf2f7; padding: 4px; border-radius: 12px; margin-bottom: 20px; }
-.mode-tabs button { flex: 1; background: transparent; border: none; padding: 10px; font-size: 14px; color: #4a5568; border-radius: 8px; cursor: pointer; }
-.mode-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.setting-block { background: #fdfdfd; border: 1px solid #edf2f7; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
-.setting-row-switch { display: flex; justify-content: space-between; align-items: center; }
-.setting-label-with-icon { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: #2d3748; }
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e0; transition: .3s; border-radius: 24px; }
@@ -403,34 +473,18 @@ const setOrderMode = (mode: string) => {
 input:checked + .slider { background-color: #10b981; }
 input:checked + .slider:before { transform: translateX(20px); }
 
-.order-top-text { font-size: 13px; color: #4a5568; margin-bottom: 16px; line-height: 1.4; }
-.status-text { display: block; font-size: 12px; color: #718096; margin-top: 6px; margin-bottom: 12px; }
 .range-group { margin-top: 12px; margin-bottom: 12px; }
-.range-label { display: flex; justify-content: space-between; font-size: 13px; color: #4a5568; margin-bottom: 6px; }
 .highlight-orange { color: #f97316; font-weight: 600; }
 .range-input { width: 100%; accent-color: #f97316; }
 .input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
-.input-group label { font-size: 12px; color: #4a5568; font-weight: 500; }
-.text-input { padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; background: #fff; color: #1a202c; }
 .row-inputs { display: flex; gap: 12px; }
 .row-inputs .input-group { flex: 1; }
 .row-inputs-three { display: flex; gap: 8px; }
 .row-inputs-three .input-group { flex: 1; }
-.input-with-unit { display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; overflow: hidden; }
-.input-with-unit input { border: none; border-radius: 0; }
-.input-with-unit span { padding: 0 8px; font-size: 12px; color: #718096; background: #f7fafc; height: 100%; display: flex; align-items: center; }
-.work-day-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f7fafc; font-size: 13px; }
+.input-with-unit input { border: none; border-radius: 0; background: transparent; color: inherit; width: 100%; padding: 8px; outline: none; }
 .day-switch-left { display: flex; align-items: center; gap: 10px; }
 .text-muted { color: #a0aec0; }
-.day-action-right { font-weight: 500; color: #4a5568; }
 .mb-12 { margin-bottom: 12px; }
 .mt-16 { margin-top: 16px; }
-.notification-tabs { display: flex; background: #edf2f7; padding: 3px; border-radius: 8px; gap: 4px; }
-.notification-tabs button { flex: 1; background: transparent; border: none; padding: 8px; font-size: 13px; color: #4a5568; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.notification-tabs button.active { background: #fff; color: #1a202c; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.phone-input-wrapper { display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden; background: #fff; }
-.country-select { display: flex; align-items: center; gap: 4px; padding: 0 10px; background: #f7fafc; border-right: 1px solid #cbd5e0; font-size: 13px; }
 .phone-input { border: none !important; border-radius: 0 !important; }
-.notif-text-desc span { font-size: 13px; font-weight: 500; color: #2d3748; display: block; }
-.notif-text-desc p { font-size: 11px; color: #718096; margin-top: 2px; }
 </style>

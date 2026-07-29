@@ -92,10 +92,12 @@ const workDays = ref([
 ]);
 
 export function useOrders() {
-  // Синхронизация между вкладками и компонентами через кастомное событие
   if (typeof window !== 'undefined') {
     window.removeEventListener('orders-local-updated', handleStorageUpdate as EventListener);
     window.addEventListener('orders-local-updated', handleStorageUpdate as EventListener);
+    
+    window.removeEventListener('storage', handleWindowStorage);
+    window.addEventListener('storage', handleWindowStorage);
   }
 
   function handleStorageUpdate() {
@@ -112,15 +114,24 @@ export function useOrders() {
     }
   }
 
-  // Счетчики для вкладок хаба
-  const stats = computed(() => ({
-    new: orders.value.filter(o => o.status === 'new').length,
-    progress: orders.value.filter(o => o.status === 'progress').length,
-    done: orders.value.filter(o => o.status === 'done').length,
-    cancelled: orders.value.filter(o => o.status === 'cancelled').length,
-  }));
+  function handleWindowStorage(event: StorageEvent) {
+    if (event.key === STORAGE_KEY || event.key === 'restaurant_orders') {
+      handleStorageUpdate();
+    }
+  }
 
-  // Расширенная функция добавления нового заказа (из корзины)
+  // Счетчики для вкладок хаба. Оба ключа ('open' и 'new') показывают одно и то же число для совместимости с админкой и конструктором
+  const stats = computed(() => {
+    const newOrOpenCount = orders.value.filter(o => o.status === 'new' || o.status === 'open').length;
+    return {
+      new: newOrOpenCount,
+      open: newOrOpenCount,
+      progress: orders.value.filter(o => o.status === 'progress').length,
+      done: orders.value.filter(o => o.status === 'done').length,
+      cancelled: orders.value.filter(o => o.status === 'cancelled').length,
+    };
+  });
+
   const addOrder = (orderData: {
     items: OrderItem[];
     total?: number;
@@ -141,7 +152,7 @@ export function useOrders() {
     const newOrder: Order = {
       id: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
       createdAt: orderData.createdAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'new',
+      status: 'new', // Сохраняем как 'new'
       items: orderData.items,
       total,
       type: orderData.type,
@@ -157,7 +168,6 @@ export function useOrders() {
     saveOrdersToStorage();
   };
 
-  // Изменение статуса заказа
   const updateOrderStatus = (id: string, status: Order['status']) => {
     const order = orders.value.find(o => o.id === id);
     if (order) {
@@ -166,22 +176,17 @@ export function useOrders() {
     }
   };
 
-  // Полная очистка истории заказов
   const clearOrders = () => {
     orders.value = [];
     saveOrdersToStorage();
   };
 
-  // Увеличение счетчика просмотров статистики
   const incrementViews = () => {
     totalViews.value += 1;
     localStorage.setItem('yumzi_views', String(totalViews.value));
   };
 
-  // Проверка, работает ли заведение прямо сейчас
-  const isRestaurantOpen = computed(() => {
-    return true; 
-  });
+  const isRestaurantOpen = computed(() => true);
 
   return {
     orders,
