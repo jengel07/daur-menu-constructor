@@ -91,7 +91,7 @@
               </div>
 
               <div class="receipt-footer">
-                <span class="receipt-total">Итого: RUB {{ order.total.toFixed(2) }}</span>
+                <span class="receipt-total">Итого: RUB {{ order.total?.toFixed(2) || '0.00' }}</span>
                 <div class="card-btn-group">
                   <button class="btn-action cancel" @click="updateOrderStatus(order.id, 'cancelled')">Отменить</button>
                   <button class="btn-action next" @click="updateOrderStatus(order.id, 'progress')">В работу ➔</button>

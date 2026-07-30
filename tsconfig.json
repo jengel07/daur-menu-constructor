@@ -23,8 +23,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Добавьте эту строчку внутрь compilerOptions */
-    "ignoreDeprecations": "6.0"
+    /* Настройки для поддержки алиаса @/ */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

@@ -37,9 +37,9 @@ const syncWithServer = async (updatedItems: MenuItem[]) => {
   localStorage.setItem('preview_items', JSON.stringify(updatedItems));
   localStorage.setItem('preview_categories', JSON.stringify(props.categories));
 
-  // Отправляем на ваш Node.js сервер, чтобы телефон отображал те же данные
+  // Отправляем на ваш Node.js сервер
   try {
-    await axios.post('http://192.168.31.240:3000/api/preview-menu', dataToSave);
+    await axios.post('http://192.168.31.240:3000/api/menu', dataToSave);
   } catch (e) {
     console.error('Ошибка сохранения на сервер', e);
   }
@@ -118,7 +118,8 @@ const openEditModal = (item?: MenuItem) => {
   if (item) {
     editingItem.value = { ...item };
   } else {
-    const firstCat = props.categories[0];
+    // Берем первую категорию безопасным образом
+    const firstCat = props.categories && props.categories.length > 0 ? props.categories[0] : null;
     editingItem.value = {
       id: 'item-' + Date.now(),
       name: '',

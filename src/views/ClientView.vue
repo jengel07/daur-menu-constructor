@@ -107,7 +107,7 @@
           @clear-filters="selectedFilters = []"
         />
 
-        <!-- Модальное окно: Шаг 1 (Ввод данных) и Шаг 2 (Проверка заказа) -->
+        <!-- Модальное окно: Шаг 1 и Шаг 2 -->
         <div v-if="showCheckoutModal" class="checkout-modal-overlay" @click.self="closeModal">
           <div class="checkout-modal">
             
@@ -119,8 +119,6 @@
               </div>
               
               <form @submit.prevent="goToReviewStep" class="checkout-form">
-                
-                <!-- Тип заказа -->
                 <div class="form-group">
                   <label>Тип заказа</label>
                   <select v-model="customerForm.orderType">
@@ -130,7 +128,6 @@
                   </select>
                 </div>
 
-                <!-- Имя -->
                 <div class="form-group">
                   <label>Имя {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
                   <input 
@@ -141,7 +138,6 @@
                   />
                 </div>
 
-                <!-- Телефон -->
                 <div class="form-group">
                   <label>Телефон {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
                   <input 
@@ -152,19 +148,16 @@
                   />
                 </div>
 
-                <!-- Номер столика -->
                 <div v-if="customerForm.orderType === 'dine_in'" class="form-group">
                   <label>Номер столика</label>
                   <input v-model="customerForm.tableNumber" type="text" placeholder="Например: 5" required />
                 </div>
 
-                <!-- Адрес доставки -->
                 <div v-if="customerForm.orderType === 'delivery'" class="form-group">
                   <label>Адрес доставки</label>
                   <input v-model="customerForm.address" type="text" placeholder="Улица, дом, квартира" required />
                 </div>
 
-                <!-- Время самовывоза -->
                 <div v-if="customerForm.orderType === 'takeaway'" class="time-picker-block">
                   <label class="block-title">Когда приготовить?</label>
                   <div class="time-inputs-row">
@@ -174,7 +167,6 @@
                   <span class="hint-text">Нам нужно около 15–20 минут на приготовление</span>
                 </div>
 
-                <!-- Время доставки -->
                 <div v-if="customerForm.orderType === 'delivery'" class="time-picker-block">
                   <label class="block-title">Когда доставить?</label>
                   <div class="time-inputs-row">
@@ -183,7 +175,6 @@
                   </div>
                 </div>
 
-                <!-- Примечание -->
                 <div class="form-group">
                   <label>Примечание (необязательно)</label>
                   <textarea v-model="customerForm.comment" placeholder="Напр., соусы отдельно? всё в один пакет?"></textarea>
@@ -204,7 +195,7 @@
               </form>
             </template>
 
-            <!-- ШАГ 2: Проверка заказа (Экран подтверждения) -->
+            <!-- ШАГ 2: Проверка заказа -->
             <template v-else-if="checkoutStep === 2">
               <div class="checkout-header">
                 <button class="back-btn" @click="checkoutStep = 1">〈</button>
@@ -213,8 +204,6 @@
               </div>
 
               <div class="review-screen-content">
-                
-                <!-- Состав заказа / Итоги -->
                 <div class="review-card-block">
                   <div class="review-card-title">Итого заказа</div>
                   <div class="review-items-list">
@@ -238,7 +227,6 @@
                   </div>
                 </div>
 
-                <!-- Ваши данные -->
                 <div class="review-card-block">
                   <div class="review-card-title">Ваши данные</div>
                   <div class="data-row" v-if="customerForm.name">
@@ -278,7 +266,6 @@
                   </div>
                 </div>
 
-                <!-- Время самовывоза или доставки -->
                 <div class="review-card-block">
                   <div class="review-card-title">
                     {{ customerForm.orderType === 'takeaway' ? 'Время самовывоза' : (customerForm.orderType === 'delivery' ? 'Время доставки' : 'Время визита') }}
@@ -289,44 +276,28 @@
                   <div class="hint-text" style="margin-top: 4px;">Пожалуйста, приходите вовремя</div>
                 </div>
 
-<!-- 🗺️ БЛОК ЯНДЕКС КАРТЫ ДЛЯ САМОВЫВОЗА -->
-<div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
-  <div class="review-card-title">Как добраться (Самовывоз)</div>
-  <div class="map-container">
-  <div style="position:relative;overflow:hidden;border-radius:8px;">
-    <a href="https://yandex.com/maps/org/jazzve/43328610653/?utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:0px;display:none;">Jazzve</a>
-    <a href="https://yandex.com/maps/10281/suhum/category/cafe/184106390/?utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:14px;display:none;">Кафе в Сухуме</a>
-    <iframe src="https://yandex.ru/map-widget/v1/?ll=41.024008%2C43.001192&mode=poi&poi%5Bpoint%5D=41.023803%2C43.001167&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D43328610653&z=19.47" width="100%" height="140" frameborder="0" allowfullscreen="true" style="position:relative;"></iframe>
-  </div>
-</div>
-
-  <!-- Кнопка со ссылкой на карты -->
-  <a 
-    href="https://yandex.com/maps/-/CTrKi8~b" 
-    target="_blank" 
-    rel="noopener noreferrer" 
-    class="yandex-map-btn"
-  >
-    Открыть в Яндекс Картах
-  </a>
-</div>
+                <div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
+                  <div class="review-card-title">Как добраться (Самовывоз)</div>
+                  <div class="map-container">
+                    <div style="position:relative;overflow:hidden;border-radius:8px;">
+                      <iframe src="https://yandex.ru/map-widget/v1/?ll=41.024008%2C43.001192&mode=poi&poi%5Bpoint%5D=41.023803%2C43.001167&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D43328610653&z=19.47" width="100%" height="140" frameborder="0" allowfullscreen="true" style="position:relative;"></iframe>
+                    </div>
+                  </div>
+                  <a href="https://yandex.com/maps/-/CTrKi8~b" target="_blank" rel="noopener noreferrer" class="yandex-map-btn">
+                    Открыть в Яндекс Картах
+                  </a>
+                </div>
 
                 <div class="legal-notice">
                   Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.
                 </div>
 
-                <!-- Кнопки управления шага 2 -->
                 <div class="review-actions-row">
                   <button class="btn-secondary-action" @click="checkoutStep = 1">Назад</button>
-                  <button 
-                    class="btn-primary-action" 
-                    @click="confirmOrder"
-                    :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }"
-                  >
+                  <button class="btn-primary-action" @click="confirmOrder" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }">
                     Разместить заказ
                   </button>
                 </div>
-
               </div>
             </template>
 
@@ -349,6 +320,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import axios from 'axios';
 import { useMenuStore } from '../store/menuStore';
 import { useOrders } from '../composables/useOrders';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
@@ -375,13 +347,11 @@ const selectedFilters = ref<string[]>([]);
 
 const cartItems = ref<any[]>([]);
 
-// Функция получения текущей даты YYYY-MM-DD
 const getTodayDateStr = () => {
   const d = new Date();
   return d.toISOString().split('T')[0];
 };
 
-// Функция получения текущего времени HH:MM
 const getCurrentTimeStr = () => {
   const d = new Date();
   const hours = String(d.getHours()).padStart(2, '0');
@@ -389,7 +359,6 @@ const getCurrentTimeStr = () => {
   return `${hours}:${minutes}`;
 };
 
-// Состояние модалки оформления и шагов (1 - ввод данных, 2 - проверка заказа)
 const showCheckoutModal = ref(false);
 const checkoutStep = ref<1 | 2>(1);
 
@@ -403,8 +372,6 @@ const customerForm = ref({
   scheduledTime: getCurrentTimeStr(),
   scheduledDate: getTodayDateStr()
 });
-
-
 
 const translations: Record<string, Record<string, string>> = {
   ru: {
@@ -451,7 +418,25 @@ const getLocalizedCategoryName = (cat: any) => {
   return cat.name || '';
 };
 
-const loadData = () => {
+// Загрузка данных с сервера бэкенда с сохранением полей обложки и аватара
+const loadData = async () => {
+  try {
+    const response = await axios.get('http://192.168.31.240:3000/api/menu');
+    if (response.data) {
+      if (response.data.restaurantInfo) {
+        restaurantInfo.value = {
+          ...restaurantInfo.value,
+          ...response.data.restaurantInfo
+        };
+      }
+      if (response.data.items) items.value = response.data.items;
+      if (response.data.categories) categories.value = response.data.categories;
+      return;
+    }
+  } catch (e) {
+    // Запасной вариант на случай отсутствия связи с сервером (localStorage)
+  }
+
   const savedInfo = localStorage.getItem('preview_restaurantInfo');
   const savedItems = localStorage.getItem('preview_items');
   const savedCategories = localStorage.getItem('preview_categories');
@@ -481,7 +466,7 @@ const handleStorageEvent = (event: StorageEvent) => {
 onMounted(() => {
   loadData();
   window.addEventListener('storage', handleStorageEvent);
-  const interval = setInterval(loadData, 500);
+  const interval = setInterval(loadData, 2000);
   (window as any).__previewInterval = interval;
 });
 
@@ -569,7 +554,6 @@ const totalPrice = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 });
 
-// Открытие модалки оформления (начинаем с Шага 1)
 const startCheckout = () => {
   if (cartItems.value.length === 0) return;
   activeModal.value = 'none';
@@ -577,7 +561,6 @@ const startCheckout = () => {
   showCheckoutModal.value = true;
 };
 
-// Переход к Шагу 2 (Проверка заказа)
 const goToReviewStep = () => {
   checkoutStep.value = 2;
 };
@@ -587,7 +570,6 @@ const closeModal = () => {
   checkoutStep.value = 1;
 };
 
-// Окончательная отправка заказа
 const confirmOrder = () => {
   const preparedItems = cartItems.value.map(item => ({
     id: item.id,
@@ -596,19 +578,19 @@ const confirmOrder = () => {
     quantity: item.quantity
   }));
 
-addOrder({
-  items: preparedItems,
-  total: totalPrice.value,
-  type: customerForm.value.orderType === 'dine_in' 
-    ? 'onsite' 
-    : (customerForm.value.orderType === 'takeaway' ? 'pickup' : 'delivery'),
-  customerName: customerForm.value.name,
-  customerPhone: customerForm.value.phone,
-  tableNumber: customerForm.value.tableNumber,
-  address: customerForm.value.address,
-  comment: customerForm.value.comment,
-  scheduledTime: customerForm.value.scheduledTime
-});
+  addOrder({
+    items: preparedItems,
+    total: totalPrice.value,
+    type: customerForm.value.orderType === 'dine_in' 
+      ? 'onsite' 
+      : (customerForm.value.orderType === 'takeaway' ? 'pickup' : 'delivery'),
+    customerName: customerForm.value.name,
+    customerPhone: customerForm.value.phone,
+    tableNumber: customerForm.value.tableNumber,
+    address: customerForm.value.address,
+    comment: customerForm.value.comment,
+    scheduledTime: customerForm.value.scheduledTime
+  });
 
   cartItems.value = [];
   closeModal();
@@ -641,607 +623,83 @@ const goToConstructor = () => {
 </script>
 
 <style scoped>
-.client-wrapper {
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  box-sizing: border-box;
-  position: relative;
-}
-
-.close-preview-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  z-index: 1000;
-  transition: background 0.2s ease, transform 0.1s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
+.client-wrapper { width: 100vw; height: 100vh; height: 100dvh; display: flex; justify-content: center; align-items: center; overflow: hidden; box-sizing: border-box; position: relative; }
+.close-preview-btn { position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.7); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; z-index: 1000; transition: background 0.2s ease, transform 0.1s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
 .close-preview-btn:hover { background: rgba(0, 0, 0, 0.9); }
 .close-preview-btn:active { transform: scale(0.95); }
-
-@media (max-width: 600px) {
-  .close-preview-btn { display: none; }
-}
-
-.phone-mockup {
-  width: 330px;
-  max-width: 100vw;
-  height: 90vh;
-  max-height: 750px;
-  background: #000;
-  border: 10px solid #2a2a2a;
-  border-radius: 36px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.35);
-  box-sizing: border-box;
-}
-
-@media (max-width: 600px) {
-  .phone-mockup {
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    max-height: none;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-  }
-}
-
-.phone-screen {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.phone-header {
-  height: 110px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  color: white;
-  text-align: center;
-}
-
-.phone-body {
-  flex: 1;
-  padding: 10px;
-  overflow-y: auto;
-  padding-bottom: 95px;
-}
-
-.phone-avatar-wrapper {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: #333;
-  overflow: hidden;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.phone-logo {
-  font-weight: bold;
-  font-size: 13px;
-  text-shadow: 0 0 4px rgba(0,0,0,0.5);
-}
-
-.phone-categories {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-}
+@media (max-width: 600px) { .close-preview-btn { display: none; } }
+.phone-mockup { width: 330px; max-width: 100vw; height: 90vh; max-height: 750px; background: #000; border: 10px solid #2a2a2a; border-radius: 36px; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 15px 40px rgba(0,0,0,0.35); box-sizing: border-box; }
+@media (max-width: 600px) { .phone-mockup { width: 100vw; height: 100vh; height: 100dvh; max-height: none; border: none; border-radius: 0; box-shadow: none; } }
+.phone-screen { display: flex; flex-direction: column; height: 100%; position: relative; overflow: hidden; }
+.phone-header { height: 110px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; color: white; text-align: center; }
+.phone-body { flex: 1; padding: 10px; overflow-y: auto; padding-bottom: 95px; }
+.phone-avatar-wrapper { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #fff; background: #333; overflow: hidden; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; }
+.phone-logo { font-weight: bold; font-size: 13px; text-shadow: 0 0 4px rgba(0,0,0,0.5); }
+.phone-categories { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .phone-categories::-webkit-scrollbar { display: none; }
-
-.phone-cat-badge { 
-  padding: 5px 10px; 
-  border-radius: 14px; 
-  font-size: 10px; 
-  font-weight: 600; 
-  white-space: nowrap; 
-  border: none; 
-  cursor: pointer; 
-  transition: all 0.2s ease; 
-  color: #111;
-  background: rgba(255, 255, 255, 0.8);
-}
-
+.phone-cat-badge { padding: 5px 10px; border-radius: 14px; font-size: 10px; font-weight: 600; white-space: nowrap; border: none; cursor: pointer; transition: all 0.2s ease; color: #111; background: rgba(255, 255, 255, 0.8); }
 .phone-cat-badge.active { color: #ffffff; }
-
-.menu-items-grid-phone {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
-  gap: 8px !important;
-}
-
-.menu-card {
-  background: #ffffff;
-  color: #111111;
-  border-radius: 14px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  padding: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.menu-card img {
-  width: 100%;
-  height: 90px;
-  object-fit: cover;
-  border-radius: 10px;
-}
-
-.card-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
-  padding: 4px 2px;
-}
-
-.card-text-block h3 {
-  margin: 4px 0 2px 0;
-  font-size: 11px;
-  font-weight: bold;
-  color: #111111;
-  line-height: 1.2;
-}
-
-.card-text-block p {
-  font-size: 9px;
-  color: #666;
-  margin: 0 0 6px 0;
-}
-
-.card-bottom-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  margin-top: auto;
-}
-
-.price {
-  font-weight: bold;
-  font-size: 11px;
-}
-
-.add-to-cart-btn {
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 0;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-  transition: opacity 0.2s;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
+.menu-items-grid-phone { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+.menu-card { background: #ffffff; color: #111111; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; border: none; padding: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+.menu-card img { width: 100%; height: 90px; object-fit: cover; border-radius: 10px; }
+.card-content { display: flex; flex-direction: column; justify-content: space-between; flex: 1; padding: 4px 2px; }
+.card-text-block h3 { margin: 4px 0 2px 0; font-size: 11px; font-weight: bold; color: #111111; line-height: 1.2; }
+.card-text-block p { font-size: 9px; color: #666; margin: 0 0 6px 0; }
+.card-bottom-row { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: auto; }
+.price { font-weight: bold; font-size: 11px; }
+.add-to-cart-btn { color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 11px; font-weight: bold; cursor: pointer; width: 100%; text-align: center; transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 .add-to-cart-btn:active { opacity: 0.8; }
-
-.counter-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #ffffff;
-  border: 1.5px solid;
-  border-radius: 8px;
-  padding: 6px 12px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.counter-btn {
-  background: transparent;
-  border: none;
-  font-size: 13px;
-  font-weight: bold;
-  cursor: pointer;
-  color: #111;
-  padding: 0 4px;
-}
-
-.counter-value {
-  font-size: 12px;
-  font-weight: bold;
-  color: #111;
-}
-
-.menu-items-list-phone {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.menu-list-row {
-  background: #ffffff;
-  color: #111111;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.menu-list-row .card-content {
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 0;
-}
-
-.menu-list-row .card-text-block {
-  flex: 1;
-  padding-right: 12px;
-}
-
-.menu-list-row .card-bottom-row {
-  flex-direction: column;
-  align-items: flex-end;
-  width: 115px;
-  gap: 4px;
-}
-
-.menu-list-row .price {
-  font-size: 12px;
-  margin-bottom: 2px;
-}
-
-.menu-list-row .add-to-cart-btn {
-  padding: 6px 0;
-  font-size: 10px;
-}
-
-.menu-list-row .counter-controls {
-  padding: 4px 8px;
-}
-
-.floating-cart-bar {
-  position: absolute;
-  bottom: calc(12px + 45px + 4px);
-  left: 12px;
-  right: 12px;
-  color: white;
-  border-radius: 24px;
-  padding: 10px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-  z-index: 20;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-  box-sizing: border-box;
-}
-
-.empty-search-notice {
-  text-align: center;
-  font-size: 10px;
-  margin-top: 25px;
-  color: #888;
-}
-
-/* Стили модалки */
-.checkout-modal-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 100;
-  display: flex;
-  align-items: flex-end;
-}
-
-.checkout-modal {
-  background: #f4f5f7;
-  color: #111;
-  width: 100%;
-  max-height: 92%;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 16px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.checkout-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.checkout-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.close-modal-btn, .back-btn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  color: #666;
-  padding: 0;
-}
-
-.checkout-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-}
-
-.form-group label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #555;
-}
-
-.form-group input, 
-.form-group select, 
-.form-group textarea {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 11px;
-  outline: none;
-  box-sizing: border-box;
-  background: #fff;
-}
-
-.form-group textarea {
-  resize: none;
-  height: 45px;
-}
-
-/* Выбор времени */
-.time-picker-block {
-  background: #ffffff;
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid #eee;
-}
-
-.block-title {
-  font-size: 11px;
-  font-weight: bold;
-  color: #333;
-}
-
-.time-inputs-row {
-  display: flex;
-  gap: 8px;
-}
-
-.time-input, .date-input {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 11px;
-  background: #fff;
-  outline: none;
-}
-
-.hint-text {
-  font-size: 9px;
-  color: #777;
-}
-
-.checkout-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px dashed #ddd;
-  font-size: 12px;
-}
-
-.submit-order-btn {
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 4px;
-}
-
-/* Стили для Шага 2 (Проверка заказа) */
-.review-screen-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.review-card-block {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  text-align: left;
-}
-
-.review-card-title {
-  font-size: 12px;
-  font-weight: bold;
-  color: #111;
-  margin-bottom: 8px;
-}
-
-.review-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.review-item-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #333;
-  gap: 10px;
-}
-
+.counter-controls { display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1.5px solid; border-radius: 8px; padding: 6px 12px; width: 100%; box-sizing: border-box; }
+.counter-btn { background: transparent; border: none; font-size: 13px; font-weight: bold; cursor: pointer; color: #111; padding: 0 4px; }
+.counter-value { font-size: 12px; font-weight: bold; color: #111; }
+.menu-items-list-phone { display: flex; flex-direction: column; gap: 6px; }
+.menu-list-row { background: #ffffff; color: #111111; border: none; border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+.menu-list-row .card-content { flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 0; }
+.menu-list-row .card-text-block { flex: 1; padding-right: 12px; }
+.menu-list-row .card-bottom-row { flex-direction: column; align-items: flex-end; width: 115px; gap: 4px; }
+.menu-list-row .price { font-size: 12px; margin-bottom: 2px; }
+.menu-list-row .add-to-cart-btn { padding: 6px 0; font-size: 10px; }
+.menu-list-row .counter-controls { padding: 4px 8px; }
+.floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
+.empty-search-notice { text-align: center; font-size: 10px; margin-top: 25px; color: #888; }
+.checkout-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: flex-end; }
+.checkout-modal { background: #f4f5f7; color: #111; width: 100%; max-height: 92%; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; overflow-y: auto; animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.checkout-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.checkout-header h3 { margin: 0; font-size: 14px; font-weight: bold; }
+.close-modal-btn, .back-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: #666; padding: 0; }
+.checkout-form { display: flex; flex-direction: column; gap: 10px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.form-group label { font-size: 10px; font-weight: 600; color: #555; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 11px; outline: none; box-sizing: border-box; background: #fff; }
+.form-group textarea { resize: none; height: 45px; }
+.time-picker-block { background: #ffffff; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; border: 1px solid #eee; }
+.block-title { font-size: 11px; font-weight: bold; color: #333; }
+.time-inputs-row { display: flex; gap: 8px; }
+.time-input, .date-input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; background: #fff; outline: none; }
+.hint-text { font-size: 9px; color: #777; }
+.checkout-summary { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed #ddd; font-size: 12px; }
+.submit-order-btn { color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 4px; }
+.review-screen-content { display: flex; flex-direction: column; gap: 10px; }
+.review-card-block { background: #ffffff; border-radius: 12px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); text-align: left; }
+.review-card-title { font-size: 12px; font-weight: bold; color: #111; margin-bottom: 8px; }
+.review-items-list { display: flex; flex-direction: column; gap: 8px; }
+.review-item-row { display: flex; justify-content: space-between; font-size: 11px; color: #333; gap: 10px; }
 .r-name { flex: 1; line-height: 1.3; }
 .r-price { white-space: nowrap; font-weight: 500; }
-
-.review-totals-divider {
-  height: 1px;
-  background: #eee;
-  margin: 8px 0;
-}
-
-.review-total-line {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.review-total-line.main-total {
-  font-size: 13px;
-  font-weight: bold;
-  color: #111;
-  margin-top: 6px;
-  margin-bottom: 0;
-}
-
-.data-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 11px;
-}
-
+.review-totals-divider { height: 1px; background: #eee; margin: 8px 0; }
+.review-total-line { display: flex; justify-content: space-between; font-size: 11px; color: #666; margin-bottom: 4px; }
+.review-total-line.main-total { font-size: 13px; font-weight: bold; color: #111; margin-top: 6px; margin-bottom: 0; }
+.data-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 11px; }
 .data-row:last-child { margin-bottom: 0; }
 .data-row .icon { font-size: 13px; margin-top: 1px; }
 .label-muted { font-size: 9px; color: #888; }
 .val { font-weight: 500; color: #222; }
-
-.time-badge-box {
-  background: #f1f3f5;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #333;
-}
-
-.map-container {
-  margin-bottom: 8px;
-  overflow: hidden;
-  border-radius: 8px;
-}
-
-.yandex-map-btn {
-  display: block;
-  text-align: center;
-  background: #fc3f1d;
-  color: #fff;
-  padding: 8px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: bold;
-  text-decoration: none;
-}
-
-.legal-notice {
-  font-size: 9px;
-  color: #888;
-  text-align: center;
-  line-height: 1.2;
-  padding: 0 10px;
-}
-
-.review-actions-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.btn-secondary-action {
-  flex: 1;
-  background: #e2e8f0;
-  color: #333;
-  border: none;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.btn-primary-action {
-  flex: 2;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-}
+.time-badge-box { background: #f1f3f5; padding: 8px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; color: #333; }
+.map-container { margin-bottom: 8px; overflow: hidden; border-radius: 8px; }
+.yandex-map-btn { display: block; text-align: center; background: #fc3f1d; color: #fff; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: bold; text-decoration: none; }
+.legal-notice { font-size: 9px; color: #888; text-align: center; line-height: 1.2; padding: 0 10px; }
+.review-actions-row { display: flex; gap: 8px; margin-top: 4px; }
+.btn-secondary-action { flex: 1; background: #e2e8f0; color: #333; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
+.btn-primary-action { flex: 2; color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
 </style>

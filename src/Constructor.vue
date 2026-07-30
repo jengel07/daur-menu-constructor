@@ -4,6 +4,7 @@ const router = useRouter();
 import { useOrders } from './composables/useOrders';
 import { ref, watch, onMounted } from 'vue';
 import { useMenuStore } from './store/menuStore';
+import axios from 'axios';
 import MenuImport from './components/MenuImport.vue';
 import MenuEditor from './components/MenuEditor.vue';
 import BrandingEditor from './components/BrandingEditor.vue';
@@ -44,10 +45,24 @@ const toggleTheme = () => {
 
 const hasImported = ref(menuStore.items.length > 0 || menuStore.categories.length > 0);
 
+// Функция отправки актуальных данных на бэкенд (для страницы предпросмотра)
+const saveMenuConfig = async () => {
+  try {
+    await axios.post('http://192.168.31.240:3000/api/menu', {
+      restaurantInfo: menuStore.restaurantInfo,
+      items: menuStore.items,
+      categories: menuStore.categories
+    });
+    console.log('✅ Настройки успешно сохранены в бэкенд!');
+  } catch (error) {
+    console.error('❌ Ошибка сохранения на бэкенд:', error);
+  }
+};
+
 // Функция синхронизации данных с ключом, который читает таблица данных (/menu-data)
 const syncToTableStorage = () => {
   // Превращаем плоский список items и категории в структуру, удобную для таблицы
- const formattedData = menuStore.categories.map((cat: MenuCategory) => {
+  const formattedData = menuStore.categories.map((cat: MenuCategory) => {
     return {
       id: cat.id || 'cat-' + Math.random(),
       name: cat.name,
@@ -89,15 +104,17 @@ const syncToTableStorage = () => {
     }));
     
     localStorage.setItem('constructor_menu_data', JSON.stringify(fallbackData));
+    saveMenuConfig();
     return;
   }
 
   localStorage.setItem('constructor_menu_data', JSON.stringify(formattedData));
+  saveMenuConfig();
 };
 
-// Следим за состоянием элементов и категорий, чтобы автоматически обновлять localStorage для таблицы
-watch([() => menuStore.items, () => menuStore.categories], ([newItems, newCats]) => {
-  if (newItems.length > 0 || newCats.length > 0) {
+// Следим за изменениями в сторе (блюда, категории, настройки ресторана) для автоматической отправки
+watch([() => menuStore.items, () => menuStore.categories, () => menuStore.restaurantInfo], () => {
+  if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
     hasImported.value = true;
     syncToTableStorage();
   }
@@ -132,6 +149,7 @@ const resetImport = () => {
 
 const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
   menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...newData };
+  syncToTableStorage();
 };
 </script>
 

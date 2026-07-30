@@ -36,10 +36,11 @@ export interface RestaurantInfo {
   qrCodeUrl?: string;
   wifiName?: string;
   wifiPassword?: string;
-  qrSettings?: QrSettings; // Поле для настроек QR-кода
+  qrSettings?: QrSettings;
   coverImage?: string;
   avatarImage?: string;
-  isDarkMode?: boolean;     // Добавьте это поле для ColorEditor
+  showCoverGradient?: boolean; // Добавлено поле для управления градиентом обложки
+  isDarkMode?: boolean;
   isWifiEnabled?: boolean;
 }
 
@@ -71,11 +72,11 @@ export interface Order {
   note?: string;
   
   // Дополнительные поля клиента
-  tableNumber?: string | number; // Для типа 'onsite'
-  customerName?: string;         // Для типа 'pickup' / 'delivery'
-  customerPhone?: string;        // Для типа 'pickup' / 'delivery'
-  customerEmail?: string;        // Для типа 'pickup' / 'delivery'
-  pickupTimeMin?: number;        // Время самовывоза (в минутах)
-  deliveryAddress?: string;      // Для типа 'delivery'
-  deliveryTime?: string;         // Желаемое время доставки
+  tableNumber?: string | number;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  pickupTimeMin?: number;
+  deliveryAddress?: string;
+  deliveryTime?: string;
 }
