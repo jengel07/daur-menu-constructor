@@ -42,6 +42,7 @@ export interface RestaurantInfo {
   showCoverGradient?: boolean; 
   isDarkMode?: boolean;
   isWifiEnabled?: boolean;
+  
 }
 
 export interface MenuState {

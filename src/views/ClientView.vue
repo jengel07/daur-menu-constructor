@@ -114,7 +114,10 @@
             </div>
           </div>
         </div>
-
+<!-- 4. ПЕРЕДАЧА ДАННЫХ И СОСТОЯНИЙ ЧЕРЕЗ PROPS В ДОЧЕРНИЙ КОМПОНЕНТ -->
+<!-- Дочерний компонент SettingsbarForClient получает реактивные реактивные данные 
+     (цвета, корзину, режим отображения) через входные параметры (props), 
+     а также поддерживает двустороннее связывание через v-model:searchQuery -->
         <!-- Подключаемый компонент панели управления -->
         <SettingsbarForClient
           :active-modal="activeModal"
@@ -391,15 +394,22 @@ const translations: Record<string, Record<string, string>> = {
     password: 'Password'
   }
 };
-
+// 1. ПОДПИСКА НА PINIA-STORE И СОЗДАНИЕ ЛОКАЛЬНЫХ СВОЙСТВ
+// Здесь мы подписываемся на глобальное состояние Pinia (`useMenuStore`).
 const store = useMenuStore();
 const isWifiExpanded = ref(false);
 const { addOrder } = useOrders();
 
+// Через `computed` мы проксируем данные из стора.
+// Как только в Pinia меняется `restaurantInfo`, `items` или `categories`, 
+// эти вычисляемые свойства автоматически обновляются и триггерят перерендер интерфейса.
 const restaurantInfo = computed(() => store.restaurantInfo);
 const items = computed(() => store.items);
 const categories = computed(() => store.categories);
 
+// 2. ЛОКАЛЬНАЯ РЕАКТИВНОСТЬ ДЛЯ ФИЛЬТРАЦИИ И СОСТОЯНИЙ ЭКРАНА
+// Для локального состояния компонента (выбранная категория, поисковый запрос, фильтры)
+// используются реактивные обертки `ref()`.
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
 const viewMode = ref<'grid' | 'list'>('list');
@@ -510,6 +520,9 @@ onUnmounted(() => {
   }
 });
 
+// 3. ВЫЧИСЛЯЕМОЕ СВОЙСТВО (COMPUTED) ДЛЯ ФИЛЬТРАЦИИ СПИСКА
+// `filteredItems` автоматически пересчитывается при изменении исходных `items` из стора,
+// а также при изменении локальных `ref`-переменных (`selectedCategory`, `searchQuery`, `selectedFilters`).
 const filteredItems = computed(() => {
   let result = items.value;
 

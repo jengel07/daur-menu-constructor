@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
+import type { RestaurantInfo, MenuCategory, MenuItem } from '../types/menu';
 
 export const useMenuStore = defineStore('menu', () => {
-  const restaurantInfo = ref({
+  const restaurantInfo = ref<RestaurantInfo>({
     name: 'Ресторан',
     primaryColor: '#646cff',
     secondaryColor: '#333',
@@ -13,8 +14,10 @@ export const useMenuStore = defineStore('menu', () => {
     wifiPassword: ''
   });
 
-  const categories = ref<any[]>([]);
-  const items = ref<any[]>([]);
+  const categories = ref<MenuCategory[]>([]);
+const items = ref<MenuItem[]>([]);
+
+  
 
   // Используем ref для generalSettings, чтобы избежать проблем с мутациями reactive
   const generalSettings = ref({
