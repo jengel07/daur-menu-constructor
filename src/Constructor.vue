@@ -29,7 +29,7 @@ import {
   RotateCcw 
 } from 'lucide-vue-next';
 
-// Инициализация заказов (если потребуется в будущем)
+// Инициализация заказов
 const { } = useOrders();
 
 const menuStore = useMenuStore();
@@ -45,7 +45,33 @@ const toggleTheme = () => {
 
 const hasImported = ref(menuStore.items.length > 0 || menuStore.categories.length > 0);
 
-// Функция отправки актуальных данных на бэкенд (для страницы предпросмотра)
+// --- Загрузка данных из базы данных SQLite при открытии конструктора ---
+const loadMenuFromDatabase = async () => {
+  try {
+    const response = await axios.get('http://192.168.31.240:3000/api/menu');
+    
+    if (response.data) {
+      if (response.data.restaurantInfo) {
+        menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...response.data.restaurantInfo };
+      }
+      if (response.data.categories && response.data.categories.length > 0) {
+        menuStore.updateCategories(response.data.categories);
+      }
+      if (response.data.items && response.data.items.length > 0) {
+        menuStore.updateItems(response.data.items);
+      }
+      
+      if ((response.data.items && response.data.items.length > 0) || (response.data.categories && response.data.categories.length > 0)) {
+        hasImported.value = true;
+      }
+    }
+    console.log('✅ Данные успешно загружены из базы данных!');
+  } catch (error) {
+    console.error('❌ Ошибка при загрузке из БД:', error);
+  }
+};
+
+// Функция отправки актуальных данных на бэкенд
 const saveMenuConfig = async () => {
   try {
     await axios.post('http://192.168.31.240:3000/api/menu', {
@@ -61,7 +87,6 @@ const saveMenuConfig = async () => {
 
 // Функция синхронизации данных с ключом, который читает таблица данных (/menu-data)
 const syncToTableStorage = () => {
-  // Превращаем плоский список items и категории в структуру, удобную для таблицы
   const formattedData = menuStore.categories.map((cat: MenuCategory) => {
     return {
       id: cat.id || 'cat-' + Math.random(),
@@ -80,7 +105,6 @@ const syncToTableStorage = () => {
     };
   });
 
-  // Если категории в сторе не привязаны напрямую через ID, но блюда содержат категории, сгруппируем их:
   if (formattedData.length === 0 && menuStore.items.length > 0) {
     const grouped: Record<string, any[]> = {};
     menuStore.items.forEach((item: any) => {
@@ -112,7 +136,7 @@ const syncToTableStorage = () => {
   saveMenuConfig();
 };
 
-// Следим за изменениями в сторе (блюда, категории, настройки ресторана) для автоматической отправки
+// Следим за изменениями в сторе для автоматической отправки
 watch([() => menuStore.items, () => menuStore.categories, () => menuStore.restaurantInfo], () => {
   if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
     hasImported.value = true;
@@ -120,11 +144,14 @@ watch([() => menuStore.items, () => menuStore.categories, () => menuStore.restau
   }
 }, { deep: true });
 
-onMounted(() => {
+onMounted(async () => {
   const savedTheme = localStorage.getItem('constructorTheme');
   if (savedTheme === 'light') {
     isLightTheme.value = true;
   }
+
+  // Сначала пробуем подгрузить свежие данные из базы данных
+  await loadMenuFromDatabase();
 
   if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
     hasImported.value = true;

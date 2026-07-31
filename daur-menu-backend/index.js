@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createWorker } from 'tesseract.js';
 import { parseMenuText } from './menuParser.js';
-import db from './db.js'; // <--- Импортируем подключение к базе данных SQLite
+import db from './db.js'; // Импортируем подключение к базе данных SQLite
 import ordersRouter from './orders.js';
 
 dotenv.config();
@@ -16,12 +16,30 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Убедимся, что таблица menu существует и содержит все необходимые колонки
+db.serialize(() => {
+    db.run(`
+        CREATE TABLE IF NOT EXISTS menu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            info TEXT,
+            items TEXT,
+            cats TEXT,
+            general_settings TEXT
+        )
+    `, (err) => {
+        if (!err) {
+            // Миграция на случай, если таблица уже была создана без колонки general_settings
+            db.run(`ALTER TABLE menu ADD COLUMN general_settings TEXT`, () => {});
+        }
+    });
+});
+
 // Подключаем роуты заказов
 app.use('/api', ordersRouter);
 
 // --- Эндпоинты для сохранения и получения настроек меню, категорий и блюд ---
 
-// 1. Получить всю информацию о ресторане, категориях и блюдах
+// 1. Получить всю информацию о ресторане, категориях, блюдах и общих настройках (включая Wi-Fi)
 app.get('/api/menu', (req, res) => {
     db.get("SELECT * FROM menu WHERE id = 1", (err, row) => {
         if (err) {
@@ -30,26 +48,32 @@ app.get('/api/menu', (req, res) => {
         }
         
         if (!row) {
-            return res.json({ restaurantInfo: {}, categories: [], items: [] });
+            return res.json({ restaurantInfo: {}, categories: [], items: [], generalSettings: {} });
         }
 
         res.json({
             restaurantInfo: row.info ? JSON.parse(row.info) : {},
             categories: row.cats ? JSON.parse(row.cats) : [],
-            items: row.items ? JSON.parse(row.items) : []
+            items: row.items ? JSON.parse(row.items) : [],
+            generalSettings: row.general_settings ? JSON.parse(row.general_settings) : {}
         });
     });
 });
 
-// 2. Сохранить / обновить всю информацию о ресторане, категориях и блюдах
+// 2. Сохранить / обновить всю информацию, включая generalSettings (Wi-Fi и т.д.)
 app.post('/api/menu', (req, res) => {
-    const { info, items, cats } = req.body;
+    const { info, items, cats, generalSettings } = req.body;
 
-    const query = `INSERT OR REPLACE INTO menu (id, info, items, cats) VALUES (1, ?, ?, ?)`;
+    const query = `INSERT OR REPLACE INTO menu (id, info, items, cats, general_settings) VALUES (1, ?, ?, ?, ?)`;
     
     db.run(
         query, 
-        [JSON.stringify(info || {}), JSON.stringify(items || []), JSON.stringify(cats || [])], 
+        [
+            JSON.stringify(info || {}), 
+            JSON.stringify(items || []), 
+            JSON.stringify(cats || []),
+            JSON.stringify(generalSettings || {})
+        ], 
         (err) => {
             if (err) {
                 console.error('❌ Ошибка сохранения меню в БД:', err.message);
@@ -58,6 +82,25 @@ app.post('/api/menu', (req, res) => {
             res.json({ success: true });
         }
     );
+});
+
+// --- Эндпоинт для приглашения сотрудников ---
+app.post('/api/staff/invite', async (req, res) => {
+    try {
+        const { email, role } = req.body;
+        
+        // Здесь вы можете добавить логику сохранения сотрудника в БД, если потребуется
+        console.log(`✉️ Получено приглашение для email: ${email}, с ролью: ${role}`);
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Приглашение успешно отправлено',
+            staff: { email, role, status: 'pending' } 
+        });
+    } catch (err) {
+        console.error('❌ Ошибка при отправке приглашения:', err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    }
 });
 
 // Эндпоинт парсинга меню через OCR

@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import axios from 'axios';
 
 const emit = defineEmits(['close', 'invited']);
 
@@ -51,18 +52,22 @@ const form = ref({
 });
 
 const handleInvite = async () => {
+  if (!form.value.email) return;
+  
   loading.value = true;
   try {
-    // Вызов API вашего бэкенда (например, supabase или custom backend)
-    // await api.post('/api/staff/invite', form.value);
-    
-    // Эмуляция задержки
-    await new Promise(resolve => setTimeout(resolve, 600));
+    // Отправка запроса на ваш бэкенд
+    const response = await axios.post('http://192.168.31.240:3000/api/staff/invite', {
+      email: form.value.email,
+      role: form.value.role
+    });
 
-    emit('invited', { ...form.value });
+    // Передаем данные родительскому компоненту, чтобы обновить интерфейс
+    emit('invited', response.data.staff || { ...form.value });
     emit('close');
-  } catch (error) {
-    alert('Ошибка при отправке приглашения');
+  } catch (error: any) {
+    console.error('Ошибка при отправке приглашения:', error);
+    alert(error.response?.data?.message || 'Ошибка при отправке приглашения');
   } finally {
     loading.value = false;
   }

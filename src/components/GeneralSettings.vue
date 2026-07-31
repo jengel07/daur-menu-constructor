@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import type { RestaurantInfo } from '@/types/menu';
+import { useMenuStore } from '../store/menuStore';
 
-const props = defineProps<{ modelValue: RestaurantInfo }>();
-const emit = defineEmits(['update:modelValue']);
-
-// Функция для обновления любого поля
-const update = (field: keyof RestaurantInfo, value: any) => {
-  emit('update:modelValue', { ...props.modelValue, [field]: value });
-};
+const store = useMenuStore();
 </script>
 
 <template>
@@ -18,11 +12,7 @@ const update = (field: keyof RestaurantInfo, value: any) => {
     <div class="wifi-toggle-container">
       <div class="toggle-header">
         <label>Включить Wi-Fi</label>
-        <input 
-          type="checkbox" 
-          :checked="modelValue.isWifiEnabled" 
-          @change="update('isWifiEnabled', ($event.target as HTMLInputElement).checked)" 
-        />
+        <input type="checkbox" v-model="store.generalSettings.wifiEnabled" />
       </div>
       <p class="description">
         Позвольте вашим клиентам подключаться к вашей сети Wi-Fi. 
@@ -31,13 +21,12 @@ const update = (field: keyof RestaurantInfo, value: any) => {
     </div>
 
     <!-- Поля Wi-Fi отображаются только если функция включена -->
-    <div v-if="modelValue.isWifiEnabled" class="wifi-fields">
+    <div v-if="store.generalSettings.wifiEnabled" class="wifi-fields">
       <div class="form-group">
         <label>Название сети (SSID)</label>
         <input 
           type="text" 
-          :value="modelValue.wifiName" 
-          @input="update('wifiName', ($event.target as HTMLInputElement).value)" 
+          v-model="store.generalSettings.wifiSsid" 
           placeholder="Введите название вашей сети" 
         />
       </div>
@@ -45,8 +34,7 @@ const update = (field: keyof RestaurantInfo, value: any) => {
         <label>Пароль</label>
         <input 
           type="text" 
-          :value="modelValue.wifiPassword" 
-          @input="update('wifiPassword', ($event.target as HTMLInputElement).value)" 
+          v-model="store.generalSettings.wifiPassword" 
           placeholder="Введите ваш пароль" 
         />
       </div>

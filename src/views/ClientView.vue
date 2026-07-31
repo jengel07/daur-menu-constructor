@@ -6,21 +6,21 @@
     </button>
 
     <div class="phone-mockup">
-      <div class="phone-screen" :style="{ 
-        backgroundColor: restaurantInfo.backgroundColor || '#121212', 
-        color: restaurantInfo.textColor || '#fff' 
+      <div class="phone-screen" :style="{  
+        backgroundColor: restaurantInfo.backgroundColor || '#121212',  
+        color: restaurantInfo.textColor || '#fff'  
       }">
         
         <!-- Шапка -->
-        <div class="phone-header" :style="{ 
-          backgroundColor: restaurantInfo.secondaryColor || '#333', 
-          backgroundImage: restaurantInfo.coverImage 
-            ? (restaurantInfo.showCoverGradient !== false 
-              ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})` 
-              : `url(${restaurantInfo.coverImage})`) 
-            : 'none', 
-          backgroundSize: 'cover', 
-          backgroundPosition: 'center' 
+        <div class="phone-header" :style="{  
+          backgroundColor: restaurantInfo.secondaryColor || '#333',  
+          backgroundImage: restaurantInfo.coverImage  
+            ? (restaurantInfo.showCoverGradient !== false  
+              ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${restaurantInfo.coverImage})`  
+              : `url(${restaurantInfo.coverImage})`)  
+            : 'none',  
+          backgroundSize: 'cover',  
+          backgroundPosition: 'center'  
         }">
           <div class="phone-avatar-wrapper">
             <div class="phone-avatar-placeholder">
@@ -33,17 +33,51 @@
 
         <!-- Тело экрана (Категории и Товары) -->
         <div class="phone-body">
+          
+          <!-- Аккуратный виджет Wi-Fi (отображается только если включено явно) -->
+          <div  
+            v-if="Boolean(store.generalSettings?.wifiEnabled)"  
+            class="wifi-card-widget"  
+            @click="isWifiExpanded = !isWifiExpanded"
+            :style="{  
+              backgroundColor: restaurantInfo.secondaryColor ? restaurantInfo.secondaryColor + '22' : 'rgba(255, 255, 255, 0.08)',  
+              color: restaurantInfo.textColor || '#fff',
+              border: '1px solid ' + (restaurantInfo.secondaryColor ? restaurantInfo.secondaryColor + '44' : 'rgba(255, 255, 255, 0.15)')
+            }"
+          >
+            <div class="wifi-card-main-row">
+              <div class="wifi-card-left">
+                <div class="wifi-card-icon-box">ℹ️</div>
+                <div class="wifi-card-texts">
+                  <div class="wifi-card-title">{{ t('info') || 'Информация' }}</div>
+                  <div class="wifi-card-subtitle">Wi-Fi</div>
+                </div>
+              </div>
+              <div class="wifi-card-chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }">›</div>
+            </div>
+
+            <!-- Раскрывающийся блок с данными сети -->
+            <div v-if="isWifiExpanded" class="wifi-expanded-content" @click.stop>
+              <div class="wifi-info-row">
+                <span>{{ t('network') || 'Сеть' }}:</span> <b>{{ store.generalSettings?.wifiSsid || 'Не указана' }}</b>
+              </div>
+              <div class="wifi-info-row" style="margin-top: 4px;">
+                <span>{{ t('password') || 'Пароль' }}:</span> <b style="user-select: all;">{{ store.generalSettings?.wifiPassword || 'Не указан' }}</b>
+              </div>
+            </div>
+          </div>
+
           <div class="phone-categories">
-            <button 
-              class="phone-cat-badge" 
+            <button  
+              class="phone-cat-badge"  
               :class="{ active: selectedCategory === 'all' }"
               :style="selectedCategory === 'all' ? { backgroundColor: restaurantInfo.primaryColor || '#646cff', color: '#fff' } : {}"
               @click="selectedCategory = 'all'"
             >
               {{ t('allCategories') }}
             </button>
-            <button 
-              v-for="cat in categories" 
+            <button  
+              v-for="cat in categories"  
               :key="cat.id || cat.name"
               class="phone-cat-badge"
               :class="{ active: selectedCategory === (cat.id || cat.name) }"
@@ -326,18 +360,46 @@ import { useOrders } from '../composables/useOrders';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
 import { ShoppingCart } from 'lucide-vue-next';
 
+// Расширенный словарь переводов (включает ключи для фильтров и виджетов)
+const translations: Record<string, Record<string, string>> = {
+  ru: {
+    closePreview: 'Закрыть предпросмотр',
+    allCategories: 'Все категории',
+    noDishes: 'В данной категории пока нет блюд',
+    add: 'добавить',
+    cart: 'Корзина',
+    nutrition: 'Пищевая ценность',
+    nutFree: 'Без орехов',
+    lactoseFree: 'Без лактозы',
+    glutenFree: 'Без глютена',
+    info: 'Информация',
+    network: 'Сеть',
+    password: 'Пароль'
+  },
+  en: {
+    closePreview: 'Close Preview',
+    allCategories: 'All categories',
+    noDishes: 'No dishes found',
+    add: 'add',
+    cart: 'Cart',
+    nutrition: 'Nutrition',
+    nutFree: 'Nut-free',
+    lactoseFree: 'Lactose-free',
+    glutenFree: 'Gluten-free',
+    info: 'Information',
+    network: 'Network',
+    password: 'Password'
+  }
+};
+
+const store = useMenuStore();
+const isWifiExpanded = ref(false);
 const { addOrder } = useOrders();
 
-const restaurantInfo = ref<any>({
-  backgroundColor: '#f4f6f3',
-  textColor: '#ffffff',
-  secondaryColor: '#333333',
-  primaryColor: '#646cff',
-  name: 'Jazzve',
-  address: 'ул. Пушкина, 10'
-});
-const items = ref<any[]>([]);
-const categories = ref<any[]>([]);
+const restaurantInfo = computed(() => store.restaurantInfo);
+const items = computed(() => store.items);
+const categories = computed(() => store.categories);
+
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
 const viewMode = ref<'grid' | 'list'>('list');
@@ -373,92 +435,63 @@ const customerForm = ref({
   scheduledDate: getTodayDateStr()
 });
 
-const translations: Record<string, Record<string, string>> = {
-  ru: {
-    allCategories: 'Все категории',
-    noDishes: 'В этой категории пока нет блюд',
-    add: 'добавить',
-    filters: 'Фильтры',
-    share: 'Поделиться',
-    search: 'Поиск',
-    cart: 'Корзина',
-    yourOrder: 'Ваш заказ',
-    clear: 'Очистить',
-    total: 'Итого',
-    checkout: 'Оформить заказ',
-    closePreview: 'Закрыть предпросмотр'
-  }
-};
-
 const t = (key: string) => {
   return translations[currentLang.value]?.[key] || translations['ru'][key] || key;
 };
 
-const getItemName = (item: any) => {
-  if (!item) return '';
-  if (typeof item.name === 'object' && item.name !== null) {
-    return item.name[currentLang.value] || item.name['ru'] || Object.values(item.name)[0] || '';
+// Функция локализации для названий (ресторан, блюда, категории)
+const getLocalizedValue = (field: any) => {
+  if (!field) return '';
+  if (typeof field === 'object' && field !== null) {
+    return field[currentLang.value] || field['ru'] || Object.values(field)[0] || '';
   }
-  return item.name || '';
+  return field;
 };
 
-const getItemDescription = (item: any) => {
-  if (!item) return '';
-  if (typeof item.description === 'object' && item.description !== null) {
-    return item.description[currentLang.value] || item.description['ru'] || '';
-  }
-  return item.description || '';
-};
+const getRestaurantName = () => getLocalizedValue(restaurantInfo.value.name);
+const getItemName = (item: any) => getLocalizedValue(item?.name);
+const getItemDescription = (item: any) => getLocalizedValue(item?.description);
+const getLocalizedCategoryName = (cat: any) => getLocalizedValue(cat?.name);
 
-const getLocalizedCategoryName = (cat: any) => {
-  if (!cat) return '';
-  if (typeof cat.name === 'object' && cat.name !== null) {
-    return cat.name[currentLang.value] || cat.name['ru'] || '';
-  }
-  return cat.name || '';
-};
-
-// Загрузка данных с сервера бэкенда с сохранением полей обложки и аватара
 const loadData = async () => {
   try {
     const response = await axios.get('http://192.168.31.240:3000/api/menu');
     if (response.data) {
       if (response.data.restaurantInfo) {
-        restaurantInfo.value = {
-          ...restaurantInfo.value,
-          ...response.data.restaurantInfo
-        };
+        store.restaurantInfo = { ...store.restaurantInfo, ...response.data.restaurantInfo };
       }
-      if (response.data.items) items.value = response.data.items;
-      if (response.data.categories) categories.value = response.data.categories;
-      return;
+      if (response.data.items) store.items = response.data.items;
+      if (response.data.categories) store.categories = response.data.categories;
+      if (response.data.generalSettings) {
+        store.generalSettings = { ...store.generalSettings, ...response.data.generalSettings };
+      }
     }
-  } catch (e) {
-    // Запасной вариант на случай отсутствия связи с сервером (localStorage)
-  }
+  } catch (e) {}
 
   const savedInfo = localStorage.getItem('preview_restaurantInfo');
   const savedItems = localStorage.getItem('preview_items');
   const savedCategories = localStorage.getItem('preview_categories');
+  const savedGeneral = localStorage.getItem('preview_generalSettings');
 
-  if (savedInfo) { try { restaurantInfo.value = JSON.parse(savedInfo); } catch (e) {} }
-  if (savedItems) { try { items.value = JSON.parse(savedItems); } catch (e) {} }
-  if (savedCategories) { try { categories.value = JSON.parse(savedCategories); } catch (e) {} }
-
-  if (!savedInfo && !savedItems) {
-    try {
-      const menuStore = useMenuStore();
-      if (menuStore) {
-        restaurantInfo.value = menuStore.restaurantInfo;
-        items.value = menuStore.items;
-        categories.value = menuStore.categories || [];
-      }
-    } catch (e) {}
+  if (savedInfo) { try { store.restaurantInfo = JSON.parse(savedInfo); } catch (e) {} }
+  if (savedItems) { try { store.items = JSON.parse(savedItems); } catch (e) {} }
+  if (savedCategories) { try { store.categories = JSON.parse(savedCategories); } catch (e) {} }
+  if (savedGeneral) { 
+    try { 
+      const parsed = JSON.parse(savedGeneral);
+      store.generalSettings = { ...store.generalSettings, ...parsed }; 
+    } catch (e) {} 
   }
 };
 
 const handleStorageEvent = (event: StorageEvent) => {
-  if (event.key === 'preview_restaurantInfo' || event.key === 'preview_items' || event.key === 'preview_categories') {
+  if (
+    event.key === 'preview_restaurantInfo' || 
+    event.key === 'preview_items' || 
+    event.key === 'preview_categories' || 
+    event.key === 'preview_generalSettings' ||
+    event.key === 'generalSettings'
+  ) {
     loadData();
   }
 };
@@ -495,11 +528,11 @@ const filteredItems = computed(() => {
 
   if (selectedFilters.value.length > 0) {
     result = result.filter((item: any) => {
-      return selectedFilters.value.every(f => {
-        if (f === 'nutFree') return item.nutFree || item.isNutFree;
-        if (f === 'lactoseFree') return item.lactoseFree || item.isLactoseFree;
-        if (f === 'glutenFree') return item.glutenFree || item.isGlutenFree;
-        return true;
+      return selectedFilters.value.some(f => {
+        if (f === 'nutFree') return item.noNuts || item.nutFree || item.isNutFree || item.nut_free || (Array.isArray(item.tags) && item.tags.includes('nutFree'));
+        if (f === 'lactoseFree') return item.noLactose || item.lactoseFree || item.isLactoseFree || item.lactose_free || (Array.isArray(item.tags) && item.tags.includes('lactoseFree'));
+        if (f === 'glutenFree') return item.noGluten || item.glutenFree || item.isGlutenFree || item.gluten_free || (Array.isArray(item.tags) && item.tags.includes('glutenFree'));
+        return false;
       });
     });
   }
@@ -621,6 +654,60 @@ const goToConstructor = () => {
   window.location.href = 'http://192.168.31.240:5173/constructor';
 };
 </script>
+<style scoped>
+.wifi-card-widget {
+  margin: 12px 16px 16px 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.wifi-card-widget:hover {
+  opacity: 0.95;
+}
+.wifi-card-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wifi-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wifi-card-icon-box {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wifi-card-title {
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1.1;
+}
+.wifi-card-subtitle {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wifi-card-chevron {
+  font-size: 20px;
+  transition: transform 0.2s ease;
+  opacity: 0.6;
+}
+.wifi-expanded-content {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+}
+.wifi-info-row {
+  display: flex;
+  justify-content: space-between;
+}
+</style>
 
 <style scoped>
 .client-wrapper { width: 100vw; height: 100vh; height: 100dvh; display: flex; justify-content: center; align-items: center; overflow: hidden; box-sizing: border-box; position: relative; }

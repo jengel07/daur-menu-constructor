@@ -12,7 +12,7 @@
       </div>
 
       <div class="nav-center-actions">
-        <button class="action-tab" @click="router.push('/constructor')">⚙️ Конструктор</button>
+        <button class="action-tab" @click="sendToConstructor">⚙️ Конструктор</button>
         <button class="action-tab" @click="openPrintModal">🖨️ Печать</button>
         <button class="action-tab">📱 Цифровой</button>
         <button class="action-tab active-tab">田 Данные</button>
@@ -20,7 +20,7 @@
 
       <div class="nav-right">
         <span class="lang-selector">🌐 Русский ▾</span>
-        <button class="btn-refresh-top" @click="handleRefresh">Обновить</button>
+        <button class="refresh-btn" @click="handleRefresh">Обновить</button>
         <button class="btn-chat-top">💬 Чат</button>
       </div>
     </header>
@@ -73,10 +73,16 @@
             <input type="checkbox" v-model="visibleColumns.name" /> Название
           </label>
           <label class="dropdown-item">
+            <input type="checkbox" v-model="visibleColumns.categoryCol" /> Категория
+          </label>
+          <label class="dropdown-item">
             <input type="checkbox" v-model="visibleColumns.desc" /> Описание
           </label>
           <label class="dropdown-item">
             <input type="checkbox" v-model="visibleColumns.price" /> Цена
+          </label>
+          <label class="dropdown-item">
+            <input type="checkbox" v-model="visibleColumns.filters" /> Фильтры
           </label>
         </div>
       </div>
@@ -101,8 +107,10 @@
             <th v-if="visibleColumns.status" class="col-status">СТАТУС</th>
             <th v-if="visibleColumns.image" class="col-img">🖼️</th>
             <th v-if="visibleColumns.name" class="col-name">НАЗВАНИЕ</th>
+            <th v-if="visibleColumns.categoryCol" class="col-category">КАТЕГОРИЯ</th>
             <th v-if="visibleColumns.desc" class="col-desc">ОПИСАНИЕ</th>
             <th v-if="visibleColumns.price" class="col-price">ЦЕНА</th>
+            <th v-if="visibleColumns.filters" class="col-filters">ФИЛЬТРЫ</th>
           </tr>
         </thead>
         <tbody>
@@ -118,12 +126,20 @@
                 </span> 
                 <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                   <input type="text" v-model="row.data.name" @input="saveToStorage" class="inline-edit-input cat-input" />
-                  <span class="sub-count">{{ row.data.items.length }} предметов</span>
+                  <span class="sub-count">{{ row.data.items ? row.data.items.length : 0 }} предметов</span>
                 </div>
+                
+                <!-- Кнопка добавления блюда в конкретную категорию -->
+                <button class="btn-secondary-light btn-add-in-cat" @click="addSubcategoryTo(row.catIdx)" title="Добавить блюдо в эту категорию">
+                  + Добавить блюдо
+                </button>
+
                 <button class="btn-delete-row" @click="removeCategory(row.catIdx)" title="Удалить категорию">🗑️</button>
               </td>
+              <td v-if="visibleColumns.categoryCol && !isNameOnlyColspan()"></td>
               <td v-if="visibleColumns.desc && !isNameOnlyColspan()">-</td>
               <td v-if="visibleColumns.price && !isNameOnlyColspan()">-</td>
+              <td v-if="visibleColumns.filters && !isNameOnlyColspan()">-</td>
             </tr>
 
             <!-- Если это строка элемента -->
@@ -150,6 +166,21 @@
                 <input type="text" v-model="row.data.name" @input="saveToStorage" class="inline-edit-input" />
                 <button class="btn-variants" v-if="row.data.variants">{{ row.data.variants.length }} варианта ▾</button>
               </td>
+              
+              <!-- Колонка смены категории справа от названия -->
+              <td v-if="visibleColumns.categoryCol" class="item-category-cell">
+                <select 
+                  class="inline-category-select" 
+                  :value="row.catIdx" 
+                  @change="changeItemCategory(row.catIdx, row.itemIdx, Number(($event.target as HTMLSelectElement).value))"
+                  title="Изменить категорию блюда"
+                >
+                  <option v-for="(cat, cIdx) in categories" :key="'cat-opt-' + cIdx" :value="cIdx">
+                    📁 {{ cat.name }}
+                  </option>
+                </select>
+              </td>
+
               <td v-if="visibleColumns.desc" class="item-desc-cell">
                 <input type="text" v-model="row.data.description" @input="saveToStorage" class="inline-edit-input desc-input" placeholder="Введите описание..." />
               </td>
@@ -158,6 +189,24 @@
                   <input type="number" v-model.number="row.data.price" @input="saveToStorage" class="inline-edit-input price-input" placeholder="350" /> ₽
                 </div>
                 <button class="btn-delete-row" @click="removeItem(row.catIdx, row.itemIdx)" title="Удалить элемент">🗑️</button>
+              </td>
+              
+              <!-- Колонка Фильтры -->
+              <td v-if="visibleColumns.filters" class="item-filters-cell">
+                <div class="filters-badges-inline">
+                  <label class="filter-badge-toggle" :class="{ active: row.data.noNuts }">
+                    <input type="checkbox" v-model="row.data.noNuts" @change="saveToStorage" hidden />
+                    🌰 Без орехов
+                  </label>
+                  <label class="filter-badge-toggle" :class="{ active: row.data.noLactose }">
+                    <input type="checkbox" v-model="row.data.noLactose" @change="saveToStorage" hidden />
+                    🥛 Без лактозы
+                  </label>
+                  <label class="filter-badge-toggle" :class="{ active: row.data.noGluten }">
+                    <input type="checkbox" v-model="row.data.noGluten" @change="saveToStorage" hidden />
+                    🌾 Без глютена
+                  </label>
+                </div>
               </td>
             </tr>
           </template>
@@ -197,7 +246,7 @@
           <div v-for="(cat, cIdx) in categories" :key="'print-cat-' + cIdx" class="print-category-block">
             <h2 class="print-category-title">{{ cat.name }}</h2>
             <div class="print-items-list">
-              <template v-for="(item,) in cat.items.filter((i: MenuItem) => i.isAvailable !== false)">
+              <template v-for="(item,) in (cat.items || []).filter((i: MenuItem) => i.isAvailable !== false)">
                 <div class="print-menu-item">
                   <div class="print-item-left">
                     <span class="print-item-name">{{ item.name }}</span>
@@ -226,8 +275,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { MenuItem } from '../types/menu';
+import { useMenuStore } from '../store/menuStore';
 
 const router = useRouter();
+const store = useMenuStore();
 const isDarkMode = ref(false);
 const searchQuery = ref('');
 const isPrintModalOpen = ref(false);
@@ -241,8 +292,10 @@ const visibleColumns = ref({
   status: true,
   image: true,
   name: true,
+  categoryCol: true,
   desc: true,
-  price: true
+  price: true,
+  filters: true
 });
 
 const handleClickOutside = (event: MouseEvent) => {
@@ -267,13 +320,15 @@ const getCategoryColspan = () => {
   let count = 1;
   if (visibleColumns.value.status) count++;
   if (visibleColumns.value.image) count++;
+  if (visibleColumns.value.categoryCol) count++;
   if (visibleColumns.value.desc) count++;
   if (visibleColumns.value.price) count++;
+  if (visibleColumns.value.filters) count++;
   return count;
 };
 
 const isNameOnlyColspan = () => {
-  return !visibleColumns.value.status && !visibleColumns.value.image && !visibleColumns.value.desc && !visibleColumns.value.price;
+  return !visibleColumns.value.status && !visibleColumns.value.image && !visibleColumns.value.categoryCol && !visibleColumns.value.desc && !visibleColumns.value.price && !visibleColumns.value.filters;
 };
 
 const currentPage = ref(1);
@@ -285,14 +340,16 @@ const loadFromStorage = () => {
   const savedData = localStorage.getItem('constructor_menu_data');
   if (savedData) {
     try {
-      categories.value = JSON.parse(savedData);
+      const parsed = JSON.parse(savedData);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        categories.value = parsed;
+        return;
+      }
     } catch (e) {
       console.error('Ошибка чтения данных из localStorage', e);
-      setDefaultCategories();
     }
-  } else {
-    setDefaultCategories();
   }
+  setDefaultCategories();
 };
 
 const setDefaultCategories = () => {
@@ -302,7 +359,7 @@ const setDefaultCategories = () => {
       name: 'Блюда на завтрак',
       expanded: true,
       items: [
-        { id: 'item-1', name: 'Яичница с ветчиной', description: 'с помидорами и зеленью', price: 150, isAvailable: true, image: '' }
+        { id: 'item-1', name: 'Яичница с ветчиной', description: 'с помидорами и зеленью', price: 150, isAvailable: true, image: '', noNuts: false, noLactose: false, noGluten: false }
       ]
     }
   ];
@@ -310,9 +367,23 @@ const setDefaultCategories = () => {
 };
 
 const saveToStorage = () => {
-  localStorage.setItem('constructor_menu_data', JSON.stringify(categories.value));
-  localStorage.setItem('preview_items', JSON.stringify(categories.value.flatMap(c => c.items)));
-  localStorage.setItem('preview_categories', JSON.stringify(categories.value));
+  try {
+    const lightCategories = categories.value.map(cat => ({
+      ...cat,
+      items: (cat.items || []).map((item: any) => ({
+        ...item,
+        image: item.image && item.image.startsWith('data:') ? '' : item.image
+      }))
+    }));
+    localStorage.setItem('constructor_menu_data', JSON.stringify(lightCategories));
+  } catch (e) {
+    console.warn('LocalStorage переполнен', e);
+  }
+
+  if (store) {
+    store.categories = categories.value;
+    store.items = categories.value.flatMap(c => c.items || []);
+  }
 };
 
 const totalItemsCount = computed(() => {
@@ -345,12 +416,24 @@ const toggleItemVisibility = (catIdx: number, itemIdx: number) => {
 };
 
 const removeItem = (catIdx: number, itemIdx: number) => {
-  categories.value[catIdx].items.splice(itemIdx, 1);
-  saveToStorage();
+  if (categories.value[catIdx] && categories.value[catIdx].items) {
+    categories.value[catIdx].items.splice(itemIdx, 1);
+    saveToStorage();
+  }
 };
 
 const removeCategory = (catIdx: number) => {
   categories.value.splice(catIdx, 1);
+  saveToStorage();
+};
+
+const changeItemCategory = (oldCatIdx: number, itemIdx: number, newCatIdx: number) => {
+  if (oldCatIdx === newCatIdx) return;
+  const [movedItem] = categories.value[oldCatIdx].items.splice(itemIdx, 1);
+  if (!categories.value[newCatIdx].items) {
+    categories.value[newCatIdx].items = [];
+  }
+  categories.value[newCatIdx].items.push(movedItem);
   saveToStorage();
 };
 
@@ -359,7 +442,8 @@ const allFlattenedRows = computed(() => {
   const rows: Array<any> = [];
 
   categories.value.forEach((cat, catIdx) => {
-    const filteredItems = (cat.items || []).filter((item: any) => 
+    const items = cat.items || [];
+    const filteredItems = items.filter((item: any) => 
       !q || item.name.toLowerCase().includes(q) || (item.description && item.description.toLowerCase().includes(q))
     );
 
@@ -373,7 +457,7 @@ const allFlattenedRows = computed(() => {
     });
 
     filteredItems.forEach((item: any) => {
-      const itemIdx = cat.items.indexOf(item);
+      const itemIdx = items.indexOf(item);
       rows.push({
         type: 'item',
         data: item,
@@ -405,8 +489,13 @@ const paginationRangeText = computed(() => {
   return `${start}–${end}`;
 });
 
-const handleRefresh = () => {
-  loadFromStorage();
+const handleRefresh = async () => {
+  try {
+    loadFromStorage();
+    alert('Данные успешно обновлены из памяти!');
+  } catch (e) {
+    console.error('Ошибка при обновлении:', e);
+  }
 };
 
 const addCategory = () => {
@@ -415,7 +504,7 @@ const addCategory = () => {
     name: 'Новая категория',
     expanded: true,
     items: [
-      { id: 'item-' + Date.now(), name: 'Новое блюдо в категории', description: 'описание новинки', price: 200, isAvailable: true, image: '' }
+      { id: 'item-' + Date.now(), name: 'Новое блюдо в категории', description: 'описание новинки', price: 200, isAvailable: true, image: '', noNuts: false, noLactose: false, noGluten: false }
     ]
   });
   saveToStorage();
@@ -426,14 +515,16 @@ const addSubcategoryTo = (catIndex: number) => {
   if (!categories.value[catIndex].items) {
     categories.value[catIndex].items = [];
   }
-  // Добавляем элемент в НАЧАЛО массива (сверху)
   categories.value[catIndex].items.unshift({
     id: 'item-' + Date.now(),
     name: 'Новый элемент',
     description: 'свежеприготовленное блюдо',
     price: 200,
     isAvailable: true,
-    image: ''
+    image: '',
+    noNuts: false,
+    noLactose: false,
+    noGluten: false
   });
   isSubCategoryMenuOpen.value = false;
   saveToStorage();
@@ -445,14 +536,19 @@ const addItem = () => {
     addCategory();
     return;
   }
-  // Добавляем элемент в НАЧАЛО первой категории (сверху)
+  if (!categories.value[0].items) {
+    categories.value[0].items = [];
+  }
   categories.value[0].items.unshift({
     id: 'item-' + Date.now(),
     name: 'Новый элемент меню',
     description: 'рекомендуется шеф-поваром',
     price: 250,
     isAvailable: true,
-    image: ''
+    image: '',
+    noNuts: false,
+    noLactose: false,
+    noGluten: false
   });
   saveToStorage();
   currentPage.value = 1;
@@ -460,7 +556,7 @@ const addItem = () => {
 
 const sendToConstructor = () => {
   saveToStorage();
-  router.push('/constructor');
+  router.push({ name: 'constructor' });
 };
 
 const triggerUpload = (catIdx: number, itemIdx: number) => {
@@ -475,13 +571,17 @@ const triggerUpload = (catIdx: number, itemIdx: number) => {
       reader.onload = (uploadEvent) => {
         if (uploadEvent.target?.result) {
           categories.value[catIdx].items[itemIdx].image = uploadEvent.target.result as string;
-          saveToStorage();
+          saveToStatusAndStorage();
         }
       };
       reader.readAsDataURL(file);
     }
   };
   input.click();
+};
+
+const saveToStatusAndStorage = () => {
+  saveToStorage();
 };
 
 const openPrintModal = () => {
@@ -492,6 +592,31 @@ const triggerBrowserPrint = () => {
   window.print();
 };
 </script>
+
+<style scoped>
+.filters-badges-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-badge-toggle {
+  font-size: 11px;
+  background: #f1f3f5;
+  border: 1px solid #dee2e6;
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+  color: #495057;
+}
+.filter-badge-toggle.active {
+  background: #e7f5ff;
+  border-color: #339af0;
+  color: #1c7ed6;
+  font-weight: 500;
+}
+</style>
 
 <style scoped>
 .menu-data-container {

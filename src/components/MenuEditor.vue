@@ -33,11 +33,9 @@ const syncWithServer = async (updatedItems: MenuItem[]) => {
     items: updatedItems
   };
 
-  // Сохраняем локально для ПК
   localStorage.setItem('preview_items', JSON.stringify(updatedItems));
   localStorage.setItem('preview_categories', JSON.stringify(props.categories));
 
-  // Отправляем на ваш Node.js сервер
   try {
     await axios.post('http://192.168.31.240:3000/api/menu', dataToSave);
   } catch (e) {
@@ -48,8 +46,15 @@ const syncWithServer = async (updatedItems: MenuItem[]) => {
 const searchQuery = ref('');
 const selectedCategoryId = ref<string>('all');
 
+// Дополнительные фильтры питания (без орехов, без лактозы, без глютена)
+const dietaryFilters = ref({
+  noNuts: false,
+  noLactose: false,
+  noGluten: false
+});
+
 const isModalOpen = ref(false);
-const editingItem = ref<(Partial<MenuItem> & { image?: string }) | null>(null);
+const editingItem = ref<(Partial<MenuItem> & { image?: string; noNuts?: boolean; noLactose?: boolean; noGluten?: boolean }) | null>(null);
 
 const handleImageUpload = (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -91,7 +96,12 @@ const filteredItems = computed(() => {
     
     const matchesCategory = selectedCategoryId.value === 'all' || String(item.categoryId) === String(selectedCategoryId.value);
     
-    return matchesSearch && matchesCategory;
+    // Проверка фильтров питания
+    const matchesNoNuts = !dietaryFilters.value.noNuts || (item as any).noNuts;
+    const matchesNoLactose = !dietaryFilters.value.noLactose || (item as any).noLactose;
+    const matchesNoGluten = !dietaryFilters.value.noGluten || (item as any).noGluten;
+
+    return matchesSearch && matchesCategory && matchesNoNuts && matchesNoLactose && matchesNoGluten;
   });
 });
 
@@ -118,7 +128,6 @@ const openEditModal = (item?: MenuItem) => {
   if (item) {
     editingItem.value = { ...item };
   } else {
-    // Берем первую категорию безопасным образом
     const firstCat = props.categories && props.categories.length > 0 ? props.categories[0] : null;
     editingItem.value = {
       id: 'item-' + Date.now(),
@@ -127,7 +136,10 @@ const openEditModal = (item?: MenuItem) => {
       price: 150,
       image: '',
       categoryId: firstCat ? firstCat.id : '',
-      isAvailable: true
+      isAvailable: true,
+      noNuts: false,
+      noLactose: false,
+      noGluten: false
     };
   }
   isModalOpen.value = true;
@@ -135,6 +147,10 @@ const openEditModal = (item?: MenuItem) => {
 
 const saveItem = () => {
   if (!editingItem.value || !editingItem.value.name || isImageLoading.value) return;
+
+  if (!editingItem.value.categoryId && props.categories && props.categories.length > 0) {
+    editingItem.value.categoryId = props.categories[0].id;
+  }
 
   const updatedItems = [...props.items];
   const index = updatedItems.findIndex(i => String(i.id) === String(editingItem.value?.id));
@@ -161,27 +177,57 @@ const closeModal = () => {
 <template>
   <div class="menu-editor">
     <div class="toolbar">
-      <div class="filter-group">
-        <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
-          <Search :size="18" stroke-width="2" style="position: absolute; left: 12px; color: var(--text-muted, #888);" />
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="Поиск блюда..." 
-            class="search-input"
-            style="padding-left: 38px; width: 100%; box-sizing: border-box;"
-          />
+      <div class="filter-group" style="flex-direction: column; align-items: stretch; gap: 12px;">
+        <div style="display: flex; gap: 12px; width: 100%;">
+          <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
+            <Search :size="18" stroke-width="2" style="position: absolute; left: 12px; color: var(--text-muted, #888);" />
+            <input 
+              v-model="searchQuery" 
+              type="text" 
+              placeholder="Поиск блюда..." 
+              class="search-input"
+              style="padding-left: 38px; width: 100%; box-sizing: border-box;"
+            />
+          </div>
+          
+          <select v-model="selectedCategoryId" class="category-select">
+            <option value="all">Все категории</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
         </div>
-        
-        <select v-model="selectedCategoryId" class="category-select">
-          <option value="all">Все категории</option>
-          <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-            {{ cat.name }}
-          </option>
-        </select>
+
+        <!-- Панель фильтров питания (Питание: Без орехов, Без лактозы, Без глютена) -->
+        <div class="dietary-filters-toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef;">
+          <span style="font-size: 13px; font-weight: 600; color: #495057; margin-right: 4px;">Питание:</span>
+          
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; background: #fff; padding: 6px 12px; border-radius: 6px; border: 1px solid #ced4da;">
+            <input type="checkbox" v-model="dietaryFilters.noNuts" />
+            🥜 Без орехов
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; background: #fff; padding: 6px 12px; border-radius: 6px; border: 1px solid #ced4da;">
+            <input type="checkbox" v-model="dietaryFilters.noLactose" />
+            🥛 Без лактозы
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; background: #fff; padding: 6px 12px; border-radius: 6px; border: 1px solid #ced4da;">
+            <input type="checkbox" v-model="dietaryFilters.noGluten" />
+            🌾 Без глютена
+          </label>
+
+          <button 
+            v-if="dietaryFilters.noNuts || dietaryFilters.noLactose || dietaryFilters.noGluten" 
+            @click="dietaryFilters.noNuts = false; dietaryFilters.noLactose = false; dietaryFilters.noGluten = false"
+            style="background: none; border: none; color: #4f46e5; font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: auto;"
+          >
+            очистить
+          </button>
+        </div>
       </div>
 
-      <button @click="openEditModal()" class="btn-add" style="display: flex; align-items: center; gap: 6px;">
+      <button @click="openEditModal()" class="btn-add" style="display: flex; align-items: center; gap: 6px; white-space: nowrap; align-self: flex-start;">
         <Plus :size="16" stroke-width="2.5" /> Добавить блюдо
       </button>
     </div>
@@ -214,6 +260,13 @@ const closeModal = () => {
         <div class="card-body">
           <h3 class="item-name">{{ item.name }}</h3>
           <p class="item-desc">{{ item.description }}</p>
+          
+          <!-- Бейджики особенностей блюда в карточке -->
+          <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;" v-if="(item as any).noNuts || (item as any).noLactose || (item as any).noGluten">
+            <span v-if="(item as any).noNuts" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без орехов</span>
+            <span v-if="(item as any).noLactose" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без лактозы</span>
+            <span v-if="(item as any).noGluten" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без глютена</span>
+          </div>
         </div>
 
         <div class="card-footer">
@@ -286,6 +339,22 @@ const closeModal = () => {
           <textarea v-model="editingItem.description" placeholder="Ингредиенты, особенности вкуса..." rows="3"></textarea>
         </div>
 
+        <!-- Настройки диетических тегов для блюда -->
+        <div class="form-group">
+          <label>Особенности питания</label>
+          <div style="display: flex; gap: 15px; margin-top: 6px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+              <input type="checkbox" v-model="editingItem.noNuts" /> Без орехов
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+              <input type="checkbox" v-model="editingItem.noLactose" /> Без лактозы
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+              <input type="checkbox" v-model="editingItem.noGluten" /> Без глютена
+            </label>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label>Цена (₽)</label>
@@ -294,11 +363,14 @@ const closeModal = () => {
 
           <div class="form-group">
             <label>Категория</label>
-            <select v-model="editingItem.categoryId">
+            <select v-model="editingItem.categoryId" v-if="categories && categories.length > 0">
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.name }}
               </option>
             </select>
+            <div v-else style="color: #e74c3c; font-size: 13px; padding: 6px 0;">
+              ⚠️ Нет доступных категорий! Сначала создайте категорию.
+            </div>
           </div>
         </div>
 

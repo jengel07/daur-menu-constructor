@@ -39,7 +39,7 @@ export interface RestaurantInfo {
   qrSettings?: QrSettings;
   coverImage?: string;
   avatarImage?: string;
-  showCoverGradient?: boolean; // Добавлено поле для управления градиентом обложки
+  showCoverGradient?: boolean; 
   isDarkMode?: boolean;
   isWifiEnabled?: boolean;
 }
