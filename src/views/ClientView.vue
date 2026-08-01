@@ -395,12 +395,12 @@ const translations: Record<string, Record<string, string>> = {
   }
 };
 // 1. ПОДПИСКА НА PINIA-STORE И СОЗДАНИЕ ЛОКАЛЬНЫХ СВОЙСТВ
-// Здесь мы подписываемся на глобальное состояние Pinia (`useMenuStore`).
+// подписываемся на глобальное состояние Pinia (`useMenuStore`).
 const store = useMenuStore();
 const isWifiExpanded = ref(false);
 const { addOrder } = useOrders();
 
-// Через `computed` мы проксируем данные из стора.
+// Через `computed` проксируем данные из стора.
 // Как только в Pinia меняется `restaurantInfo`, `items` или `categories`, 
 // эти вычисляемые свойства автоматически обновляются и триггерят перерендер интерфейса.
 const restaurantInfo = computed(() => store.restaurantInfo);

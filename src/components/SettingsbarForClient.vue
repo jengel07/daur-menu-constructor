@@ -1,8 +1,3 @@
-Вот исправленный и полностью локализованный код компонента **`SettingsbarForClient.vue`**.
-
-В нём все оставшиеся надписи («filters», «showResults», «clear») переведены через функцию локализации `t()`, чтобы они синхронно меняли язык вместе с остальным интерфейсом, а также гарантированно передаются все события управления фильтрами (`toggle-filter`, `clear-filters`).
-
-```vue
 <template>
   <div>
     <!-- Нижняя панель настроек -->
@@ -227,6 +222,7 @@ import {
 } from 'lucide-vue-next';
 import LanguageModal from './LanguageModal.vue';
 
+// Пропсы от родительского компонета ClientView.vue
 const props = defineProps<{
   activeModal: string;
   primaryColor: string;

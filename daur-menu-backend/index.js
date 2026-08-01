@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import nodemailer from 'nodemailer';
 import { createWorker } from 'tesseract.js';
 import { parseMenuText } from './menuParser.js';
 import db from './db.js'; // Импортируем подключение к базе данных SQLite
@@ -15,6 +16,26 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Настройка почтового транспортера
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: true, // true для порта 465
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
+
+// Проверка подключения к почтовому серверу при старте
+transporter.verify((error) => {
+    if (error) {
+        console.error('❌ Ошибка настройки SMTP почты:', error.message);
+    } else {
+        console.log('✅ Почтовый сервер ready к отправке писем');
+    }
+});
 
 // Убедимся, что таблица menu существует и содержит все необходимые колонки
 db.serialize(() => {
@@ -84,22 +105,45 @@ app.post('/api/menu', (req, res) => {
     );
 });
 
-// --- Эндпоинт для приглашения сотрудников ---
+// --- Эндпоинт для приглашения сотрудников с реальной отправкой почты ---
 app.post('/api/staff/invite', async (req, res) => {
     try {
         const { email, role } = req.body;
-        
-        // Здесь вы можете добавить логику сохранения сотрудника в БД, если потребуется
-        console.log(`✉️ Получено приглашение для email: ${email}, с ролью: ${role}`);
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email обязателен' });
+        }
+
+        console.log(`✉️ Попытка отправки приглашения для email: ${email}, с ролью: ${role}`);
+
+        // Отправка реального письма через Nodemailer
+        const mailOptions = {
+            from: `"Daur Menu" <${process.env.SMTP_USER}>`,
+            to: email,
+            subject: 'Приглашение в команду Daur Menu',
+            html: `
+                <div style="font-family: sans-serif; padding: 20px;">
+                    <h2>Вас пригласили в команду Daur Menu!</h2>
+                    <p>Вам назначена роль: <strong>${role}</strong>.</p>
+                    <p>Для входа в систему используйте ваш email: <b>${email}</b></p>
+                </div>
+            `
+        };
+
+        const mailResult = await transporter.sendMail(mailOptions);
+        console.log('✅ Письмо успешно отправлено! ID:', mailResult.messageId);
 
         res.status(200).json({ 
             success: true, 
-            message: 'Приглашение успешно отправлено',
+            message: 'Приглашение успешно отправлено на почту',
             staff: { email, role, status: 'pending' } 
         });
     } catch (err) {
-        console.error('❌ Ошибка при отправке приглашения:', err);
-        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+        console.error('❌ Ошибка при отправке письма через SMTP:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Не удалось отправить письмо на почту: ' + err.message 
+        });
     }
 });
 

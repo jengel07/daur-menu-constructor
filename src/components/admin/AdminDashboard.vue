@@ -1,41 +1,49 @@
 <template>
+  <!-- Главный контейнер дашборда Yumzi с динамическим классом для темной темы -->
   <div class="yumzi-dashboard" :class="{ 'dark-theme': isDarkMode }">
-    <!-- БОКОВОЕ МЕНЮ (SIDEBAR) -->
+    
+    <!-- ==================== БОКОВОЕ МЕНЮ (SIDEBAR) ==================== -->
     <aside class="sidebar" :class="{ open: isSidebarOpen }">
+      <!-- Шапка сайдбара с кнопкой закрытия для мобильных устройств -->
       <div class="sidebar-header">
         <button class="btn-close-sidebar" @click="isSidebarOpen = false">✕</button>
       </div>
 
-      <!-- Блок профиля в боковом меню -->
+      <!-- Карточка текущего пользователя в сайдбаре -->
       <div class="user-profile-card">
         <div class="avatar">
           <span class="avatar-icon">👤</span>
         </div>
         <div class="user-info">
+          <!-- Реактивный вывод имени и email из объекта userProfile -->
           <div class="user-name">{{ userProfile.firstName }} {{ userProfile.lastName }}</div>
           <div class="user-email">{{ userProfile.email }}</div>
         </div>
       </div>
 
-      <!-- Навигация -->
+      <!-- Основная навигация сайдбара -->
       <nav class="sidebar-nav">
+        <!-- Вкладка Home (Главная) -->
         <a href="#" class="nav-item" :class="{ active: activeTab === 'home' }" @click.prevent="openTab('home')">
           <span class="nav-icon">🏠</span> Home
         </a>
+        <!-- Переход на страницу админки заказов -->
         <a href="#" class="nav-item" @click.prevent="openRoute('/admin')">
           <span class="nav-icon">🛍️</span> Заказ
         </a>
+        <!-- Вкладка статистики (переключает на home/раздел статистики) -->
         <a href="#" class="nav-item" @click.prevent="openTab('home')">
           <span class="nav-icon">📈</span> Статистика
         </a>
 
         <div class="nav-divider"></div>
 
-        <!-- НОВЫЙ ПУНКТ: Персонал -->
+        <!-- Раздел Управления Персоналом -->
         <a href="#" class="nav-item" :class="{ active: activeTab === 'staff' }" @click.prevent="openTab('staff')">
           <span class="nav-icon">👥</span> Персонал
         </a>
 
+        <!-- Настройки (открывают модалку/вкладку профиля с нужным вложенным табом) -->
         <a href="#" class="nav-item" @click.prevent="openSettings('payment')">
           <span class="nav-icon">💳</span> Оплата
         </a>
@@ -51,35 +59,39 @@
 
         <div class="nav-divider"></div>
 
-        <a href="#" class="nav-item logout" @click.prevent="handleLogout">
+        <!-- Кнопка Выхода из системы -->
+        <a href="#" class="nav-item logout" @click.prevent="requestLogout">
           <span class="nav-icon">↪️</span> Выйти
         </a>
       </nav>
     </aside>
 
-    <!-- Затемнение фона при открытом меню -->
+    <!-- Затемнение (оверлей) при открытии сайдбара на мобильных -->
     <div 
       v-if="isSidebarOpen" 
       class="sidebar-overlay" 
       @click="isSidebarOpen = false"
     ></div>
 
-    <!-- ОСНОВНАЯ ОБЛАСТЬ КОНТЕНТА -->
-    <div class="main-wrapper">
-      <!-- ВЕРХНЯЯ ПАНЕЛЬ С КНОПКОЙ МЕНЮ -->
+    <!-- ==================== ОСНОВНОЙ КОНТЕНТ ==================== -->
+    <div class="main-wrapper" :class="{ 'is-loading': isLoading }">
+      <!-- ВЕРХНИЙ ХЕДЕР -->
       <header class="dash-header">
         <div class="left-header-block">
+          <!-- Кнопка Гамбургер для открытия сайдбара -->
           <button class="btn-burger" @click="isSidebarOpen = true" title="Открыть меню">
             ☰
           </button>
           <div class="brand-logo">Daur Menu</div>
         </div>
 
+        <!-- Приветственный блок -->
         <div class="greeting-box">
           <h2>Добрый вечер, {{ userProfile.firstName }}! 🌙</h2>
           <p class="subtitle">Что вы планируете сегодня?</p>
         </div>
 
+        <!-- Переключатели темы и кнопка обновления -->
         <div class="header-actions">
           <button 
             class="btn-theme-toggle" 
@@ -88,20 +100,24 @@
           >
             {{ isDarkMode ? '☀️' : '🌙' }}
           </button>
-          <button class="btn-refresh" @click="handleRefresh">Обновить</button>
+          
+          <!-- Улучшено: обновляет данные по API без перезагрузки всей SPA-страницы -->
+          <button class="btn-refresh" @click="fetchDashboardData" :disabled="isLoading">
+            {{ isLoading ? 'Обновление...' : 'Обновить' }}
+          </button>
         </div>
       </header>
 
-      <!-- ТАБ: ГЛАВНАЯ (DASHBOARD) -->
+      <!-- TAB 1: ГЛАВНАЯ СТРАНИЦА (DASHBOARD) -->
       <main v-if="activeTab === 'home'">
-        <!-- Поиск шефа / AI-ассистент -->
+        <!-- Инпут AI-помощника / Шефа -->
         <div class="search-shef-bar">
           <span class="shef-icon">✨</span>
           <input type="text" placeholder="Спросите Шефа..." readonly />
           <span class="arrow-icon">→</span>
         </div>
 
-        <!-- Секция операционных карточек -->
+        <!-- Карточки быстрой навигации к операциям -->
         <section class="section-block">
           <span class="section-title">ОПЕРАЦИИ</span>
           <div class="operations-grid">
@@ -123,15 +139,17 @@
           </div>
         </section>
 
-        <!-- Секция меню -->
+        <!-- Список созданных меню ресторана -->
         <section class="section-block">
           <div class="section-header-row">
             <span class="section-title">МЕНЮ</span>
           </div>
           <div class="menu-items-list">
-            <div class="menu-row-card" v-for="(menu, idx) in menus" :key="idx">
+            <!-- Рендеринг списка меню из реактивного массива menus -->
+            <div class="menu-row-card" v-for="(menu, idx) in menus" :key="menu.id || idx">
               <div class="menu-row-left">
                 <span class="drag-dots">⋮⋮</span>
+                <!-- Индикатор активности меню -->
                 <span class="status-dot" :class="{ active: menu.isActive }"></span>
                 <div class="menu-info-text">
                   <h4>{{ menu.name }}</h4>
@@ -139,13 +157,16 @@
                 </div>
               </div>
               <div class="menu-row-right">
+                <!-- Быстрый переход в конструктор -->
                 <button class="icon-arrow" @click="openRoute('/constructor')">→</button>
                 
+                <!-- Выпадающее меню действий (три точки) -->
                 <div class="menu-actions-wrapper" @click.stop>
                   <span class="menu-dots" @click="toggleDropdown(idx)">⋮</span>
                   
+                  <!-- Контекстное выпадающее меню -->
                   <div class="dropdown-menu" v-if="activeDropdown === idx">
-                    <div class="dropdown-item" @click="renameMenu(idx)">
+                    <div class="dropdown-item" @click="promptRenameMenu(idx)">
                       <span>✏️</span> Редактировать название
                     </div>
                     <div class="dropdown-item" @click="toggleAvailability(idx)">
@@ -154,7 +175,7 @@
                     <div class="dropdown-item" @click="duplicateMenu(idx)">
                       <span>📋</span> Дублировать
                     </div>
-                    <div class="dropdown-item delete" @click="deleteMenu(idx)">
+                    <div class="dropdown-item delete" @click="promptDeleteMenu(idx)">
                       <span>🗑️</span> Удалить
                     </div>
                   </div>
@@ -162,10 +183,11 @@
               </div>
             </div>
           </div>
-          <button class="btn-new-menu" @click="addNewMenu">+ Новое меню</button>
+          <!-- Кнопка создания нового меню -->
+          <button class="btn-new-menu" @click="promptAddNewMenu">+ Новое меню</button>
         </section>
 
-        <!-- СЕКЦИЯ СТАТИСТИКИ -->
+        <!-- Блок со статистикой и геймификацией/ограничением просмотров -->
         <section class="section-block stats-section">
           <div class="stat-header-row">
             <span class="section-title">СТАТИСТИКА</span>
@@ -173,21 +195,25 @@
           </div>
 
           <div class="stat-card-container">
+            <!-- Декоративный график фоном -->
             <svg class="bg-chart-svg" viewBox="0 0 500 100" preserveAspectRatio="none">
               <path d="M 0,80 Q 80,70 160,85 T 320,50 T 500,20" fill="none" stroke="#e0e0e0" stroke-width="2" stroke-dasharray="4 4" />
             </svg>
 
             <div class="stat-center-box">
+              <!-- Круговой Прогресс-бар с вычисляемым градиентом -->
               <div class="circle-progress" :style="progressStyle">
                 <div class="circle-inner">
                   {{ viewsCount }}/10
                 </div>
               </div>
 
+              <!-- Динамическое описание с правильным склонением слова "посетитель" -->
               <p class="stat-desc">
                 {{ userProfile.firstName }}, осталось всего {{ 10 - viewsCount }} {{ getVisitorsWord(10 - viewsCount) }}, чтобы открыть полную статистику — верим в вас 😄
               </p>
 
+              <!-- Заблокированная кнопка просмотра статистики -->
               <button class="btn-lock-stat" disabled>
                 <span class="lock-icon">🔒</span> Посмотреть полную статистику
               </button>
@@ -196,7 +222,7 @@
         </section>
       </main>
 
-      <!-- ТАБ: УПРАВЛЕНИЕ ПЕРСОНАЛОМ -->
+      <!-- TAB 2: УПРАВЛЕНИЕ ПЕРСОНАЛОМ -->
       <main v-if="activeTab === 'staff'">
         <section class="section-block">
           <div class="staff-header-row">
@@ -204,6 +230,7 @@
               <h2 class="staff-title">Управление персоналом</h2>
               <p class="staff-subtitle">Управляйте правами доступа и сотрудниками заведения</p>
             </div>
+            <!-- Открытие модалки приглашения -->
             <button class="btn-primary-orange" @click="showInviteModal = true">
               + Пригласить сотрудника
             </button>
@@ -211,8 +238,9 @@
 
           <!-- Список сотрудников -->
           <div class="staff-list">
-            <div class="staff-card" v-for="(member, idx) in staffMembers" :key="idx">
+            <div class="staff-card" v-for="(member, idx) in staffMembers" :key="member.id || idx">
               <div class="staff-info-left">
+                <!-- Аватарка (первая буква имени) -->
                 <div class="staff-avatar">
                   {{ member.firstName ? member.firstName[0] : '👤' }}
                 </div>
@@ -228,16 +256,18 @@
               </div>
 
               <div class="staff-info-right">
+                <!-- Отображение человекочитаемой роли -->
                 <span class="staff-role-tag">{{ getRoleLabel(member.role) }}</span>
-                <button class="btn-remove-staff" @click="removeStaff(idx)" title="Удалить">🗑️</button>
+                <button class="btn-remove-staff" @click="promptRemoveStaff(idx)" title="Удалить">🗑️</button>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <!-- ТАБ: НАСТРОЙКИ -->
+      <!-- TAB 3: НАСТРОЙКИ ПРОФИЛЯ -->
       <main v-if="activeTab === 'settings'">
+        <!-- Внедрение дочернего компонента настроек с пропсами и эмиттерами -->
         <ProfileSettings 
           :profile="userProfile" 
           :initialSubTab="activeSettingsSubTab"
@@ -253,24 +283,50 @@
       @close="showInviteModal = false" 
       @invited="onStaffInvited" 
     />
+
+    <!-- ==================== КАСТОМНОЕ МОДАЛЬНОЕ ОКНО (ДИАЛОГИ) ==================== -->
+    <div v-if="modalConfig.isOpen" class="custom-modal-overlay" @click.self="closeCustomModal">
+      <div class="custom-modal-card">
+        <h3>{{ modalConfig.title }}</h3>
+        <p v-if="modalConfig.message">{{ modalConfig.message }}</p>
+
+        <!-- Поле ввода (если требуется ввод текста) -->
+        <div v-if="modalConfig.type === 'prompt'" class="modal-input-group">
+          <input 
+            v-model="modalConfig.inputValue" 
+            type="text" 
+            class="modal-input" 
+            ref="modalInputRef"
+            @keyup.enter="confirmCustomModal" 
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" @click="closeCustomModal">Отмена</button>
+          <button class="btn-primary" @click="confirmCustomModal">Подтвердить</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import ProfileSettings from './ProfileSettings.vue';
 import InviteStaffModal from './InviteStaffModal.vue';
 
 const router = useRouter();
 
-const isDarkMode = ref(false); 
+// ==================== РЕАКТИВНЫЕ ПЕРЕМЕННЫЕ ====================
+const isDarkMode = ref(false);
 const isSidebarOpen = ref(false);
 const showInviteModal = ref(false);
+const isLoading = ref(false);
 
 const activeTab = ref<'home' | 'settings' | 'staff'>('home'); 
 const activeSettingsSubTab = ref('profile');
-
 const viewsCount = ref(1);
 
 const userProfile = reactive({
@@ -283,51 +339,82 @@ const userProfile = reactive({
   wideView: false
 });
 
-// Загружаем данные пользователя из localStorage при монтировании компонента
-onMounted(() => {
-  window.addEventListener('click', closeDropdowns);
+interface StaffMember {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  status: 'active' | 'pending';
+}
 
-  const savedName = localStorage.getItem('userName');
-  const savedEmail = localStorage.getItem('userEmail');
-
-  if (savedName) {
-    userProfile.firstName = savedName;
-  }
-  if (savedEmail) {
-    userProfile.email = savedEmail;
-    // Обновляем также первого сотрудника в списке персонала, если это текущий владелец
-    if (staffMembers.value.length > 0) {
-      staffMembers.value[0].firstName = savedName || userProfile.firstName;
-      staffMembers.value[0].email = savedEmail;
-    }
-  }
-});
-
-// Список персонала
-const staffMembers = ref([
+const staffMembers = ref<StaffMember[]>([
   {
+    id: 1,
     firstName: 'Евгения',
     lastName: '',
     email: 'apsny.sklad@gmail.com',
     role: 'owner',
     status: 'active'
-  },
-  {
-    firstName: 'Алексей',
-    lastName: 'Иванов',
-    email: 'chef@restaurant.com',
-    role: 'chef',
-    status: 'active'
   }
 ]);
 
-const menus = ref([
-  { name: 'Main Menu', categories: 12, items: 115, isActive: true },
-  { name: 'Main Menu', categories: 5, items: 36, isActive: true }
-]);
+// Интерфейс для меню
+interface MenuItem {
+  id: number;
+  name: string;
+  categories: number; // Динамическое количество категорий
+  items: number;      // Динамическое количество блюд/позиций
+  isActive: boolean;
+}
+
+// Инициализируем массив меню
+const menus = ref<MenuItem[]>([]);
 
 const activeDropdown = ref<number | null>(null);
 
+// ==================== КАСТОМНАЯ МОДАЛКА ====================
+const modalInputRef = ref<HTMLInputElement | null>(null);
+const modalConfig = reactive({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'confirm' as 'confirm' | 'prompt',
+  inputValue: '',
+  onConfirm: (val?: string) => {}
+});
+
+const openCustomModal = (opts: {
+  title: string;
+  message?: string;
+  type?: 'confirm' | 'prompt';
+  initialValue?: string;
+  onConfirm: (val?: string) => void;
+}) => {
+  modalConfig.title = opts.title;
+  modalConfig.message = opts.message || '';
+  modalConfig.type = opts.type || 'confirm';
+  modalConfig.inputValue = opts.initialValue || '';
+  modalConfig.onConfirm = opts.onConfirm;
+  modalConfig.isOpen = true;
+
+  if (opts.type === 'prompt') {
+    nextTick(() => {
+      modalInputRef.value?.focus();
+    });
+  }
+};
+
+const closeCustomModal = () => {
+  modalConfig.isOpen = false;
+};
+
+const confirmCustomModal = () => {
+  modalConfig.onConfirm(modalConfig.inputValue);
+  closeCustomModal();
+};
+
+// COMPUTED
 const progressStyle = computed(() => {
   const percentage = Math.min((viewsCount.value / 10) * 100, 100);
   return {
@@ -335,6 +422,114 @@ const progressStyle = computed(() => {
   };
 });
 
+// Сохранение списка меню в localStorage
+const saveMenusToStorage = () => {
+  localStorage.setItem('user_menus', JSON.stringify(menus.value));
+};
+
+// Получение статистики для самого первого (дефолтного) меню из Конструктора
+const getConstructorStats = () => {
+  try {
+    const savedData = localStorage.getItem('menuData');
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      const categoriesCount = parsed.categories ? parsed.categories.length : 4;
+      const itemsCount = parsed.dishes ? parsed.dishes.length : (parsed.items ? parsed.items.length : 4);
+      return { categoriesCount, itemsCount };
+    }
+  } catch (e) {
+    console.error('Ошибка чтения данных конструктора:', e);
+  }
+  return { categoriesCount: 4, itemsCount: 4 };
+};
+
+// ==================== ЗАГРУЗКА ДАННЫХ ====================
+const fetchDashboardData = async () => {
+  isLoading.value = true;
+  try {
+    // 1. Сначала читаем сохраненный список из localStorage
+    const storedMenus = localStorage.getItem('user_menus');
+    if (storedMenus) {
+      menus.value = JSON.parse(storedMenus);
+      return;
+    }
+
+    // 2. Если нет в локальном хранилище — пытаемся получить с бэкенда
+    const response = await fetch('/api/menu'); 
+    const contentType = response.headers.get('content-type');
+
+    if (response.ok && contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      menus.value = data.map((m: any) => {
+        const categoriesCount = m.categories ? m.categories.length : 0;
+        const totalItemsCount = m.categories 
+          ? m.categories.reduce((acc: number, cat: any) => acc + (cat.items ? cat.items.length : 0), 0)
+          : 0;
+
+        return {
+          id: m.id,
+          name: m.name,
+          isActive: m.isActive ?? true,
+          categories: categoriesCount,
+          items: totalItemsCount
+        };
+      });
+    } else {
+      // 3. Fallback: Загружаем статистику для первого основного меню
+      const { categoriesCount, itemsCount } = getConstructorStats();
+      menus.value = [
+        {
+          id: 101,
+          name: 'Основное меню',
+          categories: categoriesCount,
+          items: itemsCount,
+          isActive: true
+        }
+      ];
+    }
+    saveMenusToStorage();
+  } catch (error) {
+    console.warn('Сервер API недоступен, используем локальные данные');
+    const { categoriesCount, itemsCount } = getConstructorStats();
+    menus.value = [
+      {
+        id: 101,
+        name: 'Основное меню',
+        categories: categoriesCount,
+        items: itemsCount,
+        isActive: true
+      }
+    ];
+    saveMenusToStorage();
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// LIFECYCLE HOOKS
+onMounted(() => {
+  window.addEventListener('click', closeDropdowns);
+
+  const savedName = localStorage.getItem('userName');
+  const savedEmail = localStorage.getItem('userEmail');
+
+  if (savedName) userProfile.firstName = savedName;
+  if (savedEmail) {
+    userProfile.email = savedEmail;
+    if (staffMembers.value.length > 0) {
+      staffMembers.value[0].firstName = savedName || userProfile.firstName;
+      staffMembers.value[0].email = savedEmail;
+    }
+  }
+
+  fetchDashboardData();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdowns);
+});
+
+// ==================== МЕТОДЫ ====================
 const getRoleLabel = (role: string) => {
   const map: Record<string, string> = {
     owner: 'Владелец',
@@ -348,19 +543,24 @@ const getRoleLabel = (role: string) => {
 
 const onStaffInvited = (data: { email: string; role: string }) => {
   staffMembers.value.push({
+    id: Date.now(),
     firstName: 'Новый',
     lastName: 'Сотрудник',
     email: data.email,
     role: data.role,
     status: 'pending'
   });
-  alert(`Приглашение отправлено на ${data.email}`);
 };
 
-const removeStaff = (idx: number) => {
-  if (confirm('Вы действительно хотите удалить этого сотрудника?')) {
-    staffMembers.value.splice(idx, 1);
-  }
+const promptRemoveStaff = (idx: number) => {
+  openCustomModal({
+    title: 'Удаление сотрудника',
+    message: `Вы действительно хотите удалить сотрудника ${staffMembers.value[idx].firstName}?`,
+    type: 'confirm',
+    onConfirm: () => {
+      staffMembers.value.splice(idx, 1);
+    }
+  });
 };
 
 const getVisitorsWord = (count: number) => {
@@ -373,93 +573,185 @@ const getVisitorsWord = (count: number) => {
   return 'посетителей';
 };
 
-const toggleTheme = () => {
-  isDarkMode.value = !isDarkMode.value;
-};
-
-const openRoute = (path: string) => {
-  isSidebarOpen.value = false;
-  router.push(path);
-};
-
-const openTab = (tab: 'home' | 'settings' | 'staff') => {
-  activeTab.value = tab;
-  isSidebarOpen.value = false;
-};
-
-const handleRefresh = () => {
-  window.location.reload();
-};
-
-const openSettings = (subTabName: string) => {
-  activeSettingsSubTab.value = subTabName;
-  activeTab.value = 'settings';
-  isSidebarOpen.value = false;
-};
-
+const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; };
+const openRoute = (path: string) => { isSidebarOpen.value = false; router.push(path); };
+const openTab = (tab: 'home' | 'settings' | 'staff') => { activeTab.value = tab; isSidebarOpen.value = false; };
+const openSettings = (subTabName: string) => { activeSettingsSubTab.value = subTabName; activeTab.value = 'settings'; isSidebarOpen.value = false; };
 const onSaveProfile = () => {};
 
-const handleLogout = () => {
-  if (confirm('Вы уверены, что хотите выйти?')) {
-    router.push('/login');
-  }
+const requestLogout = () => {
+  openCustomModal({
+    title: 'Выход из системы',
+    message: 'Вы действительно хотите выйти из своего аккаунта?',
+    type: 'confirm',
+    onConfirm: () => { router.push('/login'); }
+  });
 };
 
-const toggleDropdown = (idx: number) => {
-  activeDropdown.value = activeDropdown.value === idx ? null : idx;
-};
+const toggleDropdown = (idx: number) => { activeDropdown.value = activeDropdown.value === idx ? null : idx; };
+const closeDropdowns = () => { activeDropdown.value = null; };
 
-const closeDropdowns = () => {
-  activeDropdown.value = null;
-};
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeDropdowns);
-});
-
-const renameMenu = (idx: number) => {
+const promptRenameMenu = (idx: number) => {
   closeDropdowns();
-  const newName = prompt('Введите новое название меню:', menus.value[idx].name);
-  if (newName && newName.trim()) {
-    menus.value[idx].name = newName.trim();
-  }
+  openCustomModal({
+    title: 'Редактировать название',
+    message: 'Введите новое наименование для этого меню:',
+    type: 'prompt',
+    initialValue: menus.value[idx].name,
+    onConfirm: (newName) => {
+      if (newName && newName.trim()) {
+        menus.value[idx].name = newName.trim();
+        saveMenusToStorage();
+      }
+    }
+  });
 };
 
 const toggleAvailability = (idx: number) => {
   closeDropdowns();
   menus.value[idx].isActive = !menus.value[idx].isActive;
+  saveMenusToStorage();
 };
 
 const duplicateMenu = (idx: number) => {
   closeDropdowns();
   const target = menus.value[idx];
   menus.value.push({
+    id: Date.now(),
     name: `${target.name} (Копия)`,
     categories: target.categories,
     items: target.items,
     isActive: target.isActive
   });
+  saveMenusToStorage();
 };
 
-const deleteMenu = (idx: number) => {
+const promptDeleteMenu = (idx: number) => {
   closeDropdowns();
-  if (confirm('Вы действительно хотите удалить это меню?')) {
-    menus.value.splice(idx, 1);
-  }
+  openCustomModal({
+    title: 'Удаление меню',
+    message: `Вы уверены, что хотите полностью удалить "${menus.value[idx].name}"?`,
+    type: 'confirm',
+    onConfirm: () => {
+      menus.value.splice(idx, 1);
+      saveMenusToStorage();
+    }
+  });
 };
 
-const addNewMenu = () => {
-  const name = prompt('Введите название нового меню:', 'Новое меню');
-  if (name && name.trim()) {
-    menus.value.push({
-      name: name.trim(),
-      categories: 0,
-      items: 0,
-      isActive: true
-    });
-  }
+// Создание нового ЧИСТОГО меню (0 категорий, 0 позиций)
+const promptAddNewMenu = () => {
+  openCustomModal({
+    title: 'Создание меню',
+    message: 'Укажите название нового меню:',
+    type: 'prompt',
+    initialValue: 'Новое меню',
+    onConfirm: (name) => {
+      if (name && name.trim()) {
+        menus.value.push({
+          id: Date.now(),
+          name: name.trim(),
+          categories: 0,
+          items: 0,
+          isActive: true
+        });
+        saveMenusToStorage();
+      }
+    }
+  });
 };
 </script>
+
+<style scoped>
+/* Стили для кастомных модальных окон (диалогов) */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.custom-modal-card {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  min-width: 320px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.dark-theme .custom-modal-card {
+  background: #1e1e24;
+  color: #f1f1f1;
+}
+
+.custom-modal-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.custom-modal-card p {
+  color: #666;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
+
+.dark-theme .custom-modal-card p {
+  color: #aaa;
+}
+
+.modal-input-group {
+  margin-bottom: 20px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #ff5722;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.main-wrapper.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+</style>
 
 <style scoped>
 /* ТЕМАТИЧЕСКИЕ ПЕРЕМЕННЫЕ */
