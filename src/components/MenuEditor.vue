@@ -198,8 +198,8 @@ const closeModal = () => {
           </select>
         </div>
 
-        <!-- Панель фильтров питания (Питание: Без орехов, Без лактозы, Без глютена) -->
-        <div class="dietary-filters-toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef;">
+        <!-- Панель фильтров питания скрыта с помощью v-show="false" или v-if="false" -->
+        <div v-show="false" class="dietary-filters-toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef;">
           <span style="font-size: 13px; font-weight: 600; color: #495057; margin-right: 4px;">Питание:</span>
           
           <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; background: #fff; padding: 6px 12px; border-radius: 6px; border: 1px solid #ced4da;">

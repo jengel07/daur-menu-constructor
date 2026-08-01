@@ -2,27 +2,27 @@
   <div>
     <!-- Нижняя панель настроек -->
     <div class="floating-settings-bar" :style="{ backgroundColor: primaryColor || secondaryColor || '#646cff' }">
-      <button class="fs-icon-btn" @click="$emit('open', 'language')" :title="t('languageTitle')">
+      <button class="fs-icon-btn" @click="$emit('open', 'language')" title="Выбор языка">
         <Languages :size="20" stroke-width="2"/>
       </button>
       <div class="fs-divider"></div>
 
-      <button class="fs-icon-btn" @click="$emit('open', 'filters')" :title="t('filters')">
+      <button class="fs-icon-btn" @click="$emit('open', 'filters')" title="Фильтры">
         <SlidersHorizontal :size="20" stroke-width="2"/>
       </button>
       <div class="fs-divider"></div>
 
-      <button class="fs-icon-btn" @click="$emit('open', 'share')" :title="t('share')">
+      <button class="fs-icon-btn" @click="$emit('open', 'share')" title="Поделиться">
         <Share2 :size="20" stroke-width="2"/>
       </button>
       <div class="fs-divider"></div>
 
-      <button class="fs-icon-btn" @click="$emit('toggle-view')" :title="t('viewMode')">
+      <button class="fs-icon-btn" @click="$emit('toggle-view')" title="Режим отображения">
         <component :is="viewMode === 'grid' ? List : LayoutGrid" :size="20" stroke-width="2" />
       </button>
       <div class="fs-divider"></div>
 
-      <button class="fs-icon-btn" @click="$emit('open', 'search')" :title="t('search')">
+      <button class="fs-icon-btn" @click="$emit('open', 'search')" title="Поиск">
         <Search :size="20" stroke-width="2"/>
       </button>
     </div>
@@ -32,8 +32,8 @@
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
-          <h3>{{ t('yourOrder') }}</h3>
-          <button class="clear-filters-text-btn" @click="$emit('clear-cart')">{{ t('clear') }}</button>
+          <h3>Ваш заказ</h3>
+          <button class="clear-filters-text-btn" @click="$emit('clear-cart')">Очистить</button>
         </div>
         <div class="cart-items-list" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
           <div v-for="cItem in cartItems" :key="cItem.id" style="display: flex; justify-content: space-between; align-items: center;">
@@ -49,10 +49,10 @@
           </div>
         </div>
         <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 6px;">
-          <span>{{ t('total') }}:</span>
+          <span>Итого:</span>
           <span>{{ totalPrice.toFixed(2) }} ₽</span>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="$emit('checkout')">{{ t('checkout') }}</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="$emit('checkout')">Оформить заказ</button>
       </div>
     </div>
 
@@ -61,7 +61,7 @@
       v-if="activeModal === 'language'"
       :current-lang="currentLang"
       :primary-color="primaryColor"
-      :title="t('languageTitle')"
+      title="Выберите язык"
       @close="$emit('close')"
       @select="(lang) => $emit('select-lang', lang)"
     />
@@ -71,10 +71,10 @@
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
-          <h3>{{ t('filters') }}</h3>
-          <button class="clear-filters-text-btn" @click="$emit('clear-filters')">{{ t('clear') }}</button>
+          <h3>Фильтры</h3>
+          <button class="clear-filters-text-btn" @click="$emit('clear-filters')">Очистить</button>
         </div>
-        <div style="font-size: 11px; font-weight: bold; margin-top: 4px;">{{ t('nutrition') }}</div>
+        <div style="font-size: 11px; font-weight: bold; margin-top: 4px;">Пищевая ценность</div>
         <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
           <button 
             class="filter-option-btn" 
@@ -82,7 +82,7 @@
             :style="selectedFilters.includes('nutFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'nutFree')"
           >
-            🌰 {{ t('nutFree') }}
+            🌰 Без орехов
           </button>
           <button 
             class="filter-option-btn" 
@@ -90,7 +90,7 @@
             :style="selectedFilters.includes('lactoseFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'lactoseFree')"
           >
-            🥛 {{ t('lactoseFree') }}
+            🥛 Без лактозы
           </button>
           <button 
             class="filter-option-btn" 
@@ -98,10 +98,10 @@
             :style="selectedFilters.includes('glutenFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'glutenFree')"
           >
-            🌾 {{ t('glutenFree') }}
+            🌾 Без глютена
           </button>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">{{ t('showResults') }}</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">Показать результаты</button>
         <div class="modal-footer-text">© Проект от Web-Visual-World | 2024</div>
       </div>
     </div>
@@ -111,7 +111,7 @@
       <div class="bottom-sheet share-sheet">
         <div class="sheet-indicator"></div>
         <div class="share-modal-header">
-          <h3>{{ t('shareLinkTitle') || 'Поделиться ссылкой' }}</h3>
+          <h3>Поделиться ссылкой</h3>
           <button class="close-modal-x" @click="$emit('close')">✕</button>
         </div>
 
@@ -125,7 +125,7 @@
           </div>
         </div>
 
-        <div class="share-section-title">{{ t('shareVia') || 'Поделиться с помощью' }}</div>
+        <div class="share-section-title">Поделиться с помощью</div>
         
         <div class="share-social-grid">
           <button class="social-btn" @click="shareTo('telegram')">
@@ -150,7 +150,7 @@
             <Mail :size="18" class="social-lucide-icon gm" stroke-width="2"/> Gmail
           </button>
           <button class="social-btn" @click="copyLink">
-            <Copy :size="18" class="social-lucide-icon cp" stroke-width="2"/> {{ t('copyLink') }}
+            <Copy :size="18" class="social-lucide-icon cp" stroke-width="2"/> Скопировать ссылку
           </button>
         </div>
       </div>
@@ -193,15 +193,15 @@
     <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" @click.self="$emit('close')">
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
-        <h3>{{ t('searchMenu') }}</h3>
+        <h3>Поиск по меню</h3>
         <input 
           type="text" 
           :value="searchQuery" 
           @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)" 
-          :placeholder="t('searchPlaceholder')" 
+          placeholder="Введите название блюда..." 
           style="width: 100%; padding: 6px; font-size: 10px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; margin-top: 6px;" 
         />
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">{{ t('find') }}</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">Найти</button>
       </div>
     </div>
 
@@ -222,7 +222,6 @@ import {
 } from 'lucide-vue-next';
 import LanguageModal from './LanguageModal.vue';
 
-// Пропсы от родительского компонета ClientView.vue
 const props = defineProps<{
   activeModal: string;
   primaryColor: string;

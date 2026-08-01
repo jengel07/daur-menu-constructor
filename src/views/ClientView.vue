@@ -458,7 +458,7 @@ const getLocalizedValue = (field: any) => {
   return field;
 };
 
-const getRestaurantName = () => getLocalizedValue(restaurantInfo.value.name);
+
 const getItemName = (item: any) => getLocalizedValue(item?.name);
 const getItemDescription = (item: any) => getLocalizedValue(item?.description);
 const getLocalizedCategoryName = (cat: any) => getLocalizedValue(cat?.name);
