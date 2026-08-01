@@ -55,33 +55,32 @@
                   ⏱️ {{ getElapsedTime(order.createdAt || '') }}
                 </div>
               </div>
-<!-- Инфо по доставке / столу -->
-<div class="receipt-location">
-  <!-- Имя клиента и телефон -->
-  <div v-if="order.customerName || order.customerPhone || order.phone" class="receipt-customer-info">
-  👤 <b>{{ order.customerName || 'Клиент' }}</b> 
-  <span v-if="order.customerPhone || order.phone" class="text-sm text-gray-600 ml-1">
-    📞 <a :href="`tel:${order.customerPhone || order.phone}`" class="hover:underline">{{ order.customerPhone || order.phone }}</a>
-  </span>
-</div>
 
-  <template v-if="order.type === 'delivery'">
-    <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
-  </template>
-  
-  <template v-else-if="order.type === 'pickup'">
-    <span>📦 Самовывоз</span>
-  </template>
-  
-  <template v-else>
-    <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
-  </template>
+              <!-- Инфо по доставке / столу -->
+              <div class="receipt-location">
+                <div v-if="order.customerName || order.customerPhone || order.phone" class="receipt-customer-info">
+                  👤 <b>{{ order.customerName || 'Клиент' }}</b> 
+                  <span v-if="order.customerPhone || order.phone" class="text-sm text-gray-600 ml-1">
+                    📞 <a :href="`tel:${order.customerPhone || order.phone}`" class="hover:underline">{{ order.customerPhone || order.phone }}</a>
+                  </span>
+                </div>
 
-  <!-- Примечание клиента -->
-  <div v-if="order.note || order.comment" class="receipt-note">
-    💬 {{ order.note || order.comment }}
-  </div>
-</div>
+                <template v-if="order.type === 'delivery'">
+                  <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
+                </template>
+                
+                <template v-else-if="order.type === 'pickup'">
+                  <span>📦 Самовывоз</span>
+                </template>
+                
+                <template v-else>
+                  <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+                </template>
+
+                <div v-if="order.note || order.comment" class="receipt-note">
+                  💬 {{ order.note || order.comment }}
+                </div>
+              </div>
 
               <div class="receipt-items-list">
                 <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
@@ -123,28 +122,27 @@
               </div>
 
               <div class="receipt-location">
-  <!-- Имя клиента и телефон, если они приходят -->
-  <div v-if="order.customerName || order.phone" class="receipt-customer-info">
-    👤 <b>{{ order.customerName || 'Клиент' }}</b> <span v-if="order.phone">({{ order.phone }})</span>
-  </div>
+                <div v-if="order.customerName || order.phone" class="receipt-customer-info">
+                  👤 <b>{{ order.customerName || 'Клиент' }}</b> <span v-if="order.phone">({{ order.phone }})</span>
+                </div>
 
-  <template v-if="order.type === 'delivery'">
-    <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
-    <div v-if="order.apartment || order.doorCode" class="receipt-sub-info">
-      🚪 Кв/Офис: {{ order.apartment || '-' }}, Код двери: {{ order.doorCode || '-' }}
-    </div>
-  </template>
-  
-  <template v-else-if="order.type === 'pickup'">
-    <span>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</span>
-  </template>
-  
-  <template v-else>
-    <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
-  </template>
+                <template v-if="order.type === 'delivery'">
+                  <span>🚴 {{ order.deliveryAddress || order.address || order.street || 'Адрес не указан' }}</span>
+                  <div v-if="order.apartment || order.doorCode" class="receipt-sub-info">
+                    🚪 Кв/Офис: {{ order.apartment || '-' }}, Код двери: {{ order.doorCode || '-' }}
+                  </div>
+                </template>
+                
+                <template v-else-if="order.type === 'pickup'">
+                  <span>📦 Самовывоз (Заберут через {{ order.pickupTimeMin || pickupTime }} мин)</span>
+                </template>
+                
+                <template v-else>
+                  <strong>🍽️ Стол №{{ order.tableNumber || 1 }}</strong>
+                </template>
 
-  <div v-if="order.note" class="receipt-note">💬 {{ order.note }}</div>
-</div>
+                <div v-if="order.note" class="receipt-note">💬 {{ order.note }}</div>
+              </div>
 
               <div class="receipt-items-list">
                 <div v-for="item in order.items" :key="item.id" class="receipt-item-row">
@@ -391,17 +389,30 @@ const isActivated = ref(true);
 
 // Таймер реального времени для подсчета прошедшего времени заказов
 const now = ref(Date.now());
+
+// Переменная для хранения ссылки на созданный таймер
 let timerInterval: any = null;
 
+// Hook монтирования компонента
 onMounted(() => {
+  // Запускаем обновляемый таймер раз в секунду
   timerInterval = setInterval(() => {
     now.value = Date.now();
   }, 1000);
 });
 
+// =========================================================================
+// 🧹 CLEANUP ФУНКЦИЯ (Очистка ресурсов при уничтожении компонента)
+// =========================================================================
+// Вызывается перед тем, как компонент удаляется из DOM (при смене страницы).
+// Без этого вызова setInterval продолжил бы выполнять цикл в фоновом режиме,
+// что привело бы к УТЕЧКЕ ПАМЯТИ (Memory Leak) и бесполезной нагрузке на CPU.
 onUnmounted(() => {
-  if (timerInterval) clearInterval(timerInterval);
+  if (timerInterval) {
+    clearInterval(timerInterval); // Остановка таймера
+  }
 });
+// =========================================================================
 
 const getElapsedTime = (createdTime: number | string) => {
   let startTime = typeof createdTime === 'number' ? createdTime : Date.now();
