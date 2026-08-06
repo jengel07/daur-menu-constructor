@@ -1,6 +1,5 @@
 <template>
   <div class="client-wrapper" :style="{ backgroundColor: restaurantInfo.backgroundColor || '#f4f6f3' }">
-    <!-- Кнопка закрытия предпросмотра (скрыта на мобильных устройствах) -->
     <button class="close-preview-btn" @click="goToConstructor">
       ✕ {{ t('closePreview') || 'Закрыть предпросмотр' }}
     </button>
@@ -11,7 +10,6 @@
         color: restaurantInfo.textColor || '#fff'  
       }">
         
-        <!-- Шапка -->
         <div class="phone-header" :style="{  
           backgroundColor: restaurantInfo.secondaryColor || '#333',  
           backgroundImage: restaurantInfo.coverImage  
@@ -31,10 +29,8 @@
           <div class="phone-logo" style="color: #ffffff;">{{ restaurantInfo.name || 'Jazzve' }}</div>
         </div>
 
-        <!-- Тело экрана (Категории и Товары) -->
         <div class="phone-body">
           
-          <!-- Аккуратный виджет Wi-Fi (отображается только если включено явно) -->
           <div  
             v-if="Boolean(store.generalSettings?.wifiEnabled)"  
             class="wifi-card-widget"  
@@ -56,7 +52,6 @@
               <div class="wifi-card-chevron" :style="{ transform: isWifiExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }">›</div>
             </div>
 
-            <!-- Раскрывающийся блок с данными сети -->
             <div v-if="isWifiExpanded" class="wifi-expanded-content" @click.stop>
               <div class="wifi-info-row">
                 <span>{{ t('network') || 'Сеть' }}:</span> <b>{{ store.generalSettings?.wifiSsid || 'Не указана' }}</b>
@@ -114,11 +109,7 @@
             </div>
           </div>
         </div>
-<!-- 4. ПЕРЕДАЧА ДАННЫХ И СОСТОЯНИЙ ЧЕРЕЗ PROPS В ДОЧЕРНИЙ КОМПОНЕНТ -->
-<!-- Дочерний компонент SettingsbarForClient получает реактивные реактивные данные 
-     (цвета, корзину, режим отображения) через входные параметры (props), 
-     а также поддерживает двустороннее связывание через v-model:searchQuery -->
-        <!-- Подключаемый компонент панели управления -->
+
         <SettingsbarForClient
           :active-modal="activeModal"
           :primary-color="restaurantInfo.primaryColor || '#646cff'"
@@ -144,11 +135,9 @@
           @clear-filters="selectedFilters = []"
         />
 
-        <!-- Модальное окно: Шаг 1 и Шаг 2 -->
         <div v-if="showCheckoutModal" class="checkout-modal-overlay" @click.self="closeModal">
           <div class="checkout-modal">
             
-            <!-- ШАГ 1: Форма ввода данных -->
             <template v-if="checkoutStep === 1">
               <div class="checkout-header">
                 <h3>Оформление заказа</h3>
@@ -232,7 +221,6 @@
               </form>
             </template>
 
-            <!-- ШАГ 2: Проверка заказа -->
             <template v-else-if="checkoutStep === 2">
               <div class="checkout-header">
                 <button class="back-btn" @click="checkoutStep = 1">〈</button>
@@ -341,7 +329,6 @@
           </div>
         </div>
 
-        <!-- Кнопка корзины -->
         <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
             <ShoppingCart :size="18" stroke-width="2" /> 
@@ -363,7 +350,6 @@ import { useOrders } from '../composables/useOrders';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
 import { ShoppingCart } from 'lucide-vue-next';
 
-// Расширенный словарь переводов (включает ключи для фильтров и виджетов)
 const translations: Record<string, Record<string, string>> = {
   ru: {
     closePreview: 'Закрыть предпросмотр',
@@ -394,29 +380,21 @@ const translations: Record<string, Record<string, string>> = {
     password: 'Password'
   }
 };
-// 1. ПОДПИСКА НА PINIA-STORE И СОЗДАНИЕ ЛОКАЛЬНЫХ СВОЙСТВ
-// подписываемся на глобальное состояние Pinia (`useMenuStore`).
+
 const store = useMenuStore();
 const isWifiExpanded = ref(false);
 const { addOrder } = useOrders();
 
-// Через `computed` проксируем данные из стора.
-// Как только в Pinia меняется `restaurantInfo`, `items` или `categories`, 
-// эти вычисляемые свойства автоматически обновляются и триггерят перерендер интерфейса.
 const restaurantInfo = computed(() => store.restaurantInfo);
 const items = computed(() => store.items);
 const categories = computed(() => store.categories);
 
-// 2. ЛОКАЛЬНАЯ РЕАКТИВНОСТЬ ДЛЯ ФИЛЬТРАЦИИ И СОСТОЯНИЙ ЭКРАНА
-// Для локального состояния компонента (выбранная категория, поисковый запрос, фильтры)
-// используются реактивные обертки `ref()`.
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
 const viewMode = ref<'grid' | 'list'>('list');
 const activeModal = ref<'none' | 'cart' | 'filters' | 'search' | 'share' | 'language'>('none');
 const searchQuery = ref<string>('');
 const selectedFilters = ref<string[]>([]);
-
 const cartItems = ref<any[]>([]);
 
 const getTodayDateStr = () => {
@@ -449,7 +427,6 @@ const t = (key: string) => {
   return translations[currentLang.value]?.[key] || translations['ru'][key] || key;
 };
 
-// Функция локализации для названий (ресторан, блюда, категории)
 const getLocalizedValue = (field: any) => {
   if (!field) return '';
   if (typeof field === 'object' && field !== null) {
@@ -457,7 +434,6 @@ const getLocalizedValue = (field: any) => {
   }
   return field;
 };
-
 
 const getItemName = (item: any) => getLocalizedValue(item?.name);
 const getItemDescription = (item: any) => getLocalizedValue(item?.description);
@@ -470,27 +446,18 @@ const loadData = async () => {
       if (response.data.restaurantInfo) {
         store.restaurantInfo = { ...store.restaurantInfo, ...response.data.restaurantInfo };
       }
-      if (response.data.items) store.items = response.data.items;
-      if (response.data.categories) store.categories = response.data.categories;
+      if (response.data.items && response.data.items.length > 0) {
+        store.items = response.data.items;
+      }
+      if (response.data.categories && response.data.categories.length > 0) {
+        store.categories = response.data.categories;
+      }
       if (response.data.generalSettings) {
         store.generalSettings = { ...store.generalSettings, ...response.data.generalSettings };
       }
     }
-  } catch (e) {}
-
-  const savedInfo = localStorage.getItem('preview_restaurantInfo');
-  const savedItems = localStorage.getItem('preview_items');
-  const savedCategories = localStorage.getItem('preview_categories');
-  const savedGeneral = localStorage.getItem('preview_generalSettings');
-
-  if (savedInfo) { try { store.restaurantInfo = JSON.parse(savedInfo); } catch (e) {} }
-  if (savedItems) { try { store.items = JSON.parse(savedItems); } catch (e) {} }
-  if (savedCategories) { try { store.categories = JSON.parse(savedCategories); } catch (e) {} }
-  if (savedGeneral) { 
-    try { 
-      const parsed = JSON.parse(savedGeneral);
-      store.generalSettings = { ...store.generalSettings, ...parsed }; 
-    } catch (e) {} 
+  } catch (e) {
+    console.error('❌ Ошибка загрузки данных:', e);
   }
 };
 
@@ -520,9 +487,6 @@ onUnmounted(() => {
   }
 });
 
-// 3. ВЫЧИСЛЯЕМОЕ СВОЙСТВО (COMPUTED) ДЛЯ ФИЛЬТРАЦИИ СПИСКА
-// `filteredItems` автоматически пересчитывается при изменении исходных `items` из стора,
-// а также при изменении локальных `ref`-переменных (`selectedCategory`, `searchQuery`, `selectedFilters`).
 const filteredItems = computed(() => {
   let result = items.value;
 
@@ -667,62 +631,18 @@ const goToConstructor = () => {
   window.location.href = 'http://192.168.31.240:5173/constructor';
 };
 </script>
-<style scoped>
-.wifi-card-widget {
-  margin: 12px 16px 16px 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-}
-.wifi-card-widget:hover {
-  opacity: 0.95;
-}
-.wifi-card-main-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.wifi-card-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.wifi-card-icon-box {
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.wifi-card-title {
-  font-size: 12px;
-  opacity: 0.7;
-  line-height: 1.1;
-}
-.wifi-card-subtitle {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-.wifi-card-chevron {
-  font-size: 20px;
-  transition: transform 0.2s ease;
-  opacity: 0.6;
-}
-.wifi-expanded-content {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 13px;
-}
-.wifi-info-row {
-  display: flex;
-  justify-content: space-between;
-}
-</style>
 
 <style scoped>
+.wifi-card-widget { margin: 12px 16px 16px 16px; padding: 12px 14px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+.wifi-card-widget:hover { opacity: 0.95; }
+.wifi-card-main-row { display: flex; align-items: center; justify-content: space-between; }
+.wifi-card-left { display: flex; align-items: center; gap: 10px; }
+.wifi-card-icon-box { font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.wifi-card-title { font-size: 12px; opacity: 0.7; line-height: 1.1; }
+.wifi-card-subtitle { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.wifi-card-chevron { font-size: 20px; transition: transform 0.2s ease; opacity: 0.6; }
+.wifi-expanded-content { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; }
+.wifi-info-row { display: flex; justify-content: space-between; }
 .client-wrapper { width: 100vw; height: 100vh; height: 100dvh; display: flex; justify-content: center; align-items: center; overflow: hidden; box-sizing: border-box; position: relative; }
 .close-preview-btn { position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.7); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; z-index: 1000; transition: background 0.2s ease, transform 0.1s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
 .close-preview-btn:hover { background: rgba(0, 0, 0, 0.9); }

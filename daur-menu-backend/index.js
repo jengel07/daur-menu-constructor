@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import { createWorker } from 'tesseract.js';
 import { parseMenuText } from './menuParser.js';
-import db from './db.js'; // Импортируем подключение к базе данных SQLite
+import db from './db.js';
 import ordersRouter from './orders.js';
 
 dotenv.config();
@@ -17,18 +17,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Настройка почтового транспортера
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 465,
-    secure: true, // true для порта 465
+    secure: true,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
 });
 
-// Проверка подключения к почтовому серверу при старте
 transporter.verify((error) => {
     if (error) {
         console.error('❌ Ошибка настройки SMTP почты:', error.message);
@@ -37,7 +35,8 @@ transporter.verify((error) => {
     }
 });
 
-// Убедимся, что таблица menu существует и содержит все необходимые колонки
+// Создаём таблицу, затем отдельно пытаемся добавить колонку general_settings
+// Если колонка уже есть — ошибка игнорируется
 db.serialize(() => {
     db.run(`
         CREATE TABLE IF NOT EXISTS menu (
@@ -48,19 +47,22 @@ db.serialize(() => {
             general_settings TEXT
         )
     `, (err) => {
-        if (!err) {
-            // Миграция на случай, если таблица уже была создана без колонки general_settings
-            db.run(`ALTER TABLE menu ADD COLUMN general_settings TEXT`, () => {});
+        if (err) {
+            console.error('❌ Ошибка создания таблицы menu:', err.message);
+        }
+    });
+
+    // Миграция: добавляем колонку если её нет (ошибка = уже существует, игнорируем)
+    db.run(`ALTER TABLE menu ADD COLUMN general_settings TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+            console.error('❌ Ошибка миграции general_settings:', err.message);
         }
     });
 });
 
-// Подключаем роуты заказов
 app.use('/api', ordersRouter);
 
-// --- Эндпоинты для сохранения и получения настроек меню, категорий и блюд ---
-
-// 1. Получить всю информацию о ресторане, категориях, блюдах и общих настройках (включая Wi-Fi)
+// GET /api/menu — получить все данные ресторана
 app.get('/api/menu', (req, res) => {
     db.get("SELECT * FROM menu WHERE id = 1", (err, row) => {
         if (err) {
@@ -81,7 +83,7 @@ app.get('/api/menu', (req, res) => {
     });
 });
 
-// 2. Сохранить / обновить всю информацию, включая generalSettings (Wi-Fi и т.д.)
+// POST /api/menu — сохранить все данные ресторана
 app.post('/api/menu', (req, res) => {
     const { info, items, cats, generalSettings } = req.body;
 
@@ -105,7 +107,7 @@ app.post('/api/menu', (req, res) => {
     );
 });
 
-// --- Эндпоинт для приглашения сотрудников с реальной отправкой почты ---
+// POST /api/staff/invite — отправить приглашение сотруднику
 app.post('/api/staff/invite', async (req, res) => {
     try {
         const { email, role } = req.body;
@@ -116,7 +118,6 @@ app.post('/api/staff/invite', async (req, res) => {
 
         console.log(`✉️ Попытка отправки приглашения для email: ${email}, с ролью: ${role}`);
 
-        // Отправка реального письма через Nodemailer
         const mailOptions = {
             from: `"Daur Menu" <${process.env.SMTP_USER}>`,
             to: email,
@@ -147,7 +148,7 @@ app.post('/api/staff/invite', async (req, res) => {
     }
 });
 
-// Эндпоинт парсинга меню через OCR
+// POST /api/parse-menu — OCR-парсинг изображения меню
 app.post('/api/parse-menu', upload.single('menuFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'Файл не загружен' });
@@ -169,7 +170,6 @@ app.post('/api/parse-menu', upload.single('menuFile'), async (req, res) => {
     }
 });
 
-// Запуск сервера
 app.listen(3000, '0.0.0.0', () => {
     console.log('🚀 Сервер запущен на http://localhost:3000');
 });
