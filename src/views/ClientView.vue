@@ -344,11 +344,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useMenuStore } from '../store/menuStore';
-import { useOrders } from '../composables/useOrders';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
 import { ShoppingCart } from 'lucide-vue-next';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const router = useRouter();
 
 const translations: Record<string, Record<string, string>> = {
   ru: {
@@ -383,7 +386,6 @@ const translations: Record<string, Record<string, string>> = {
 
 const store = useMenuStore();
 const isWifiExpanded = ref(false);
-const { addOrder } = useOrders();
 
 const restaurantInfo = computed(() => store.restaurantInfo);
 const items = computed(() => store.items);
@@ -439,25 +441,19 @@ const getItemName = (item: any) => getLocalizedValue(item?.name);
 const getItemDescription = (item: any) => getLocalizedValue(item?.description);
 const getLocalizedCategoryName = (cat: any) => getLocalizedValue(cat?.name);
 
-const loadData = async () => {
+const loadClientMenu = async () => {
   try {
-    const response = await axios.get('http://192.168.31.240:3000/api/menu');
+    const response = await axios.get(`${API_URL}/api/menu`);
     if (response.data) {
-      if (response.data.restaurantInfo) {
-        store.restaurantInfo = { ...store.restaurantInfo, ...response.data.restaurantInfo };
-      }
-      if (response.data.items && response.data.items.length > 0) {
-        store.items = response.data.items;
-      }
-      if (response.data.categories && response.data.categories.length > 0) {
-        store.categories = response.data.categories;
-      }
+      store.restaurantInfo = response.data.restaurantInfo || {};
+      store.updateCategories(response.data.categories || []);
+      store.updateItems(response.data.items || []);
       if (response.data.generalSettings) {
         store.generalSettings = { ...store.generalSettings, ...response.data.generalSettings };
       }
     }
-  } catch (e) {
-    console.error('❌ Ошибка загрузки данных:', e);
+  } catch (error) {
+    console.error('Ошибка загрузки актуального меню для клиента:', error);
   }
 };
 
@@ -469,22 +465,17 @@ const handleStorageEvent = (event: StorageEvent) => {
     event.key === 'preview_generalSettings' ||
     event.key === 'generalSettings'
   ) {
-    loadData();
+    loadClientMenu();
   }
 };
 
 onMounted(() => {
-  loadData();
+  loadClientMenu();
   window.addEventListener('storage', handleStorageEvent);
-  const interval = setInterval(loadData, 2000);
-  (window as any).__previewInterval = interval;
 });
 
 onUnmounted(() => {
   window.removeEventListener('storage', handleStorageEvent);
-  if ((window as any).__previewInterval) {
-    clearInterval((window as any).__previewInterval);
-  }
 });
 
 const filteredItems = computed(() => {
@@ -580,7 +571,7 @@ const closeModal = () => {
   checkoutStep.value = 1;
 };
 
-const confirmOrder = () => {
+const confirmOrder = async () => {
   const preparedItems = cartItems.value.map(item => ({
     id: item.id,
     name: getItemName(item),
@@ -588,7 +579,7 @@ const confirmOrder = () => {
     quantity: item.quantity
   }));
 
-  addOrder({
+  const newOrderData = {
     items: preparedItems,
     total: totalPrice.value,
     type: customerForm.value.orderType === 'dine_in' 
@@ -600,22 +591,29 @@ const confirmOrder = () => {
     address: customerForm.value.address,
     comment: customerForm.value.comment,
     scheduledTime: customerForm.value.scheduledTime
-  });
-
-  cartItems.value = [];
-  closeModal();
-  customerForm.value = { 
-    name: '', 
-    phone: '', 
-    orderType: 'dine_in', 
-    tableNumber: '', 
-    address: '', 
-    comment: '',
-    scheduledTime: getCurrentTimeStr(),
-    scheduledDate: getTodayDateStr()
   };
 
-  alert('Заказ успешно отправлен на кухню/дашборд!');
+  try {
+    await axios.post(`${API_URL}/api/orders`, newOrderData);
+
+    cartItems.value = [];
+    closeModal();
+    customerForm.value = { 
+      name: '', 
+      phone: '', 
+      orderType: 'dine_in', 
+      tableNumber: '', 
+      address: '', 
+      comment: '',
+      scheduledTime: getCurrentTimeStr(),
+      scheduledDate: getTodayDateStr()
+    };
+
+    alert('Заказ успешно отправлен на кухню!');
+  } catch (error) {
+    console.error('Ошибка при отправке заказа:', error);
+    alert('Не удалось отправить заказ. Проверьте соединение с сервером.');
+  }
 };
 
 const selectLanguage = (lang: string) => {
@@ -628,7 +626,7 @@ const toggleViewMode = () => {
 };
 
 const goToConstructor = () => {
-  window.location.href = 'http://192.168.31.240:5173/constructor';
+  router.push('/constructor');
 };
 </script>
 

@@ -120,7 +120,7 @@ export function useOrders() {
     }
   }
 
-  // Счетчики для вкладок хаба. Оба ключа ('open' и 'new') показывают одно и то же число для совместимости с админкой и конструктором
+  // Счетчики для вкладок хаба
   const stats = computed(() => {
     const newOrOpenCount = orders.value.filter(o => o.status === 'new' || o.status === 'open').length;
     return {
@@ -139,11 +139,13 @@ export function useOrders() {
     customerName?: string;
     customerPhone?: string;
     phone?: string;
-    tableNumber?: string;
+    tableNumber?: string | number;
     address?: string;
     comment?: string;
     scheduledTime?: string;
     createdAt?: string;
+    customerEmail?: string;
+    note?: string;
   }) => {
     const total = orderData.total !== undefined
       ? orderData.total
@@ -152,7 +154,7 @@ export function useOrders() {
     const newOrder: Order = {
       id: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
       createdAt: orderData.createdAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'new', // Сохраняем как 'new'
+      status: 'new',
       items: orderData.items,
       total,
       type: orderData.type,
@@ -161,11 +163,14 @@ export function useOrders() {
       tableNumber: orderData.tableNumber,
       deliveryAddress: orderData.address,
       deliveryTime: orderData.scheduledTime,
-      comment: orderData.comment
+      comment: orderData.comment,
+      customerEmail: orderData.customerEmail,
+      note: orderData.note
     };
 
     orders.value.unshift(newOrder);
     saveOrdersToStorage();
+    return newOrder;
   };
 
   const updateOrderStatus = (id: string, status: Order['status']) => {

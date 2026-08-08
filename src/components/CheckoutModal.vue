@@ -106,7 +106,7 @@
 
           <div class="review-actions-row">
             <button class="btn-secondary-action" @click="$emit('prev-step')">Назад</button>
-            <button class="btn-primary-action" @click="$emit('confirm')" :style="{ backgroundColor: primaryColor }">Разместить заказ</button>
+            <button class="btn-primary-action" @click="submitOrder" :style="{ backgroundColor: primaryColor }">Разместить заказ</button>
           </div>
         </div>
       </template>
@@ -117,6 +117,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import axios from 'axios';
 
 const props = defineProps<{
   step: number;
@@ -128,16 +129,34 @@ const props = defineProps<{
   getItemName: (item: any) => string;
 }>();
 
-defineEmits(['close', 'next-step', 'prev-step', 'confirm']);
+const emit = defineEmits(['close', 'next-step', 'prev-step', 'confirm']);
 
 const yandexNavigatorUrl = computed(() => {
   const query = encodeURIComponent(props.restaurantAddress || 'Ресторан');
   return `https://yandex.ru/maps/?text=${query}`;
 });
+
+// Исправленная функция отправки с динамическим URL бэкенда
+const submitOrder = async () => {
+  try {
+    const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api/orders`;
+    
+    // Отправляем данные на сервер
+    await axios.post(API_URL, {
+      items: props.cartItems,
+      form: props.form,
+      total: props.totalPrice
+    });
+
+    emit('confirm');
+  } catch (error) {
+    console.error('Ошибка отправки заказа:', error);
+    alert('Не удалось отправить заказ. Проверьте соединение с сервером.');
+  }
+};
 </script>
 
 <style scoped>
-/* Перенесите сюда стили, начинающиеся с .checkout-modal-overlay до конца блока стилей из вашего изначального кода */
 .checkout-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: flex-end; }
 .checkout-modal { background: #f4f5f7; color: #111; width: 100%; max-height: 92%; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; overflow-y: auto; }
 .checkout-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -164,6 +183,6 @@ const yandexNavigatorUrl = computed(() => {
 .val { font-weight: 500; color: #222; }
 .map-container { margin-bottom: 8px; border-radius: 8px; overflow: hidden; }
 .yandex-map-btn { display: block; text-align: center; background: #fc3f1d; color: #fff; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: bold; text-decoration: none; }
-.review-actions-row { display: flex; gap: 8,px; margin-top: 4px; }
+.review-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-secondary-action { flex: 1; background: #e2e8f0; color: #333; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
 </style>

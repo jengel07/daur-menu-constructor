@@ -15,11 +15,8 @@ export const useMenuStore = defineStore('menu', () => {
   });
 
   const categories = ref<MenuCategory[]>([]);
-const items = ref<MenuItem[]>([]);
+  const items = ref<MenuItem[]>([]);
 
-  
-
-  // Используем ref для generalSettings, чтобы избежать проблем с мутациями reactive
   const generalSettings = ref({
     wifiEnabled: true,
     wifiSsid: '',
@@ -27,8 +24,9 @@ const items = ref<MenuItem[]>([]);
   });
 
   let isInitializing = true;
+  let pollInterval: any = null;
 
-  // Функция загрузки данных с сервера или localStorage
+  // Загрузка данных с сервера (Node.js + PostgreSQL/Prisma)
   const loadFromServer = async () => {
     isInitializing = true;
     try {
@@ -56,7 +54,7 @@ const items = ref<MenuItem[]>([]);
         }
       }
     } catch (error) {
-      console.error('Ошибка загрузки меню с сервера, используем локальные данные:', error);
+      console.error('Ошибка загрузки с сервера, используем localStorage:', error);
       
       const savedState = localStorage.getItem('restaurantData');
       if (savedState) {
@@ -87,7 +85,6 @@ const items = ref<MenuItem[]>([]);
         }
       }
     } finally {
-      // Синхронизируем состояние обратно в restaurantInfo после загрузки
       restaurantInfo.value.isWifiEnabled = generalSettings.value.wifiEnabled;
       restaurantInfo.value.wifiName = generalSettings.value.wifiSsid;
       restaurantInfo.value.wifiPassword = generalSettings.value.wifiPassword;
@@ -95,10 +92,41 @@ const items = ref<MenuItem[]>([]);
     }
   };
 
-  // Инициализируем данные при создании стора
-  loadFromServer();
+  // Фоновый опрос сервера каждые 2 секунды для синхронизации с телефоном
+  const startPolling = () => {
+    if (pollInterval) clearInterval(pollInterval);
+    
+    pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch('http://192.168.31.240:3000/api/menu');
+        const data = await response.json();
+        
+        if (data) {
+          isInitializing = true;
+          if (data.restaurantInfo || data.info) {
+            restaurantInfo.value = { ...restaurantInfo.value, ...(data.restaurantInfo || data.info) };
+          }
+          if (data.categories || data.cats) {
+            categories.value = data.categories || data.cats;
+          }
+          if (data.items) {
+            items.value = data.items;
+          }
+          if (data.generalSettings) {
+            generalSettings.value = { ...generalSettings.value, ...data.generalSettings };
+          }
+          isInitializing = false;
+        }
+      } catch (e) {
+        // Игнорируем сетевые ошибки при опросе
+      }
+    }, 2000);
+  };
 
-  // Функция отправки данных на сервер
+  loadFromServer();
+  startPolling();
+
+  // Отправка данных на сервер (сохранение в БД через Prisma)
   const syncToServer = async (data: any) => {
     try {
       await fetch('http://192.168.31.240:3000/api/menu', {
@@ -109,27 +137,24 @@ const items = ref<MenuItem[]>([]);
         body: JSON.stringify(data),
       });
     } catch (error) {
-      console.error('Ошибка синхронизации с Node.js сервером:', error);
+      console.error('Ошибка синхронизации с сервером:', error);
     }
   };
 
-  // Функция обновления списка блюд
   const updateItems = (newItems: typeof items.value) => {
     items.value = newItems;
   };
 
-  // Функция обновления категорий
   const updateCategories = (newCategories: typeof categories.value) => {
     categories.value = newCategories;
   };
 
-  // Следим за изменениями и пишем в localStorage + отправляем на сервер
+  // Следим за изменениями, пишем в localStorage и отправляем на сервер в базу
   watch(
     [restaurantInfo, categories, items, generalSettings],
     () => {
       if (isInitializing) return;
 
-      // Держим поля в актуальном состоянии
       restaurantInfo.value.isWifiEnabled = generalSettings.value.wifiEnabled;
       restaurantInfo.value.wifiName = generalSettings.value.wifiSsid;
       restaurantInfo.value.wifiPassword = generalSettings.value.wifiPassword;
@@ -149,6 +174,11 @@ const items = ref<MenuItem[]>([]);
       localStorage.setItem('preview_restaurantInfo', JSON.stringify(restaurantInfo.value));
       localStorage.setItem('preview_items', JSON.stringify(items.value));
       localStorage.setItem('preview_categories', JSON.stringify(categories.value));
+
+      localStorage.setItem('saved_menu', JSON.stringify({
+        categoriesCount: categories.value.length,
+        itemsCount: items.value.length
+      }));
       
       syncToServer(dataToSave);
     },
@@ -162,6 +192,7 @@ const items = ref<MenuItem[]>([]);
     generalSettings,
     updateItems,
     updateCategories,
-    loadFromServer
+    loadFromServer,
+    startPolling
   };
 });

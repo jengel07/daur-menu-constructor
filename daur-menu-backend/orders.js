@@ -1,96 +1,92 @@
 import express from 'express';
-import db from './db.js';
+import { PrismaClient } from './generated/prisma/index.js';
 
+const prisma = new PrismaClient();
 const router = express.Router();
 
-// --- РОУТЫ ДЛЯ ЗАКАЗОВ ---
+// --- РОУТЫ ДЛЯ ЗАКАЗОВ (ПРОВЕРЕНО С PRISMA) ---
 
-router.get('/orders', (req, res) => {
-    db.all('SELECT * FROM orders ORDER BY created_at DESC', [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        const orders = rows.map(row => ({
-            ...row,
-            items: JSON.parse(row.items)
-        }));
-        res.json(orders);
+// 1. Получение списка заказов (для дашборда)
+router.get('/orders', async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' }
     });
+
+    const formattedOrders = orders.map(order => ({
+      ...order,
+      id: order.id, 
+      items: order.items ? JSON.parse(order.items) : []
+    }));
+
+    res.json(formattedOrders);
+  } catch (err) {
+    console.error('Ошибка при получении заказов:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post('/orders', (req, res) => {
-    const { order_number, customer_name, customer_phone, table_number, total_amount, items } = req.body;
-    
-    const query = `
-        INSERT INTO orders (order_number, customer_name, customer_phone, table_number, total_amount, items, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'new')
-    `;
-    
-    const params = [
-        order_number, 
-        customer_name || 'Гость', 
-        customer_phone || '', 
-        table_number || '1', 
-        total_amount, 
-        JSON.stringify(items)
-    ];
+// 2. Создание/сохранение нового заказа (POST /api/orders)
+router.post('/orders', async (req, res) => {
+  try {
+    const { 
+      items, 
+      total, 
+      type, 
+      customerName, 
+      customerPhone, 
+      tableNumber, 
+      address, 
+      comment, 
+      scheduledTime,
+      restaurantId 
+    } = req.body;
 
-    db.run(query, params, function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(201).json({ 
-            id: this.lastID, 
-            order_number, 
-            status: 'new', 
-            total_amount, 
-            items 
-        });
+    const itemsString = JSON.stringify(items || []);
+
+    const newOrder = await prisma.order.create({
+      data: {
+        orderNumber: String(Date.now()).slice(-4), // Генерация номера заказа
+        type: type || 'onsite',
+        status: 'new',
+        tableNumber: tableNumber ? String(tableNumber) : null,
+        customerName: customerName || '',
+        customerPhone: customerPhone || '',
+        address: address || '',
+        totalPrice: Number(total) || 0,
+        items: itemsString, // Сохранение товаров
+        restaurantId: restaurantId || "default_restaurant_id" 
+      }
     });
+
+    res.status(201).json({ 
+      success: true, 
+      orderId: newOrder.id,
+      order: newOrder,
+      message: 'Заказ успешно сохранен' 
+    });
+  } catch (err) {
+    console.error('Ошибка при сохранении заказа через Prisma:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-router.patch('/orders/:id/status', (req, res) => {
+// 3. Обновление статуса заказа (PATCH /api/orders/:id/status)
+router.patch('/orders/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
     const { status } = req.body;
-    db.run('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ success: true, updatedID: req.params.id, status });
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: { status }
     });
-});
 
-
-// --- РОУТЫ ДЛЯ СОХРАНЕНИЯ И ЗАГРУЗКИ МЕНЮ ---
-
-// Сохранить или обновить состояние меню
-router.post('/menu', (req, res) => {
-    const menuData = JSON.stringify(req.body);
-    
-    db.get('SELECT id FROM menu_state LIMIT 1', (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        if (row) {
-            db.run('UPDATE menu_state SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [menuData, row.id], (updateErr) => {
-                if (updateErr) return res.status(500).json({ error: updateErr.message });
-                res.json({ success: true, message: 'Меню успешно обновлено' });
-            });
-        } else {
-            db.run('INSERT INTO menu_state (data) VALUES (?)', [menuData], (insertErr) => {
-                if (insertErr) return res.status(500).json({ error: insertErr.message });
-                res.json({ success: true, message: 'Меню успешно сохранено' });
-            });
-        }
-    });
-});
-
-// Получить сохраненное меню
-router.get('/menu', (req, res) => {
-    db.get('SELECT data FROM menu_state LIMIT 1', (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!row) return res.json(null);
-        
-        res.json(JSON.parse(row.data));
-    });
+    res.json({ success: true, updatedOrder });
+  } catch (err) {
+    console.error('Ошибка при обновлении статуса:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

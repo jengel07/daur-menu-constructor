@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import * as XLSX from 'xlsx';
 import type { MenuItem, MenuCategory } from '../types/menu';
 
-// Эмитим событие наверх, когда меню "загружено"
 const emit = defineEmits<{
   (e: 'import-success', data: { categories: MenuCategory[]; items: MenuItem[] }): void;
 }>();
@@ -12,7 +12,6 @@ const progress = ref(0);
 const isDragOver = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// Обработка выбора файла через проводник
 const onFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
@@ -20,7 +19,6 @@ const onFileChange = async (event: Event) => {
   }
 };
 
-// Обработка сброса файла (Drag and Drop)
 const onDrop = async (event: DragEvent) => {
   isDragOver.value = false;
   if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
@@ -28,40 +26,138 @@ const onDrop = async (event: DragEvent) => {
   }
 };
 
-// Запуск локальной обработки файла
 const processFile = async (file: File) => {
-  // Разрешаем только PDF и изображения
-  if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-    alert('Пожалуйста, загрузите изображение (PNG, JPG) или PDF-документ меню.');
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+  const isJson = fileName.endsWith('.json');
+  const isImageOrPdf = file.type.startsWith('image/') || file.type === 'application/pdf';
+
+  if (!isExcel && !isJson && !isImageOrPdf) {
+    alert('Пожалуйста, загрузите файл Excel (.xlsx), JSON или изображение/PDF меню.');
     return;
   }
 
-  // Включаем лоадер
   isParsing.value = true;
-  progress.value = 0;
+  progress.value = 20;
 
-  // Имитируем быструю локальную обработку (чтение файла) через интервал
-  const interval = setInterval(() => {
-    if (progress.value < 100) {
-      progress.value += 10;
-    } else {
-      clearInterval(interval);
+  try {
+    if (isExcel) {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+      progress.value = 60;
+      console.log('Прочитанные строки из Excel:', rows);
+
+      const categoriesMap = new Map<string, string>();
+      const categories: MenuCategory[] = [];
+      const items: MenuItem[] = [];
+
+      rows.forEach((row, index) => {
+        // Проверяем разные возможные варианты названий колонок в Excel
+        const catName = row.Category || row['Категория'] || row['Категория (Category)'] || 'Основное меню';
+        const title = row.Title || row['Название'] || row['Название (Title)'] || row['Блюдо'];
+        const description = row.Description || row['Описание'] || row['Описание / Состав (Description)'] || '';
+        const price = Number(row.Price || row['Цена'] || row['Цена, руб. (Price)'] || 0);
+
+        if (!title) return;
+
+        if (!categoriesMap.has(catName)) {
+          const catId = 'cat-' + Math.random().toString(36).substr(2, 9);
+          categoriesMap.set(catName, catId);
+          categories.push({ id: catId, name: catName });
+        }
+
+        const categoryId = categoriesMap.get(catName)!;
+
+        items.push({
+          id: 'item-' + index + '-' + Math.random().toString(36).substr(2, 9),
+          categoryId,
+          name: String(title).trim(),
+          description: String(description).trim(),
+          price: isNaN(price) ? 0 : price,
+          isAvailable: true,
+          image: ''
+        });
+      });
+
+      progress.value = 100;
       isParsing.value = false;
 
-      // Возвращаем базовый шаблон для ручного ввода
-      const defaultResult = {
-        categories: [
-          { id: 'cat-1', name: 'Основные блюда' },
-          { id: 'cat-2', name: 'Напитки' }
-        ],
-        items: [
-          { id: 'item-1', categoryId: 'cat-1', name: 'Новое блюдо', price: 0, description: '' }
-        ]
-      };
+      if (items.length === 0) {
+        alert('Не удалось найти позиции в файле. Проверьте названия колонок (Category, Title, Price).');
+        return;
+      }
 
-      emit('import-success', defaultResult);
+      emit('import-success', { categories, items });
+      return;
+
+    } else if (isJson) {
+      const text = await file.text();
+      const jsonData = JSON.parse(text);
+      let categories: MenuCategory[] = [];
+      let items: MenuItem[] = [];
+
+      if (jsonData.categories && jsonData.items) {
+        categories = jsonData.categories;
+        items = jsonData.items;
+      } else if (Array.isArray(jsonData)) {
+        jsonData.forEach((cat, cIdx) => {
+          const catId = cat.id || 'cat-' + cIdx;
+          categories.push({ id: catId, name: cat.name });
+          if (cat.items) {
+            cat.items.forEach((item: any) => {
+              items.push({ ...item, categoryId: catId });
+            });
+          }
+        });
+      }
+
+      progress.value = 100;
+      isParsing.value = false;
+      emit('import-success', { categories, items });
+      return;
     }
-  }, 150); // Каждые 150мс прибавляем прогресс для визуального отклика
+
+    // Для изображений и PDF — имитация анализа
+    let currentProgress = 20;
+    const fakeInterval = setInterval(() => {
+      if (currentProgress < 90) {
+        currentProgress += 15;
+        progress.value = currentProgress;
+      } else {
+        clearInterval(fakeInterval);
+        isParsing.value = false;
+
+        const defaultResult = {
+          categories: [
+            { id: 'cat-1', name: 'Основные блюда' },
+            { id: 'cat-2', name: 'Напитки' }
+          ],
+          items: [
+            { 
+              id: 'item-1', 
+              categoryId: 'cat-1', 
+              name: 'Новое блюдо', 
+              price: 0, 
+              description: '', 
+              isAvailable: true, 
+              image: '' 
+            }
+          ]
+        };
+
+        emit('import-success', defaultResult);
+      }
+    }, 150);
+
+  } catch (e) {
+    console.error('Ошибка импорта файла:', e);
+    alert('Не удалось прочитать структуру файла. Убедитесь, что это корректный Excel или JSON.');
+    isParsing.value = false;
+  }
 };
 
 const triggerFileInput = () => {
@@ -74,10 +170,9 @@ const triggerFileInput = () => {
     <div class="import-card">
       <h2 class="import-title">Импорт меню</h2>
       <p class="import-subtitle">
-        Загрузите файл меню или изображение, чтобы быстро перейти к его редактированию в интерактивном конструкторе.
+        Загрузите файл Excel (.xlsx), JSON или изображение/PDF, чтобы быстро перейти к редактированию.
       </p>
 
-      <!-- Зона Drag and Drop / Загрузки -->
       <div
         v-if="!isParsing"
         class="dropzone"
@@ -90,13 +185,12 @@ const triggerFileInput = () => {
         <input
           ref="fileInput"
           type="file"
-          accept="image/*,application/pdf"
+          accept=".xlsx,.xls,.json,image/*,application/pdf"
           class="file-input"
           @change="onFileChange"
         />
         
         <div class="dropzone-content">
-          <!-- Иконка загрузки -->
           <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
           </svg>
@@ -104,17 +198,15 @@ const triggerFileInput = () => {
           <p class="dropzone-text">
             <span>Перетащите файл сюда</span> или <span class="highlight">выберите на компьютере</span>
           </p>
-          <p class="dropzone-hint">Поддерживаются PDF, PNG, JPG, JPEG</p>
+          <p class="dropzone-hint">Поддерживаются XLSX, XLS, JSON, PDF, PNG, JPG</p>
         </div>
       </div>
 
-      <!-- Экран анализа (Лоадер) -->
       <div v-else class="parsing-screen">
         <div class="loader-spinner"></div>
-        <h3 class="parsing-status">Подготавливаем конструктор...</h3>
-        <p class="parsing-substatus">Инициализация структуры и загрузка компонентов</p>
+        <h3 class="parsing-status">Обработка файла меню...</h3>
+        <p class="parsing-substatus">Чтение категорий и позиций</p>
         
-        <!-- Прогресс-бар -->
         <div class="progress-container">
           <div class="progress-bar" :style="{ width: progress + '%' }"></div>
         </div>
@@ -206,7 +298,6 @@ const triggerFileInput = () => {
   font-size: 0.8rem;
 }
 
-/* Стили парсинга / лоадера */
 .parsing-screen {
   display: flex;
   flex-direction: column;

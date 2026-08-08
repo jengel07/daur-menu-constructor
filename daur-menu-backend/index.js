@@ -60,7 +60,14 @@ db.serialize(() => {
     });
 });
 
-app.use('/api', ordersRouter);
+// Логгер для отладки всех запросов
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} запрос на ${req.url}`);
+    next();
+});
+
+// Подключаем роутер заказов (убедитесь, что в orders.js настроен обработчик POST /)
+app.use('/api/orders', ordersRouter);
 
 // GET /api/menu — получить все данные ресторана
 app.get('/api/menu', (req, res) => {

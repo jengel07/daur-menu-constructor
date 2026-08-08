@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Constructor from './Constructor.vue';
-import AdminDashboard from './components/admin/AdminDashboard.vue';
 import AdminView from './views/AdminView.vue';
 import ClientView from './views/ClientView.vue'; 
 import LoginView from './views/LoginView.vue';
@@ -11,7 +10,7 @@ const router = createRouter({
   routes: [
     { 
       path: '/', 
-      redirect: '/dashboard' // <-- Изменено с /login на /dashboard
+      redirect: '/constructor'
     },
     { 
       path: '/login', 
@@ -20,11 +19,10 @@ const router = createRouter({
     },
     { 
       path: '/dashboard', 
-      name: 'Dashboard', 
-      component: AdminDashboard 
+      redirect: '/constructor'
     },
     {
-      path: '/menu-data', // <-- Новый маршрут для страницы данных
+      path: '/menu-data', 
       name: 'MenuData',
       component: MenuDataPage
     },
