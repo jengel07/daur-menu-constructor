@@ -66,9 +66,15 @@
           <a href="#" class="forgot-link">Забыли пароль?</a>
         </div>
 
+        <!-- Сообщение об ошибке -->
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
         <!-- Submit Button -->
-        <button type="submit" class="btn-primary">
-          {{ isRegistering ? 'Зарегистрироваться' : 'Продолжить с Email' }}
+        <button type="submit" class="btn-primary" :disabled="isLoading">
+          <span v-if="isLoading">⏳ Загрузка...</span>
+          <span v-else>{{ isRegistering ? 'Зарегистрироваться' : 'Продолжить с Email' }}</span>
         </button>
       </form>
 
@@ -96,34 +102,65 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { authApi, setToken } from '../api';
+import { useMenuStore } from '../store/menuStore';
 
 const router = useRouter();
+const menuStore = useMenuStore();
 
 const isRegistering = ref(false);
 const name = ref('');
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
+const isLoading = ref(false);
+const errorMessage = ref('');
 
-const handleSubmit = () => {
-  // Определяем имя пользователя: если это регистрация, берем введенное имя, иначе часть email до @
-  const userName = isRegistering.value && name.value 
-    ? name.value 
-    : email.value.split('@')[0] || 'User';
+const handleSubmit = async () => {
+  errorMessage.value = '';
+  isLoading.value = true;
 
-  // Сохраняем данные в localStorage для использования в Dashboard
-  localStorage.setItem('userName', userName);
-  localStorage.setItem('userEmail', email.value || 'user@example.com');
+  try {
+    let result;
 
-  router.push('/dashboard');
+    if (isRegistering.value) {
+      result = await authApi.register({
+        email: email.value,
+        password: password.value,
+        name: name.value || undefined,
+      });
+    } else {
+      result = await authApi.login({
+        email: email.value,
+        password: password.value,
+      });
+    }
+
+    // Сохраняем JWT-токен
+    setToken(result.token);
+
+    // Сохраняем данные пользователя для стора
+    localStorage.setItem('currentUser', JSON.stringify({
+      restaurantId: result.restaurantId,
+      name: result.name,
+      email: email.value,
+    }));
+
+    // Обновляем userInfo в сторе сразу после логина
+    menuStore.loadUserInfo();
+    menuStore.loadFromServer();
+
+    router.push('/constructor');
+  } catch (err: unknown) {
+    errorMessage.value = err instanceof Error ? err.message : 'Произошла ошибка. Попробуйте снова.';
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const handleGoogleAuth = () => {
-  // Заглушка для входа через Google
-  localStorage.setItem('userName', 'Евгения');
-  localStorage.setItem('userEmail', 'apsny.sklad@gmail.com');
-  
-  router.push('/dashboard');
+  // Google OAuth не реализован — показываем сообщение
+  errorMessage.value = 'Вход через Google пока недоступен. Используйте Email.';
 };
 </script>
 
@@ -246,6 +283,17 @@ const handleGoogleAuth = () => {
   text-decoration: underline;
 }
 
+.error-message {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
 .btn-primary {
   width: 100%;
   padding: 14px;
@@ -256,11 +304,16 @@ const handleGoogleAuth = () => {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
   margin-bottom: 12px;
 }
 
-.btn-primary:hover {
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary:not(:disabled):hover {
   background-color: #000000;
 }
 

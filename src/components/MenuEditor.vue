@@ -10,6 +10,8 @@ import {
   ImagePlus, 
   AlertTriangle 
 } from 'lucide-vue-next';
+import { compressDishImage } from "../composables/useImageCompressor";
+
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -26,18 +28,26 @@ const emit = defineEmits<{
   (e: 'update-categories', categories: MenuCategory[]): void;
 }>();
 
-// Синхронизация с сервером и локальным хранилищем
+// Синхронизация с сервером (с привязкой к ID ресторана)
 const syncWithServer = async (updatedItems: MenuItem[]) => {
   const dataToSave = {
-    categories: props.categories,
+    cats: props.categories,
     items: updatedItems
   };
 
-  localStorage.setItem('preview_items', JSON.stringify(updatedItems));
-  localStorage.setItem('preview_categories', JSON.stringify(props.categories));
+  const currentUser = localStorage.getItem('currentUser');
+  const restaurantId = currentUser ? JSON.parse(currentUser).restaurantId : null;
+  const token = localStorage.getItem('authToken');
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   try {
-    await axios.post('http://192.168.31.240:3000/api/menu', dataToSave);
+    if (restaurantId && token) {
+      await axios.post(`${apiUrl}/api/menu/${restaurantId}`, dataToSave, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } else {
+      console.warn('⚠️ restaurantId или токен не найдены');
+    }
   } catch (e) {
     console.error('Ошибка сохранения на сервер', e);
   }
@@ -56,7 +66,7 @@ const dietaryFilters = ref({
 const isModalOpen = ref(false);
 const editingItem = ref<(Partial<MenuItem> & { image?: string; noNuts?: boolean; noLactose?: boolean; noGluten?: boolean }) | null>(null);
 
-const handleImageUpload = (event: Event) => {
+const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   imageLoadError.value = null;
 
@@ -68,26 +78,24 @@ const handleImageUpload = (event: Event) => {
       return;
     }
 
-    const reader = new FileReader();
     isImageLoading.value = true;
 
-    reader.onload = (e) => {
-      setTimeout(() => {
-        if (editingItem.value) {
-          editingItem.value.image = e.target?.result as string;
-        }
-        isImageLoading.value = false;
-      }, 1000);
-    };
-
-    reader.onerror = () => {
+    try {
+      // Сжимаем до 600×450, JPEG 75% — оптимально для карточек меню
+      const compressed = await compressDishImage(file);
+      if (editingItem.value) {
+        editingItem.value.image = compressed;
+      }
+    } catch (err) {
+      imageLoadError.value = 'Ошибка при обработке фото. Попробуйте ещё раз.';
+    } finally {
       isImageLoading.value = false;
-      imageLoadError.value = 'Ошибка при чтении файла. Попробуйте еще раз.';
-    };
-    
-    reader.readAsDataURL(file);
+      // Сбрасываем input чтобы можно было загрузить тот же файл повторно
+      if (fileInput.value) fileInput.value.value = '';
+    }
   }
 };
+
 
 const filteredItems = computed(() => {
   return props.items.filter(item => {
@@ -171,6 +179,8 @@ const closeModal = () => {
   editingItem.value = null;
   imageLoadError.value = null;
   isImageLoading.value = false;
+  // Сбрасываем input чтобы один и тот же файл можно было загрузить в другое блюдо
+  if (fileInput.value) fileInput.value.value = '';
 };
 </script>
 
@@ -198,7 +208,6 @@ const closeModal = () => {
           </select>
         </div>
 
-        <!-- Панель фильтров питания скрыта с помощью v-show="false" или v-if="false" -->
         <div v-show="false" class="dietary-filters-toolbar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef;">
           <span style="font-size: 13px; font-weight: 600; color: #495057; margin-right: 4px;">Питание:</span>
           
@@ -261,7 +270,6 @@ const closeModal = () => {
           <h3 class="item-name">{{ item.name }}</h3>
           <p class="item-desc">{{ item.description }}</p>
           
-          <!-- Бейджики особенностей блюда в карточке -->
           <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;" v-if="(item as any).noNuts || (item as any).noLactose || (item as any).noGluten">
             <span v-if="(item as any).noNuts" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без орехов</span>
             <span v-if="(item as any).noLactose" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без лактозы</span>
@@ -339,7 +347,6 @@ const closeModal = () => {
           <textarea v-model="editingItem.description" placeholder="Ингредиенты, особенности вкуса..." rows="3"></textarea>
         </div>
 
-        <!-- Настройки диетических тегов для блюда -->
         <div class="form-group">
           <label>Особенности питания</label>
           <div style="display: flex; gap: 15px; margin-top: 6px; flex-wrap: wrap;">

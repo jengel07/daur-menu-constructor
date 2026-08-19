@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { RestaurantInfo } from '@/types/menu';
+import { compressCoverImage, compressAvatarImage } from "../composables/useImageCompressor";
 
 const props = defineProps<{
   modelValue: RestaurantInfo & { showCoverGradient?: boolean };
@@ -29,18 +30,22 @@ const updateField = (field: string, value: any) => {
   emit('update:modelValue', updatedData);
 };
 
-const handleFileUpload = (event: Event, type: 'cover' | 'avatar') => {
+const handleFileUpload = async (event: Event, type: 'cover' | 'avatar') => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const result = e.target?.result as string;
-    updateField(type === 'cover' ? 'coverImage' : 'avatarImage', result);
-  };
-  reader.readAsDataURL(file);
+  try {
+    // Обложка: 1200×400, аватар: 200×200, оба JPEG 80%
+    const compressed = type === 'cover'
+      ? await compressCoverImage(file)
+      : await compressAvatarImage(file);
+    updateField(type === 'cover' ? 'coverImage' : 'avatarImage', compressed);
+  } catch {
+    console.error('Ошибка сжатия изображения');
+  }
 };
 </script>
+
 
 <template>
   <div class="branding-editor">

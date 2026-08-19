@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 
 import { useMenuStore } from './store/menuStore';
 import type { MenuCategory } from './types/menu';
+import { ordersApi } from './api';
 
 import MenuImport from './components/MenuImport.vue';
 import MenuEditor from './components/MenuEditor.vue';
@@ -16,29 +17,30 @@ import QrCodeEditor from './components/QrCodeEditor.vue';
 import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
 import PhoneMockupContent from './components/PhoneMockupContent.vue';
 
-import { 
-  UtensilsCrossed, 
-  Palette, 
-  Sparkles, 
-  FileText, 
-  QrCode, 
-  ClipboardList, 
-  Sun, 
-  Moon, 
+import {
+  UtensilsCrossed,
+  Palette,
+  Sparkles,
+  FileText,
+  QrCode,
+  ClipboardList,
+  Sun,
+  Moon,
   RotateCcw,
   Save,
   Upload,
   Menu as MenuIcon,
   X,
-  Home,
   ShoppingBag,
-  BarChart2,
   Users,
   CreditCard,
   User,
   Tag,
   Trash2,
-  LogOut
+  LogOut,
+  ChefHat,
+  ArrowLeft,
+  RefreshCw,
 } from 'lucide-vue-next';
 
 const API_URL = 'http://localhost:3000';
@@ -47,55 +49,232 @@ const menuStore = useMenuStore();
 
 const activeTab = ref<'navigation' | 'colors' | 'branding' | 'general' | 'qrcode' | 'orders'>('navigation');
 const isLightTheme = ref(false);
-const hasImported = ref(menuStore.items.length > 0 || menuStore.categories.length > 0);
+const hasImported = ref(true);
 const isInitialLoading = ref(true);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
-// Состояние для управления выпадающим меню
+// ═══════════════════════════════════════════════════════
+// SIDEBAR STATE
+// ═══════════════════════════════════════════════════════
 const isMenuOpen = ref(false);
+type SidebarView = 'main' | 'orders' | 'staff' | 'payment' | 'profile' | 'filters' | 'trash';
+const sidebarView = ref<SidebarView>('main');
 
+const closeSidebar = () => {
+  isMenuOpen.value = false;
+  sidebarView.value = 'main';
+};
+
+const openSidebarView = (view: SidebarView) => {
+  sidebarView.value = view;
+  if (view === 'orders') loadSidebarOrders();
+};
+
+const sidebarTitle = computed(() => ({
+  main: 'Daur Menu',
+  orders: 'Заказы',
+  staff: 'Персонал',
+  payment: 'Оплата',
+  profile: 'Профиль',
+  filters: 'Фильтры и теги',
+  trash: 'Корзина',
+}[sidebarView.value]));
+
+// ─── ORDERS ───────────────────────────────────────────
+const sidebarOrdersTab = ref<'new' | 'progress' | 'done' | 'cancelled'>('new');
+const sidebarOrders = ref<any[]>([]);
+const sidebarOrdersLoading = ref(false);
+
+const orderTabs = [
+  { key: 'new' as const, label: 'Новые' },
+  { key: 'progress' as const, label: 'В работе' },
+  { key: 'done' as const, label: 'Готовы' },
+  { key: 'cancelled' as const, label: 'Отменено' },
+];
+
+const filteredSidebarOrders = computed(() =>
+  sidebarOrders.value.filter(o =>
+    o.status === sidebarOrdersTab.value ||
+    (sidebarOrdersTab.value === 'new' && o.status === 'open')
+  )
+);
+
+const pendingOrdersCount = computed(() =>
+  sidebarOrders.value.filter(o => o.status === 'new' || o.status === 'open').length
+);
+
+const getOrderCountByStatus = (status: string) =>
+  sidebarOrders.value.filter(o =>
+    o.status === status || (status === 'new' && o.status === 'open')
+  ).length;
+
+const loadSidebarOrders = async () => {
+  sidebarOrdersLoading.value = true;
+  try {
+    const data = await ordersApi.getAll() as any[];
+    sidebarOrders.value = data.map((o: any) => ({
+      ...o,
+      total: Number(o.totalPrice ?? o.total ?? 0),
+    }));
+  } catch (e) {
+    console.error('Ошибка загрузки заказов:', e);
+  } finally {
+    sidebarOrdersLoading.value = false;
+  }
+};
+
+const changeSidebarOrderStatus = async (id: string, status: string) => {
+  const order = sidebarOrders.value.find(o => o.id === id);
+  if (order) order.status = status; // optimistic
+  try {
+    await ordersApi.updateStatus(id, status);
+  } catch {
+    await loadSidebarOrders();
+  }
+};
+
+const getOrderTypeLabel = (type?: string) =>
+  ({ delivery: '🚲 Доставка', pickup: '📦 Самовывоз', onsite: '🍽️ На месте' })[type || 'onsite'] || '🍽️ На месте';
+
+const getOrderTimestamp = (createdAt: string) => {
+  if (!createdAt) return '';
+  try {
+    const d = new Date(createdAt);
+    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  } catch { return createdAt; }
+};
+
+// ─── STAFF ────────────────────────────────────────────
+const _loadStaff = () => {
+  try { return JSON.parse(localStorage.getItem('restaurant_staff') || '[]'); } catch { return []; }
+};
+const staff = ref<Array<{ id: string; name: string; role: string; email: string }>>(_loadStaff());
+const addingStaff = ref(false);
+const staffForm = ref({ name: '', role: 'chef', email: '' });
+
+const _saveStaff = () => localStorage.setItem('restaurant_staff', JSON.stringify(staff.value));
+
+const addStaffMember = () => {
+  if (!staffForm.value.name.trim()) return;
+  staff.value.unshift({ id: Date.now().toString(), ...staffForm.value });
+  staffForm.value = { name: '', role: 'chef', email: '' };
+  addingStaff.value = false;
+  _saveStaff();
+};
+
+const removeStaffMember = (id: string) => {
+  staff.value = staff.value.filter(s => s.id !== id);
+  _saveStaff();
+};
+
+const getRoleLabel = (role: string) =>
+  ({ chef: '👨‍🍳 Повар', waiter: '🧑‍💼 Официант', admin: '👑 Администратор' })[role] || role;
+
+// ─── PAYMENT ──────────────────────────────────────────
+const _loadPayment = () => {
+  try { return JSON.parse(localStorage.getItem('payment_settings') || '{"cash":true,"card":true,"qr":false}'); }
+  catch { return { cash: true, card: true, qr: false }; }
+};
+const paymentSettings = ref(_loadPayment());
+const savePaymentSettings = () => localStorage.setItem('payment_settings', JSON.stringify(paymentSettings.value));
+
+// ─── PROFILE ──────────────────────────────────────────
+const profileForm = ref({
+  name: menuStore.userInfo?.name || '',
+  email: menuStore.userInfo?.email || '',
+  newPassword: '',
+});
+const profileSaved = ref(false);
+
+const saveProfile = () => {
+  const saved = localStorage.getItem('currentUser');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      parsed.name = profileForm.value.name;
+      localStorage.setItem('currentUser', JSON.stringify(parsed));
+      menuStore.loadUserInfo();
+    } catch { /* ignore */ }
+  }
+  profileSaved.value = true;
+  setTimeout(() => (profileSaved.value = false), 2000);
+};
+
+// ─── FILTERS & TAGS ───────────────────────────────────
+const _loadFilters = () => {
+  try {
+    return {
+      nutFree: true, glutenFree: true, vegetarian: true, vegan: true,
+      ...JSON.parse(localStorage.getItem('filter_settings') || '{}'),
+    };
+  } catch { return { nutFree: true, glutenFree: true, vegetarian: true, vegan: true }; }
+};
+const filterSettings = ref(_loadFilters());
+const saveFilterSettings = () => localStorage.setItem('filter_settings', JSON.stringify(filterSettings.value));
+
+const availableFilters = [
+  { key: 'nutFree', icon: '🥜', name: 'Без орехов', desc: 'Блюда не содержат орехи и арахис' },
+  { key: 'glutenFree', icon: '🌾', name: 'Без глютена', desc: 'Подходит для людей с целиакией' },
+  { key: 'vegetarian', icon: '🥗', name: 'Вегетарианское', desc: 'Без мяса и рыбы' },
+  { key: 'vegan', icon: '🌱', name: 'Веганское', desc: 'Без животных продуктов' },
+] as const;
+
+// ─── TRASH ────────────────────────────────────────────
+const getItemDisplayName = (item: any) => {
+  if (!item?.name) return 'Без названия';
+  if (typeof item.name === 'object') return item.name.ru || item.name.en || Object.values(item.name)[0] || 'Без названия';
+  return item.name;
+};
+
+// ═══════════════════════════════════════════════════════
+// CONSTRUCTOR LOGIC
+// ═══════════════════════════════════════════════════════
 const toggleTheme = () => {
   isLightTheme.value = !isLightTheme.value;
   localStorage.setItem('constructorTheme', isLightTheme.value ? 'light' : 'dark');
 };
 
 const saveMenuConfig = async () => {
+  const currentUser = localStorage.getItem('currentUser');
+  const restaurantId = currentUser ? JSON.parse(currentUser).restaurantId : null;
+  const token = localStorage.getItem('authToken');
+  if (!restaurantId || !token) return;
+
   try {
-    await axios.post(`${API_URL}/api/menu`, {
+    await axios.post(`${API_URL}/api/menu/${restaurantId}`, {
       info: menuStore.restaurantInfo,
       items: menuStore.items,
       cats: menuStore.categories,
       generalSettings: menuStore.generalSettings || {}
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
     });
-    console.log('✅ Настройки успешно сохранены в бэкенд!');
   } catch (error) {
     console.error('❌ Ошибка сохранения на бэкенд:', error);
   }
 };
 
 const loadMenuFromDatabase = async () => {
+  const currentUser = localStorage.getItem('currentUser');
+  const restaurantId = currentUser ? JSON.parse(currentUser).restaurantId : null;
+  const token = localStorage.getItem('authToken');
+
+  if (!restaurantId || !token) {
+    isInitialLoading.value = false;
+    return;
+  }
+
   try {
-    const response = await axios.get(`${API_URL}/api/menu`);
-    
+    const response = await axios.get(`${API_URL}/api/menu/${restaurantId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
     if (response.data) {
-      if (response.data.restaurantInfo) {
-        menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...response.data.restaurantInfo };
-      }
-      if (response.data.categories && response.data.categories.length > 0) {
-        menuStore.updateCategories(response.data.categories);
-      }
-      if (response.data.items && response.data.items.length > 0) {
-        menuStore.updateItems(response.data.items);
-      }
-      if (response.data.generalSettings) {
-        menuStore.generalSettings = { ...menuStore.generalSettings, ...response.data.generalSettings };
-      }
-      
-      if ((response.data.items && response.data.items.length > 0) || (response.data.categories && response.data.categories.length > 0)) {
-        hasImported.value = true;
-      }
+      if (response.data.restaurantInfo) menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...response.data.restaurantInfo };
+      if (response.data.categories?.length) menuStore.updateCategories(response.data.categories);
+      if (response.data.items?.length) menuStore.updateItems(response.data.items);
+      if (response.data.generalSettings) menuStore.generalSettings = { ...menuStore.generalSettings, ...response.data.generalSettings };
     }
-    console.log('✅ Данные успешно загружены из базы данных!');
   } catch (error) {
     console.error('❌ Ошибка при загрузке из БД:', error);
   } finally {
@@ -104,56 +283,21 @@ const loadMenuFromDatabase = async () => {
 };
 
 const syncToTableStorage = () => {
-  const formattedData = menuStore.categories.map((cat: MenuCategory) => {
-    return {
-      id: cat.id || 'cat-' + Math.random(),
-      name: cat.name,
-      expanded: true,
-      items: menuStore.items
-        .filter((item: any) => item.categoryId === cat.id || item.category === cat.name)
-        .map((item: any) => ({
-          id: item.id || 'item-' + Math.random(),
-          name: item.name,
-          description: item.description || '',
-          price: item.price || 0,
-          isAvailable: item.isAvailable !== false,
-          image: item.image || ''
-        }))
-    };
-  });
-
-  if (formattedData.length === 0 && menuStore.items.length > 0) {
-    const grouped: Record<string, any[]> = {};
-    menuStore.items.forEach((item: any) => {
-      const catName = item.category || 'Основное меню';
-      if (!grouped[catName]) grouped[catName] = [];
-      grouped[catName].push({
+  const formattedData = menuStore.categories.map((cat: MenuCategory) => ({
+    id: cat.id || 'cat-' + Math.random(),
+    name: cat.name,
+    expanded: true,
+    items: menuStore.items
+      .filter((item: any) => item.categoryId === cat.id || item.category === cat.name)
+      .map((item: any) => ({
         id: item.id || 'item-' + Math.random(),
         name: item.name,
         description: item.description || '',
         price: item.price || 0,
         isAvailable: item.isAvailable !== false,
         image: item.image || ''
-      });
-    });
-
-    const fallbackData = Object.keys(grouped).map((catName, idx) => ({
-      id: 'cat-' + idx,
-      name: catName,
-      expanded: true,
-      items: grouped[catName]
-    }));
-    
-    localStorage.setItem('constructor_menu_data', JSON.stringify(fallbackData));
-    localStorage.setItem('saved_menu', JSON.stringify({
-      categoriesCount: fallbackData.length,
-      itemsCount: menuStore.items.length,
-      updatedAt: new Date().toISOString()
-    }));
-
-    saveMenuConfig();
-    return;
-  }
+      }))
+  }));
 
   localStorage.setItem('constructor_menu_data', JSON.stringify(formattedData));
   localStorage.setItem('saved_menu', JSON.stringify({
@@ -168,16 +312,13 @@ const syncToTableStorage = () => {
 const manualSave = async () => {
   try {
     syncToTableStorage();
-    alert('✅ Меню успешно сохранено и обновлено!');
+    alert('✅ Меню успешно сохранено!');
   } catch (error) {
-    console.error('Ошибка сохранения:', error);
     alert('❌ Не удалось сохранить меню');
   }
 };
 
-const triggerFileUpload = () => {
-  fileInputRef.value?.click();
-};
+const triggerFileUpload = () => fileInputRef.value?.click();
 
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -190,8 +331,7 @@ const handleFileUpload = async (event: Event) => {
     if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
 
       const categoriesMap = new Map<string, string>();
@@ -212,11 +352,9 @@ const handleFileUpload = async (event: Event) => {
           categories.push({ id: catId, name: catName });
         }
 
-        const categoryId = categoriesMap.get(catName);
-
         items.push({
           id: 'item-' + Math.random().toString(36).substr(2, 9),
-          categoryId,
+          categoryId: categoriesMap.get(catName),
           category: catName,
           name: title,
           description,
@@ -230,63 +368,75 @@ const handleFileUpload = async (event: Event) => {
       menuStore.updateItems(items);
       hasImported.value = true;
       syncToTableStorage();
-      alert(`✅ Успешно импортировано позиций: ${items.length} из файла Excel!`);
+      alert(`✅ Импортировано: ${items.length} блюд`);
 
     } else if (fileName.endsWith('.json')) {
       const text = await file.text();
       const jsonData = JSON.parse(text);
-      
+
       if (jsonData.categories && jsonData.items) {
         menuStore.updateCategories(jsonData.categories);
         menuStore.updateItems(jsonData.items);
       } else if (Array.isArray(jsonData)) {
         const cats: any[] = [];
-        const items: any[] = [];
+        const its: any[] = [];
         jsonData.forEach((cat, cIdx) => {
           const catId = cat.id || 'cat-' + cIdx;
           cats.push({ id: catId, name: cat.name });
           if (cat.items) {
             cat.items.forEach((item: any) => {
-              items.push({ ...item, categoryId: catId, category: cat.name });
+              its.push({ ...item, categoryId: catId, category: cat.name });
             });
           }
         });
         menuStore.updateCategories(cats);
-        menuStore.updateItems(items);
+        menuStore.updateItems(its);
       }
       hasImported.value = true;
       syncToTableStorage();
-      alert('✅ Меню успешно загружено из JSON!');
+      alert('✅ Меню загружено из JSON!');
     }
   } catch (error) {
-    console.error('Ошибка чтения файла:', error);
-    alert('❌ Не удалось прочитать файл. Убедитесь в правильности формата.');
+    alert('❌ Не удалось прочитать файл');
   } finally {
     if (target) target.value = '';
   }
 };
 
+// Перехват удаления блюд — автоматически отправляет в корзину
+const handleUpdateItems = (newItems: any[]) => {
+  if (!isInitialLoading.value) {
+    const newIds = new Set(newItems.map((i: any) => i.id));
+    const removed = menuStore.items.filter((item: any) => !newIds.has(item.id));
+    removed.forEach((item: any) => {
+      menuStore.trashedItems.unshift(item as any);
+    });
+    if (removed.length > 0) {
+      localStorage.setItem('menu_trash', JSON.stringify(menuStore.trashedItems));
+    }
+  }
+  menuStore.updateItems(newItems as any);
+  syncToTableStorage();
+};
+
 watch([() => menuStore.items, () => menuStore.categories, () => menuStore.restaurantInfo, () => menuStore.generalSettings], () => {
   if (isInitialLoading.value) return;
-  
   if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
     hasImported.value = true;
-    syncToTableStorage();
   }
 }, { deep: true });
 
 onMounted(async () => {
   const savedTheme = localStorage.getItem('constructorTheme');
-  if (savedTheme === 'light') {
-    isLightTheme.value = true;
-  }
+  if (savedTheme === 'light') isLightTheme.value = true;
 
   await loadMenuFromDatabase();
 
-  if (menuStore.items.length > 0 || menuStore.categories.length > 0) {
-    hasImported.value = true;
-  }
+  if (menuStore.items.length > 0 || menuStore.categories.length > 0) hasImported.value = true;
   isInitialLoading.value = false;
+
+  profileForm.value.name = menuStore.userInfo?.name || '';
+  profileForm.value.email = menuStore.userInfo?.email || '';
 });
 
 const handleImportSuccess = (data: { categories: typeof menuStore.categories; items: typeof menuStore.items }) => {
@@ -312,53 +462,32 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
 
 <template>
   <div :class="['constructor-wrapper', { 'light-theme': isLightTheme }]">
-    
-    <!-- Скрытый инпут для загрузки файлов таблиц (.xlsx, .json) -->
-    <input 
-      type="file" 
-      ref="fileInputRef" 
-      style="display: none" 
-      accept=".xlsx, .xls, .json" 
-      @change="handleFileUpload" 
-    />
 
-    <div v-if="!hasImported" class="welcome-screen">
-      <MenuImport @import-success="handleImportSuccess" />
-    </div>
+    <input type="file" ref="fileInputRef" style="display: none" accept=".xlsx, .xls, .json" @change="handleFileUpload" />
 
-    <div v-else class="constructor-layout">
-      
+    <div class="constructor-layout">
+
       <aside class="sidebar">
         <div class="sidebar-header">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-            <!-- Кнопка вызова модального меню -->
-            <button 
-              @click="isMenuOpen = true" 
-              class="btn-theme-toggle" 
-              title="Открыть меню"
-              style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"
-            >
+            <button @click="isMenuOpen = true" class="btn-theme-toggle" title="Открыть меню"
+              style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
               <MenuIcon :size="18" stroke-width="2" />
             </button>
             <h2 class="brand-title" style="margin: 0;">Daur Menu</h2>
           </div>
-          
+
           <div class="header-actions-row">
             <span class="status-badge">Режим редактирования</span>
-            <button class="btn-theme-toggle" @click="toggleTheme" :title="isLightTheme ? 'Включить темную тему' : 'Включить светлую тему'">
+            <button class="btn-theme-toggle" @click="toggleTheme">
               <component :is="isLightTheme ? Moon : Sun" :size="16" stroke-width="2" />
             </button>
           </div>
         </div>
-        
+
         <nav class="sidebar-menu">
-          <button 
-            v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" 
-            :key="tab" 
-            class="menu-btn" 
-            :class="{ active: activeTab === tab }" 
-            @click="activeTab = tab as any"
-          >
+          <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" :key="tab"
+            class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab as any">
             <span class="icon" style="display: flex; align-items: center;">
               <UtensilsCrossed v-if="tab === 'navigation'" :size="18" stroke-width="2" />
               <Palette v-else-if="tab === 'colors'" :size="18" stroke-width="2" />
@@ -371,17 +500,17 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
           </button>
         </nav>
 
-        <!-- Кнопки сохранения и загрузки файла в сайдбаре -->
         <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
-          <button @click="manualSave" class="btn-save-menu" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          <button @click="manualSave" class="btn-save-menu"
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
             <Save :size="14" stroke-width="2" /> Сохранить меню
           </button>
-
-          <button @click="triggerFileUpload" class="btn-upload-file" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          <button @click="triggerFileUpload" class="btn-upload-file"
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
             <Upload :size="14" stroke-width="2" /> Загрузить из Excel / JSON
           </button>
-
-          <button @click="resetImport" class="btn-reset-sidebar" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
+          <button @click="resetImport" class="btn-reset-sidebar"
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
             <RotateCcw :size="14" stroke-width="2" /> Сбросить и загрузить заново
           </button>
         </div>
@@ -393,90 +522,341 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
         </header>
 
         <div class="editor-content">
-          <MenuEditor 
-            v-if="activeTab === 'navigation'" 
-            :items="menuStore.items" 
-            :categories="menuStore.categories" 
-            @update-items="(items) => { menuStore.updateItems(items); syncToTableStorage(); }" 
-            @update-categories="(cats) => { menuStore.updateCategories(cats); syncToTableStorage(); }" 
-          />
-          <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <GeneralSettings v-else-if="activeTab === 'general'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <ColorEditor v-else-if="activeTab === 'colors'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
-          <OrderSettingsEditor v-else-if="activeTab === 'orders'" :model-value="menuStore.restaurantInfo" @update:model-value="updateRestaurantInfo" />
+          <MenuEditor v-if="activeTab === 'navigation'" :items="menuStore.items" :categories="menuStore.categories"
+            @update-items="handleUpdateItems"
+            @update-categories="(cats) => { menuStore.updateCategories(cats); syncToTableStorage(); }" />
+          <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="menuStore.restaurantInfo"
+            @update:model-value="updateRestaurantInfo" />
+          <GeneralSettings v-else-if="activeTab === 'general'" :model-value="menuStore.restaurantInfo"
+            @update:model-value="updateRestaurantInfo" />
+          <ColorEditor v-else-if="activeTab === 'colors'" :model-value="menuStore.restaurantInfo"
+            @update:model-value="updateRestaurantInfo" />
+          <QrCodeEditor v-else-if="activeTab === 'qrcode'" :model-value="menuStore.restaurantInfo"
+            @update:model-value="updateRestaurantInfo" />
+          <OrderSettingsEditor v-else-if="activeTab === 'orders'" :model-value="menuStore.restaurantInfo"
+            @update:model-value="updateRestaurantInfo" />
         </div>
       </main>
 
       <section class="preview-area">
         <div class="preview-container">
-          <PhoneMockupContent 
-            :restaurantInfo="menuStore.restaurantInfo" 
-            :items="menuStore.items" 
-            :categories="menuStore.categories" 
-          />
+          <PhoneMockupContent :restaurantInfo="menuStore.restaurantInfo" :items="menuStore.items"
+            :categories="menuStore.categories" />
         </div>
       </section>
 
     </div>
 
-    <!-- Модальное выпадающее меню -->
-    <div v-if="isMenuOpen" class="modal-menu-overlay" @click.self="isMenuOpen = false" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: flex-start;">
-      <div class="modal-menu-content" style="background: var(--bg-color, #ffffff); width: 320px; height: 100%; padding: 24px; display: flex; flex-direction: column; box-shadow: 4px 0 15px rgba(0,0,0,0.1); overflow-y: auto;">
-        
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-          <button @click="isMenuOpen = false" style="background: none; border: none; cursor: pointer; padding: 4px;">
-            <X :size="20" />
+    <!-- ══════════════════════════════════════════
+         SIDEBAR MODAL
+    ══════════════════════════════════════════ -->
+    <div v-if="isMenuOpen" class="smenu-overlay" @click.self="closeSidebar">
+      <div class="smenu-panel" :class="{ 'light-theme': isLightTheme }">
+
+        <!-- Header -->
+        <div class="smenu-header">
+          <button v-if="sidebarView !== 'main'" class="smenu-back-btn" @click="sidebarView = 'main'">
+            <ArrowLeft :size="16" /> Назад
+          </button>
+          <span class="smenu-header-title">{{ sidebarTitle }}</span>
+          <button class="smenu-close-btn" @click="closeSidebar">
+            <X :size="18" />
           </button>
         </div>
 
-        <!-- Информация о пользователе -->
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
-          <div style="width: 48px; height: 48px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; color: white;">
-            <User :size="24" />
+        <!-- ══ MAIN VIEW ══ -->
+        <template v-if="sidebarView === 'main'">
+          <div class="smenu-user-card">
+            <div class="smenu-avatar">{{ (menuStore.userInfo?.name || 'U')[0].toUpperCase() }}</div>
+            <div class="smenu-user-info">
+              <div class="smenu-user-name">{{ menuStore.userInfo?.name || 'Пользователь' }}</div>
+              <div class="smenu-user-email">{{ menuStore.userInfo?.email || '' }}</div>
+            </div>
           </div>
-          <div>
-            <div style="font-weight: 600; font-size: 16px;">Дженифер</div>
-            <div style="font-size: 13px; color: #6b7280;">geller.9797@mail.ru</div>
+
+          <nav class="smenu-nav">
+            <button class="smenu-nav-item" @click="openSidebarView('orders')">
+              <ShoppingBag :size="18" />
+              <span>Заказы</span>
+              <span v-if="pendingOrdersCount > 0" class="smenu-badge smenu-badge-orange">{{ pendingOrdersCount }}</span>
+            </button>
+            <button class="smenu-nav-item" @click="openSidebarView('staff')">
+              <Users :size="18" />
+              <span>Персонал</span>
+              <span v-if="staff.length > 0" class="smenu-badge smenu-badge-grey">{{ staff.length }}</span>
+            </button>
+            <button class="smenu-nav-item" @click="openSidebarView('payment')">
+              <CreditCard :size="18" />
+              <span>Оплата</span>
+            </button>
+            <button class="smenu-nav-item" @click="openSidebarView('profile')">
+              <User :size="18" />
+              <span>Профиль</span>
+            </button>
+            <button class="smenu-nav-item" @click="openSidebarView('filters')">
+              <Tag :size="18" />
+              <span>Фильтры и теги</span>
+            </button>
+            <button class="smenu-nav-item" @click="openSidebarView('trash')">
+              <Trash2 :size="18" />
+              <span>Корзина</span>
+              <span v-if="menuStore.trashedItems.length > 0" class="smenu-badge smenu-badge-grey">{{
+                menuStore.trashedItems.length }}</span>
+            </button>
+          </nav>
+
+          <div class="smenu-footer">
+            <button class="smenu-logout-btn" @click="closeSidebar; menuStore.logout(); router.push('/login')">
+              <LogOut :size="16" /> Выйти из аккаунта
+            </button>
           </div>
-        </div>
+        </template>
 
-        <!-- Ссылки меню -->
-        <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
-          <button @click="isMenuOpen = false; router.push('/constructor')" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: #f3f4f6; border-radius: 12px; cursor: pointer; text-align: left; font-weight: 500;">
-            <Home :size="18" /> Home
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <ShoppingBag :size="18" /> Заказ
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <BarChart2 :size="18" /> Статистика
-          </button>
+        <!-- ══ ORDERS VIEW ══ -->
+        <template v-else-if="sidebarView === 'orders'">
+          <div class="smenu-order-tabs">
+            <button v-for="tab in orderTabs" :key="tab.key"
+              :class="['smenu-order-tab', { active: sidebarOrdersTab === tab.key }]"
+              @click="sidebarOrdersTab = tab.key">
+              {{ tab.label }}
+              <span v-if="getOrderCountByStatus(tab.key) > 0" class="smenu-tab-count">{{
+                getOrderCountByStatus(tab.key) }}</span>
+            </button>
+          </div>
 
-          <div style="height: 1px; background: #eee; margin: 12px 0;"></div>
+          <div class="smenu-scrollable">
+            <div v-if="sidebarOrdersLoading" class="smenu-loading">
+              <RefreshCw :size="20" class="smenu-spin" /> Загрузка…
+            </div>
+            <div v-else-if="filteredSidebarOrders.length === 0" class="smenu-empty">
+              <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
+              Нет заказов в этой категории
+            </div>
+            <div v-else class="smenu-orders-list">
+              <div v-for="order in filteredSidebarOrders" :key="order.id" class="smenu-order-card">
+                <div class="smenu-order-head">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="smenu-order-num">#{{ order.orderNumber || String(order.id).slice(-4).padStart(4,'0') }}</span>
+                    <span :class="['smenu-order-type', order.type || 'onsite']">{{ getOrderTypeLabel(order.type) }}</span>
+                  </div>
+                  <span class="smenu-order-time">{{ getOrderTimestamp(order.createdAt) }}</span>
+                </div>
 
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <Users :size="18" /> Персонал
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <CreditCard :size="18" /> Оплата
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <User :size="18" /> Профиль
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <Tag :size="18" /> Фильтры и теги
-          </button>
-          <button @click="isMenuOpen = false" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left;">
-            <Trash2 :size="18" /> Корзина
-          </button>
+                <div v-if="order.customerName || order.tableNumber" class="smenu-order-meta">
+                  <span v-if="order.customerName">👤 {{ order.customerName }}</span>
+                  <span v-if="order.customerPhone">📞 {{ order.customerPhone }}</span>
+                  <span v-if="order.tableNumber">🍽️ Стол №{{ order.tableNumber }}</span>
+                  <span v-if="order.address">📍 {{ order.address }}</span>
+                </div>
 
-          <div style="height: 1px; background: #eee; margin: 12px 0; margin-top: auto;"></div>
+                <div v-if="order.items?.length" class="smenu-order-items-list">
+                  <div v-for="item in order.items" :key="item.id" class="smenu-order-item-row">
+                    <span>{{ item.quantity }}× {{ item.name }}</span>
+                    <span>{{ (Number(item.price) * item.quantity).toFixed(0) }} ₽</span>
+                  </div>
+                </div>
 
-          <button @click="isMenuOpen = false; router.push('/login')" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; background: transparent; border-radius: 12px; cursor: pointer; text-align: left; color: #ef4444;">
-            <LogOut :size="18" /> Выйти
+                <div v-if="order.comment" class="smenu-order-comment">💬 {{ order.comment }}</div>
+
+                <div class="smenu-order-foot">
+                  <span class="smenu-order-total">Итого: {{ Number(order.total || order.totalPrice || 0).toFixed(2) }} ₽</span>
+                  <div class="smenu-order-actions">
+                    <template v-if="sidebarOrdersTab === 'new'">
+                      <button class="smenu-btn-cancel" @click="changeSidebarOrderStatus(order.id, 'cancelled')">Отменить</button>
+                      <button class="smenu-btn-accept" @click="changeSidebarOrderStatus(order.id, 'progress')">В работу ➔</button>
+                    </template>
+                    <template v-else-if="sidebarOrdersTab === 'progress'">
+                      <button class="smenu-btn-cancel" @click="changeSidebarOrderStatus(order.id, 'cancelled')">Отменить</button>
+                      <button class="smenu-btn-accept smenu-btn-done" @click="changeSidebarOrderStatus(order.id, 'done')">Готово ✓</button>
+                    </template>
+                    <template v-else-if="sidebarOrdersTab === 'cancelled'">
+                      <button class="smenu-btn-accept" @click="changeSidebarOrderStatus(order.id, 'new')">↩ Вернуть</button>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="smenu-refresh-btn" @click="loadSidebarOrders">
+            <RefreshCw :size="14" /> Обновить
           </button>
-        </div>
+        </template>
+
+        <!-- ══ STAFF VIEW ══ -->
+        <template v-else-if="sidebarView === 'staff'">
+          <div class="smenu-scrollable">
+            <div v-if="staff.length === 0 && !addingStaff" class="smenu-empty">
+              <div style="font-size: 32px; margin-bottom: 8px;">👥</div>
+              Нет сотрудников
+            </div>
+
+            <div v-for="member in staff" :key="member.id" class="smenu-staff-card">
+              <div class="smenu-staff-avatar">{{ member.name[0]?.toUpperCase() }}</div>
+              <div class="smenu-staff-info">
+                <div class="smenu-staff-name">{{ member.name }}</div>
+                <div class="smenu-staff-role">{{ getRoleLabel(member.role) }}</div>
+                <div v-if="member.email" class="smenu-staff-email">{{ member.email }}</div>
+              </div>
+              <button class="smenu-staff-remove" @click="removeStaffMember(member.id)" title="Удалить">
+                <X :size="14" />
+              </button>
+            </div>
+
+            <!-- Add staff form -->
+            <div v-if="addingStaff" class="smenu-form-card">
+              <div class="smenu-form-title">Новый сотрудник</div>
+              <input v-model="staffForm.name" placeholder="Имя *" class="smenu-input" />
+              <input v-model="staffForm.email" placeholder="Email" type="email" class="smenu-input" />
+              <select v-model="staffForm.role" class="smenu-input">
+                <option value="chef">👨‍🍳 Повар</option>
+                <option value="waiter">🧑‍💼 Официант</option>
+                <option value="admin">👑 Администратор</option>
+              </select>
+              <div class="smenu-form-actions">
+                <button class="smenu-btn-secondary" @click="addingStaff = false">Отмена</button>
+                <button class="smenu-btn-primary" @click="addStaffMember">Добавить</button>
+              </div>
+            </div>
+          </div>
+
+          <button v-if="!addingStaff" class="smenu-add-btn" @click="addingStaff = true">
+            + Добавить сотрудника
+          </button>
+        </template>
+
+        <!-- ══ PAYMENT VIEW ══ -->
+        <template v-else-if="sidebarView === 'payment'">
+          <div class="smenu-scrollable">
+            <p class="smenu-section-desc">Выберите способы оплаты, которые принимает ваше заведение.</p>
+
+            <div class="smenu-setting-row">
+              <div class="smenu-setting-left">
+                <div class="smenu-setting-icon">💵</div>
+                <div>
+                  <div class="smenu-setting-label">Наличные</div>
+                  <div class="smenu-setting-sub">Оплата при получении</div>
+                </div>
+              </div>
+              <label class="smenu-switch">
+                <input type="checkbox" v-model="paymentSettings.cash" @change="savePaymentSettings" />
+                <span class="smenu-slider"></span>
+              </label>
+            </div>
+
+            <div class="smenu-setting-row">
+              <div class="smenu-setting-left">
+                <div class="smenu-setting-icon">💳</div>
+                <div>
+                  <div class="smenu-setting-label">Банковская карта</div>
+                  <div class="smenu-setting-sub">Терминал на месте</div>
+                </div>
+              </div>
+              <label class="smenu-switch">
+                <input type="checkbox" v-model="paymentSettings.card" @change="savePaymentSettings" />
+                <span class="smenu-slider"></span>
+              </label>
+            </div>
+
+            <div class="smenu-setting-row">
+              <div class="smenu-setting-left">
+                <div class="smenu-setting-icon">📱</div>
+                <div>
+                  <div class="smenu-setting-label">QR / СБП</div>
+                  <div class="smenu-setting-sub">Система быстрых платежей</div>
+                </div>
+              </div>
+              <label class="smenu-switch">
+                <input type="checkbox" v-model="paymentSettings.qr" @change="savePaymentSettings" />
+                <span class="smenu-slider"></span>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        <!-- ══ PROFILE VIEW ══ -->
+        <template v-else-if="sidebarView === 'profile'">
+          <div class="smenu-scrollable">
+            <div class="smenu-profile-avatar-large">
+              {{ (profileForm.name || 'U')[0].toUpperCase() }}
+            </div>
+
+            <div class="smenu-form-section">
+              <label class="smenu-label">Имя</label>
+              <input v-model="profileForm.name" class="smenu-input" placeholder="Ваше имя" />
+
+              <label class="smenu-label">Email</label>
+              <input v-model="profileForm.email" class="smenu-input smenu-input-disabled" placeholder="Email"
+                type="email" disabled />
+
+              <div class="smenu-divider"></div>
+
+              <label class="smenu-label">Новый пароль</label>
+              <input v-model="profileForm.newPassword" class="smenu-input" type="password"
+                placeholder="Оставьте пустым, если не меняете" />
+
+              <button :class="['smenu-btn-primary', 'smenu-btn-full', { 'smenu-btn-saved': profileSaved }]"
+                @click="saveProfile">
+                {{ profileSaved ? '✓ Сохранено!' : 'Сохранить' }}
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- ══ FILTERS VIEW ══ -->
+        <template v-else-if="sidebarView === 'filters'">
+          <div class="smenu-scrollable">
+            <p class="smenu-section-desc">Включите теги, которые клиенты смогут использовать для фильтрации блюд в меню.</p>
+
+            <div v-for="filter in availableFilters" :key="filter.key" class="smenu-filter-row">
+              <div class="smenu-filter-icon-box">{{ filter.icon }}</div>
+              <div class="smenu-filter-info">
+                <div class="smenu-filter-name">{{ filter.name }}</div>
+                <div class="smenu-filter-desc">{{ filter.desc }}</div>
+              </div>
+              <label class="smenu-switch">
+                <input type="checkbox" v-model="filterSettings[filter.key]" @change="saveFilterSettings" />
+                <span class="smenu-slider"></span>
+              </label>
+            </div>
+
+            <div class="smenu-filter-tip">
+              💡 Чтобы блюдо отображалось в фильтре, отметьте соответствующий тег в редакторе блюда.
+            </div>
+          </div>
+        </template>
+
+        <!-- ══ TRASH VIEW ══ -->
+        <template v-else-if="sidebarView === 'trash'">
+          <div class="smenu-scrollable">
+            <div v-if="menuStore.trashedItems.length === 0" class="smenu-empty">
+              <div style="font-size: 32px; margin-bottom: 8px;">🗑️</div>
+              Корзина пуста
+            </div>
+            <div v-else>
+              <p class="smenu-section-desc">Удалённые блюда хранятся здесь. Восстановите или удалите их безвозвратно.</p>
+              <div v-for="item in menuStore.trashedItems" :key="(item as any).id" class="smenu-trash-card">
+                <div class="smenu-trash-img-wrap">
+                  <img v-if="(item as any).image" :src="(item as any).image" class="smenu-trash-img" />
+                  <div v-else class="smenu-trash-img smenu-trash-no-img">🍽️</div>
+                </div>
+                <div class="smenu-trash-info">
+                  <div class="smenu-trash-name">{{ getItemDisplayName(item) }}</div>
+                  <div class="smenu-trash-price">{{ Number((item as any).price || 0).toFixed(2) }} ₽</div>
+                </div>
+                <div class="smenu-trash-actions">
+                  <button class="smenu-btn-restore" @click="menuStore.restoreItem((item as any).id)" title="Восстановить">
+                    ↩
+                  </button>
+                  <button class="smenu-btn-delete-forever" @click="menuStore.permanentlyDeleteItem((item as any).id)"
+                    title="Удалить безвозвратно">
+                    <Trash2 :size="13" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
 
       </div>
     </div>

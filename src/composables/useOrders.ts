@@ -1,4 +1,5 @@
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { ordersApi } from '../api';
 
 // Интерфейсы для элементов и заказа
 export interface OrderItem {
@@ -14,6 +15,7 @@ export interface Order {
   status: 'new' | 'open' | 'progress' | 'done' | 'cancelled';
   items: OrderItem[];
   total: number;
+  totalPrice?: number;
   type: 'pickup' | 'delivery' | 'onsite';
   time?: string;
   tableNumber?: string | number;
@@ -32,47 +34,9 @@ export interface Order {
   doorCode?: string;
 }
 
-const STORAGE_KEY = 'yumzi_orders';
-
-// Функция загрузки заказов из localStorage
-const getInitialOrders = (): Order[] => {
-  const savedOrders = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('restaurant_orders');
-  if (savedOrders) {
-    try {
-      return JSON.parse(savedOrders);
-    } catch (e) {
-      console.error('Ошибка парсинга заказов из localStorage:', e);
-    }
-  }
-  return [
-    {
-      id: 'ORD-1092',
-      createdAt: 'Сегодня, 18:45',
-      status: 'new',
-      items: [{ id: 1, name: 'Main Menu - Пицца Пепперони', price: 650, quantity: 1 }],
-      total: 650,
-      type: 'delivery'
-    }
-  ];
-};
-
 // Глобальное состояние заказов
-const orders = ref<Order[]>(getInitialOrders());
-
-// Функция сохранения заказов в хранилище
-const saveOrdersToStorage = () => {
-  try {
-    const data = JSON.stringify(orders.value);
-    localStorage.setItem(STORAGE_KEY, data);
-    localStorage.setItem('restaurant_orders', data);
-    window.dispatchEvent(new Event('orders-local-updated'));
-  } catch (e) {
-    console.error('Ошибка сохранения заказов:', e);
-  }
-};
-
-// Статистика просмотров меню
-const totalViews = ref<number>(Number(localStorage.getItem('yumzi_views')) || 4);
+const orders = ref<Order[]>([]);
+const isLoading = ref(false);
 
 // Настройки приема заказов из модального окна
 const pickupActive = ref(false);
@@ -91,35 +55,27 @@ const workDays = ref([
   { name: 'Воскресенье', active: false },
 ]);
 
+// Загрузка заказов с сервера
+const fetchOrders = async () => {
+  try {
+    isLoading.value = true;
+    const data = await ordersApi.getAll() as any[];
+    // Нормализуем поле total (бэкенд возвращает totalPrice)
+    orders.value = data.map((o: any) => ({
+      ...o,
+      total: Number(o.totalPrice ?? o.total ?? 0),
+    }));
+  } catch (err) {
+    console.error('Ошибка загрузки заказов из API:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Автообновление каждые 15 секунд
+let pollInterval: any = null;
+
 export function useOrders() {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('orders-local-updated', handleStorageUpdate as EventListener);
-    window.addEventListener('orders-local-updated', handleStorageUpdate as EventListener);
-    
-    window.removeEventListener('storage', handleWindowStorage);
-    window.addEventListener('storage', handleWindowStorage);
-  }
-
-  function handleStorageUpdate() {
-    const saved = localStorage.getItem('restaurant_orders') || localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (JSON.stringify(parsed) !== JSON.stringify(orders.value)) {
-          orders.value = parsed;
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }
-
-  function handleWindowStorage(event: StorageEvent) {
-    if (event.key === STORAGE_KEY || event.key === 'restaurant_orders') {
-      handleStorageUpdate();
-    }
-  }
-
   // Счетчики для вкладок хаба
   const stats = computed(() => {
     const newOrOpenCount = orders.value.filter(o => o.status === 'new' || o.status === 'open').length;
@@ -132,60 +88,35 @@ export function useOrders() {
     };
   });
 
-  const addOrder = (orderData: {
-    items: OrderItem[];
-    total?: number;
-    type: 'pickup' | 'delivery' | 'onsite';
-    customerName?: string;
-    customerPhone?: string;
-    phone?: string;
-    tableNumber?: string | number;
-    address?: string;
-    comment?: string;
-    scheduledTime?: string;
-    createdAt?: string;
-    customerEmail?: string;
-    note?: string;
-  }) => {
-    const total = orderData.total !== undefined
-      ? orderData.total
-      : (orderData.items || []).reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    const newOrder: Order = {
-      id: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
-      createdAt: orderData.createdAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'new',
-      items: orderData.items,
-      total,
-      type: orderData.type,
-      customerName: orderData.customerName,
-      customerPhone: orderData.customerPhone || orderData.phone,
-      tableNumber: orderData.tableNumber,
-      deliveryAddress: orderData.address,
-      deliveryTime: orderData.scheduledTime,
-      comment: orderData.comment,
-      customerEmail: orderData.customerEmail,
-      note: orderData.note
-    };
-
-    orders.value.unshift(newOrder);
-    saveOrdersToStorage();
-    return newOrder;
-  };
-
-  const updateOrderStatus = (id: string, status: Order['status']) => {
+  const updateOrderStatus = async (id: string, status: Order['status']) => {
+    // Оптимистичное обновление UI
     const order = orders.value.find(o => o.id === id);
-    if (order) {
-      order.status = status;
-      saveOrdersToStorage();
+    if (order) order.status = status;
+
+    try {
+      await ordersApi.updateStatus(id, status);
+    } catch (err) {
+      console.error('Ошибка обновления статуса:', err);
+      // Откатываем при ошибке
+      await fetchOrders();
     }
   };
 
   const clearOrders = () => {
     orders.value = [];
-    saveOrdersToStorage();
   };
 
+  const refreshOrders = () => fetchOrders();
+
+  // Запускаем загрузку и polling при первом вызове
+  onMounted(() => {
+    fetchOrders();
+    if (!pollInterval) {
+      pollInterval = setInterval(fetchOrders, 15000);
+    }
+  });
+
+  const totalViews = ref<number>(Number(localStorage.getItem('yumzi_views')) || 4);
   const incrementViews = () => {
     totalViews.value += 1;
     localStorage.setItem('yumzi_views', String(totalViews.value));
@@ -196,6 +127,7 @@ export function useOrders() {
   return {
     orders,
     stats,
+    isLoading,
     totalViews,
     incrementViews,
     pickupActive,
@@ -204,9 +136,9 @@ export function useOrders() {
     deliveryTime,
     onsiteActive,
     workDays,
-    addOrder,
     updateOrderStatus,
     clearOrders,
+    refreshOrders,
     isRestaurantOpen,
   };
-}
+}

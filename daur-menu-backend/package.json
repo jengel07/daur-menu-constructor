@@ -2,14 +2,21 @@
   "name": "daur-menu-backend",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
-    "sqlite3": "^6.0.1",
+    "pg": "^8.23.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

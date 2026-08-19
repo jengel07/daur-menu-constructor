@@ -1,4 +1,9 @@
 .env
-.database.sqlite
+*.sqlite
+database.sqlite
 
-/generated/prisma
+# Prisma generated client
+prisma/generated/
+
+# Node modules
+node_modules/

@@ -345,12 +345,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import { useMenuStore } from '../store/menuStore';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
 import { ShoppingCart } from 'lucide-vue-next';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Динамическое определение IP-адреса хоста
+const hostIP = window.location.hostname;
+const API_URL = (import.meta as any).env.VITE_API_URL || `http://${hostIP}:3000`;
 const router = useRouter();
 
 const translations: Record<string, Record<string, string>> = {
@@ -441,15 +442,45 @@ const getItemName = (item: any) => getLocalizedValue(item?.name);
 const getItemDescription = (item: any) => getLocalizedValue(item?.description);
 const getLocalizedCategoryName = (cat: any) => getLocalizedValue(cat?.name);
 
-const loadClientMenu = async () => {
+const urlParams = new URLSearchParams(window.location.search);
+const isPreviewMode = urlParams.get('preview') === 'true';
+const urlRestId = urlParams.get('id'); // Извлекаем ID ресторана из адресной строки
+
+const loadPreviewFromStorage = () => {
   try {
-    const response = await axios.get(`${API_URL}/api/menu`);
-    if (response.data) {
-      store.restaurantInfo = response.data.restaurantInfo || {};
-      store.updateCategories(response.data.categories || []);
-      store.updateItems(response.data.items || []);
-      if (response.data.generalSettings) {
-        store.generalSettings = { ...store.generalSettings, ...response.data.generalSettings };
+    const savedRestaurantInfo = localStorage.getItem('preview_restaurantInfo');
+    const savedItems = localStorage.getItem('preview_items');
+    const savedCategories = localStorage.getItem('preview_categories');
+    const savedGeneralSettings = localStorage.getItem('preview_generalSettings');
+
+    if (savedRestaurantInfo) store.restaurantInfo = JSON.parse(savedRestaurantInfo);
+    if (savedItems) store.updateItems(JSON.parse(savedItems));
+    if (savedCategories) store.updateCategories(JSON.parse(savedCategories));
+    if (savedGeneralSettings) store.generalSettings = { ...store.generalSettings, ...JSON.parse(savedGeneralSettings) };
+  } catch (error) {
+    console.error('Ошибка чтения данных предпросмотра из localStorage:', error);
+  }
+};
+
+const loadClientMenu = async () => {
+  if (isPreviewMode) {
+    loadPreviewFromStorage();
+    return;
+  }
+  try {
+    // Формируем умную ссылку: если есть ID в адресной строке телефона, просим именно это меню
+    const fetchUrl = urlRestId 
+      ? `${API_URL}/api/menu?restaurantId=${urlRestId}` 
+      : `${API_URL}/api/menu`;
+
+    const response = await fetch(fetchUrl);
+    if (response.ok) {
+      const data = await response.json();
+      store.restaurantInfo = data.restaurantInfo || {};
+      store.updateCategories(data.categories || []);
+      store.updateItems(data.items || []);
+      if (data.generalSettings) {
+        store.generalSettings = { ...store.generalSettings, ...data.generalSettings };
       }
     }
   } catch (error) {
@@ -465,7 +496,11 @@ const handleStorageEvent = (event: StorageEvent) => {
     event.key === 'preview_generalSettings' ||
     event.key === 'generalSettings'
   ) {
-    loadClientMenu();
+    if (isPreviewMode) {
+      loadPreviewFromStorage();
+    } else {
+      loadClientMenu();
+    }
   }
 };
 
@@ -580,6 +615,7 @@ const confirmOrder = async () => {
   }));
 
   const newOrderData = {
+    restaurantId: (restaurantInfo.value as any).id || (restaurantInfo.value as any).restaurantId,
     items: preparedItems,
     total: totalPrice.value,
     type: customerForm.value.orderType === 'dine_in' 
@@ -594,7 +630,15 @@ const confirmOrder = async () => {
   };
 
   try {
-    await axios.post(`${API_URL}/api/orders`, newOrderData);
+    const response = await fetch(`${API_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrderData),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
 
     cartItems.value = [];
     closeModal();

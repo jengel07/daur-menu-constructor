@@ -1,57 +1,46 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// daur-menu-backend/prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../prisma/generated/client"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Restaurant {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-
-  menus     Menu[]
-  staff     Staff[]
-  orders    Order[]
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  name     String?
+  menus    Menu[]
+  staff    Staff[]
+  orders   Order[]
 }
 
 model Menu {
-  id           String     @id @default(uuid())
-  name         String     
-  isActive     Boolean    @default(true)
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  categories   Category[]
+  id               String     @id @default(uuid())
+  info             String?    @db.Text
+  items            String?    @db.Text
+  cats             String?    @db.Text
+  general_settings String?    @db.Text
+  restaurantId     String
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model Category {
-  id         String   @id @default(uuid())
+  id         String @id @default(uuid())
   name       String
-  orderIndex Int      @default(0)
-  menuId     String
-  menu       Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  dishes     Dish[]
+  orderIndex Int    @default(0)
 }
 
 model Dish {
-  id          String     @id @default(uuid())
-  name        String     
-  price       Float
-  description String?
-  imageUrl    String?
-  isAvailable Boolean    @default(true)  
-  categoryId  String
-  category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  tags        DishTag[]
-  orderItems  OrderItem[]
+  id         String      @id @default(uuid())
+  name       String
+  price      Float
+  tags       DishTag[]
+  orderItems OrderItem[]
 }
 
 model Tag {
@@ -82,35 +71,30 @@ model Staff {
 
 model Order {
   id            String      @id @default(uuid())
-  orderNumber   String      // Номер заказа для чека (например, #001)
-  type          String      // delivery, pickup, onsite
-  status        String      @default("new") // new, progress, done, cancelled
-  tableNumber   String?     // Для заказов "на месте"
-  customerName  String?     // Имя клиента
-  customerPhone String?     // Телефон
-  customerEmail String?     // Email (если указывается)
-  address       String?     // Адрес доставки
-  scheduledTime String?     // Желаемое время доставки / самовывоза
-  comment       String?     // Комментарий к заказу
-  totalPrice    Float       // Итоговая сумма
+  orderNumber   String
+  type          String
+  status        String      @default("new")
+  tableNumber   String?
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  address       String?
+  scheduledTime String?
+  comment       String?
+  totalPrice    Float
   createdAt     DateTime    @default(now())
-  
   restaurantId  String
   restaurant    Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  
-  items         OrderItem[] // Список товаров в заказе
+  items         OrderItem[]
 }
 
-// Промежуточная таблица для связи заказа и блюд
 model OrderItem {
-  id        String   @id @default(uuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  dishId    String?
-  dish      Dish?    @relation(fields: [dishId], references: [id], onDelete: SetNull)
-  
-  name      String   // Название блюда на момент заказа (на случай если меню изменится)
-  price     String   // Цена на момент заказа
-  quantity  Int      // Количество
+  id       String  @id @default(uuid())
+  orderId  String
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId   String?
+  dish     Dish?   @relation(fields: [dishId], references: [id], onDelete: SetNull)
+  name     String
+  price    Float
+  quantity Int
 }
