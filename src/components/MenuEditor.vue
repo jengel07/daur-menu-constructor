@@ -281,7 +281,10 @@ const closeModal = () => {
         </div>
 
         <div class="card-footer">
-          <span class="item-price">{{ item.price }} ₽</span>
+          <span class="item-price">
+            <template v-if="!item.priceBottle && !item.priceGlass">{{ item.price }} ₽</template>
+            <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
+          </span>
           
           <label class="switch">
             <input 

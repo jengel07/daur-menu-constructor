@@ -102,7 +102,7 @@ router.patch('/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status, rejectionNote } = req.body;
 
-    const allowedStatuses = ['new', 'progress', 'done', 'cancelled'];
+    const allowedStatuses = ['new', 'progress', 'done', 'cancelled', 'archived'];
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({ error: `Недопустимый статус. Допустимые: ${allowedStatuses.join(', ')}` });
     }
@@ -126,6 +126,37 @@ router.patch('/:id/status', async (req, res) => {
     res.json({ success: true, updatedOrder });
   } catch (err) {
     console.error('❌ Ошибка при обновлении статуса:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// ============================================================
+// DELETE /api/orders/all - Удалить все заказы ресторана
+// ============================================================
+router.delete('/all', async (req, res) => {
+  try {
+    await db.order.deleteMany({
+      where: { restaurantId: req.user.restaurantId },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка удаления всех заказов:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// DELETE /api/orders/:id - Удалить один заказ
+// ============================================================
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.order.delete({
+      where: { id: req.params.id, restaurantId: req.user.restaurantId },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка удаления заказа:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

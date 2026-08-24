@@ -1,7 +1,7 @@
 <template>
   <div class="role-selector-container">
     <div class="role-card-wrapper">
-      <h1>Daur Menu Hub</h1>
+      <h1>Achab Hub</h1>
       <p class="subtitle">Выберите режим работы с приложением</p>
 
       <div class="roles-grid">

@@ -369,6 +369,8 @@ app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) 
             id: dish.id, // Сохраняем оригинальный ID для корзины и фронта
             name: dish.name || 'Без названия',
             price: parseFloat(dish.price) || 0,
+            priceGlass: parseFloat(dish.priceGlass) || null,
+            priceBottle: parseFloat(dish.priceBottle) || null,
             description: dish.description || '',
             image: dish.image || '',
             categoryId: dish.categoryId || null,
@@ -428,12 +430,12 @@ app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
     // Отправляем email с учётными данными (не критично — игнорируем ошибку)
     try {
       await transporter.sendMail({
-        from: `"Daur Menu" <${process.env.SMTP_USER}>`,
+        from: `"Achab" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Добро пожаловать в команду Daur Menu!',
+        subject: 'Добро пожаловать в команду Achab!',
         html: `
           <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
-            <h2>Вас добавили в команду Daur Menu!</h2>
+            <h2>Вас добавили в команду Achab!</h2>
             <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
             <p>Для входа на кухонный экран используйте:</p>
             <ul>
@@ -677,12 +679,12 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
     // Отправляем email с учётными данными
     try {
       await transporter.sendMail({
-        from: `"Daur Menu" <${process.env.SMTP_USER}>`,
+        from: `"Achab" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Добро пожаловать в команду Daur Menu!',
+        subject: 'Добро пожаловать в команду Achab!',
         html: `
           <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
-            <h2>Вас добавили в команду Daur Menu!</h2>
+            <h2>Вас добавили в команду Achab!</h2>
             <p>Ресторан: <strong>${restaurant.name || restaurant.email}</strong></p>
             <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
             <p>Для входа используйте:</p>

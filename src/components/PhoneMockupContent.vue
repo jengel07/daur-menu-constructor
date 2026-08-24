@@ -108,7 +108,7 @@
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                       <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 12px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 12px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
                           <button @click="decreaseQuantity(item.id)">-</button>
                           <span>{{ getItemQuantity(item.id) }}</span>
@@ -118,7 +118,7 @@
 
                       <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
                           <button @click="decreaseQuantity(item.id + '_glass')">-</button>
                           <span>{{ getItemQuantity(item.id + '_glass') }}</span>
@@ -128,7 +128,7 @@
 
                       <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
                           <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
                           <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
@@ -409,7 +409,7 @@
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                       <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 12px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 12px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
                           <button @click="decreaseQuantity(item.id)">-</button>
                           <span>{{ getItemQuantity(item.id) }}</span>
@@ -419,7 +419,7 @@
 
                       <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
                           <button @click="decreaseQuantity(item.id + '_glass')">-</button>
                           <span>{{ getItemQuantity(item.id + '_glass') }}</span>
@@ -429,7 +429,7 @@
 
                       <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
                         <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
                           <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
                           <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
@@ -821,12 +821,15 @@ const t = (key: string) => {
   return translations[lang]?.[key] || translations['Русский'][key] || key;
 };
 
-const translationCache = reactive<Record<string, Record<string, string>>>({
-  'English': {},
-  'Deutsch': {},
-  'Аҧсшәа': {},
-  'Русский': {}
-});
+const savedCache = localStorage.getItem('translationCache_mockup');
+  const translationCache = reactive<Record<string, Record<string, string>>>(
+    savedCache ? JSON.parse(savedCache) : {
+      'English': {},
+      'Deutsch': {},
+      'Аҧсшәа': {},
+      'Русский': {}
+    }
+  );
 
 const translateQueue = new Set<string>();
 
@@ -858,12 +861,13 @@ const performTranslation = async (text: string, lang: string) => {
   if (!targetCode) return;
 
   try {
-    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
     const data = await res.json();
     const translated = data[0].map((x: any) => x[0]).join('');
 
     if (!translationCache[lang]) translationCache[lang] = {};
     translationCache[lang][text] = translated;
+    localStorage.setItem('translationCache_mockup', JSON.stringify(translationCache));
   } catch (error) {
     console.error('Translation error:', error);
   } finally {

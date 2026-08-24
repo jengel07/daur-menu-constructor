@@ -15,6 +15,7 @@
         <div class="hub-mode-pill" :class="currentMode">
           {{ modePillLabel }}
         </div>
+        <button class="btn-action-top" style="background: #dc2626; color: white; border: none; margin-right: 8px;" @click="deleteAllOrders">🗑 Очистить заказы</button>
         <button class="btn-action-top" @click="isOrderSettingsOpen = true">⚙️ Настройки</button>
         <button class="btn-action-top refresh-btn" :class="{ rotating: isRefreshing }" @click="doRefresh">
           🔄 Обновить
@@ -34,6 +35,49 @@
           Включите режим «Заказ» в настройках, чтобы принимать заказы от клиентов
         </span>
       </div>
+      <div v-else-if="currentTab === 'archived'" class="orders-list archive-list">
+        <div v-for="group in groupedArchivedOrders" :key="group.date" class="archive-group" style="margin-bottom: 24px; width: 100%;">
+          <h3 class="archive-date" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; color: #4b5563;">{{ group.date }}</h3>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div v-for="order in group.orders" :key="order.id" class="order-card-item receipt-style archived" style="opacity: 0.8;">
+              <div class="order-card-header">
+                <div class="order-id-group">
+                  <span class="order-id">#{{ order.orderNumber || String(order.id).slice(-4).padStart(4,'0') }}</span>
+                  <button class="btn-delete-order" @click="deleteOrder(order.id)" title="Удалить чек" style="background: transparent; border: none; font-size: 16px; cursor: pointer;">🗑️</button>
+                  <button class="btn-delete-order" @click="deleteOrder(order.id)" title="Удалить чек" style="background: transparent; border: none; font-size: 16px; cursor: pointer;">🗑️</button>
+                <span class="order-type-badge" :class="order.type || 'onsite'">
+                    {{ getOrderTypeLabel(order.type) }}
+                  </span>
+                </div>
+                <span class="order-time">{{ new Date(order.createdAt).toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'}) }}</span>
+              </div>
+              <div class="order-customer-info">
+                <div v-if="order.customerName" class="info-row">
+                  <span class="icon">👤</span> {{ order.customerName }} <a v-if="order.customerPhone" :href="`tel:${order.customerPhone}`" class="phone-link">{{ order.customerPhone }}</a>
+                </div>
+                <div class="info-row">
+                  <span class="icon">📍</span> 
+                  <span v-if="order.type === 'delivery'">{{ order.address || 'Адрес не указан' }}</span>
+                  <span v-else-if="order.type === 'table'">Стол {{ order.tableNumber || '?' }}</span>
+                  <span v-else>Самовывоз</span>
+                </div>
+                <div v-if="order.comment" class="info-row note">
+                  <span class="icon">💬</span> {{ order.comment }}
+                </div>
+              </div>
+              <div class="order-items-list">
+                <div v-for="item in order.items" :key="item.id" class="order-item-row">
+                  <span class="item-name"><b>{{ item.quantity }}x</b> {{ item.name }}</span>
+                  <span class="item-price">{{ Number(item.price * item.quantity).toFixed(2) }} ₽</span>
+                </div>
+              </div>
+              <div class="order-card-footer">
+                <span class="order-total">Итого: {{ Number(order.total || order.totalPrice || 0).toFixed(2) }} ₽</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div v-else class="orders-list">
         <div v-for="order in filteredOrders" :key="order.id" class="order-card-item receipt-style">
 
@@ -44,7 +88,7 @@
                 {{ getOrderTypeLabel(order.type) }}
               </span>
             </div>
-            <div class="order-timer-badge">⏱️ {{ getElapsedTime(order.createdAt || '') }}</div>
+            <div class="order-timer-badge">⏱️ {{ getElapsedTime(order) }}</div>
           </div>
 
           <!-- Location / Customer details -->
@@ -85,7 +129,10 @@
               <template v-else-if="order.status === 'cancelled'">
                 <button class="btn-restore-order" @click="changeStatus(order.id, 'new')">↺ Вернуть</button>
               </template>
-            </div>
+              <template v-else-if="order.status === 'done'">
+                  <button class="btn-done-order" style="background: #4f46e5;" @click="changeStatus(order.id, 'archived')">🔒 Закрыть чек</button>
+                </template>
+              </div>
           </div>
 
         </div>
@@ -293,6 +340,7 @@ const orderTabs = [
   { key: 'progress' as const, label: 'В работе' },
   { key: 'done' as const, label: 'Готовы' },
   { key: 'cancelled' as const, label: 'Отменено' },
+  { key: 'archived' as const, label: 'Архив' },
 ];
 
 const modes = [
@@ -333,13 +381,23 @@ const applyMode = (mode: 'menu' | 'cart' | 'order') => {
 const now = ref(Date.now());
 let timerInterval: any = null;
 
-const getElapsedTime = (createdAt: string | number) => {
+const getElapsedTime = (orderOrTime: any) => {
+  if (!orderOrTime) return '00:00';
+  
+  let order = orderOrTime;
+  let createdAt = orderOrTime;
+  if (typeof orderOrTime === 'object') {
+    createdAt = orderOrTime.createdAt;
+  }
+  
+  if (!createdAt) return '00:00';
+
   let startMs: number;
   if (typeof createdAt === 'number') {
     startMs = createdAt;
-  } else if (createdAt?.includes('T') || createdAt?.includes('-')) {
+  } else if (typeof createdAt === 'string' && (createdAt.includes('T') || createdAt.includes('-'))) {
     startMs = new Date(createdAt).getTime();
-  } else if (createdAt?.includes(':')) {
+  } else if (typeof createdAt === 'string' && createdAt.includes(':')) {
     const [h, m] = createdAt.split(':').map(Number);
     const d = new Date();
     d.setHours(h, m, 0, 0);
@@ -347,7 +405,16 @@ const getElapsedTime = (createdAt: string | number) => {
   } else {
     return '00:00';
   }
-  const diff = Math.max(0, now.value - startMs);
+
+  let endMs = now.value; // use reactive now
+  
+  if (typeof order === 'object' && (order.status === 'archived' || order.status === 'cancelled')) {
+    if (order.updatedAt) {
+      endMs = new Date(order.updatedAt).getTime();
+    }
+  }
+
+  const diff = Math.max(0, endMs - startMs);
   const mins = Math.floor(diff / 60000);
   const secs = Math.floor((diff % 60000) / 1000);
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
@@ -359,7 +426,17 @@ const getElapsedTime = (createdAt: string | number) => {
 const allOrders = ref<any[]>([]);
 const isLoading = ref(false);
 const isRefreshing = ref(false);
-const currentTab = ref<'new' | 'progress' | 'done' | 'cancelled'>('new');
+const currentTab = ref<'new' | 'progress' | 'done' | 'cancelled' | 'archived'>('new');
+
+
+    
+      
+
+
+
+
+
+
 
 const filteredOrders = computed(() =>
   allOrders.value.filter(o =>
@@ -367,6 +444,29 @@ const filteredOrders = computed(() =>
     (currentTab.value === 'new' && o.status === 'open')
   )
 );
+
+    
+      
+  
+const groupedArchivedOrders = computed(() => {
+  if (currentTab.value !== 'archived') return [];
+  const groups: Record<string, any[]> = {};
+  
+  filteredOrders.value.forEach((order: any) => {
+    const dateObj = new Date(order.createdAt);
+    const dateKey = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+    
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(order);
+  });
+  
+  return Object.keys(groups).map(date => ({
+    date,
+    orders: groups[date]
+  }));
+});
 
 const getOrderCountByStatus = (status: string) =>
   allOrders.value.filter(o =>
@@ -378,8 +478,29 @@ const currentTabLabel = computed(() =>
 );
 
 const noOrdersIcon = computed(() =>
-  ({ new: '🆕', progress: '⏳', done: '✅', cancelled: '❌' })[currentTab.value] || '📋'
+  ({ new: '🆕', progress: '⏳', done: '✅', cancelled: '❌', archived: '📦' })[currentTab.value] || '📋'
 );
+
+
+const deleteOrder = async (id: string) => {
+  if (!confirm('Точно удалить этот чек навсегда?')) return;
+  try {
+    await ordersApi.delete(id);
+    await fetchOrders();
+  } catch (e: any) {
+    alert('Ошибка удаления: ' + e.message);
+  }
+};
+
+const deleteAllOrders = async () => {
+  if (!confirm('ВНИМАНИЕ! Это удалит ВСЕ заказы из базы навсегда (включая архив). Продолжить?')) return;
+  try {
+    await ordersApi.deleteAll();
+    await fetchOrders();
+  } catch (e: any) {
+    alert('Ошибка удаления: ' + e.message);
+  }
+};
 
 const fetchOrders = async () => {
   isLoading.value = true;

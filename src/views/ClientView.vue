@@ -92,43 +92,37 @@
               <div class="card-content">
                 <div class="card-text-block">
                   <h3>{{ getItemName(item) }}</h3>
-                  <span v-if="viewMode === 'list'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
+                  <span v-if="viewMode === 'list'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', whiteSpace: 'nowrap' }">
+                    <template v-if="!item.priceBottle && !item.priceGlass">{{ Number(item.price || 0).toFixed(2) }} ₽</template>
+                    <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
+                  </span>
                   <p v-if="viewMode === 'grid' && getItemDescription(item)">{{ getItemDescription(item) }}</p>
                 </div>
                 <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
-                  <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                    <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
-                    
+                  <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+                    <template v-if="!item.priceBottle && !item.priceGlass">
+                      {{ Number(item.price || 0).toFixed(2) }} ₽
+                    </template>
+                    <template v-else>
+                      {{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽
+                    </template>
+                  </span>
+                  
+                  <div v-else></div>
+
+                  <div v-if="!item.priceBottle && !item.priceGlass">
                     <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff' }">
                       <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
                       <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
                       <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
                     </div>
-                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
+                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
                   </div>
 
-                  
-
-                  <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                    <span class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '12px' }">{{ tDyn('Бокал') }}: {{ Number(item.priceGlass || 0).toFixed(2) }} ₽</span>
-                    
-                    <div v-if="getItemQuantity(item.id + '_glass') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '80px', padding: '4px 8px' }">
-                      <button class="counter-btn" @click="decreaseQuantity(item.id + '_glass')">-</button>
-                      <span class="counter-value">{{ getItemQuantity(item.id + '_glass') }}</span>
-                      <button class="counter-btn" @click="increaseQuantity(item.id + '_glass')">+</button>
-                    </div>
-                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '4px 10px', fontSize: '10px' }" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })">+ {{ tDyn('добавить') }}</button>
-                  </div>
-
-                  <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                    <span class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '12px' }">{{ tDyn('Бутылка') }}: {{ Number(item.priceBottle || 0).toFixed(2) }} ₽</span>
-                    
-                    <div v-if="getItemQuantity(item.id + '_bottle') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '80px', padding: '4px 8px' }">
-                      <button class="counter-btn" @click="decreaseQuantity(item.id + '_bottle')">-</button>
-                      <span class="counter-value">{{ getItemQuantity(item.id + '_bottle') }}</span>
-                      <button class="counter-btn" @click="increaseQuantity(item.id + '_bottle')">+</button>
-                    </div>
-                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '4px 10px', fontSize: '10px' }" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })">+ {{ tDyn('добавить') }}</button>
+                  <div v-else>
+                    <button class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="openVariantModal(item)">
+                      + {{ tDyn('выбрать') }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -162,6 +156,44 @@
           @clear-filters="selectedFilters = []"
           @update:searchQuery="val => searchQuery = val"
         />
+
+                <!-- Модалка вариантов -->
+        <div v-if="activeModal === 'variant' && selectedVariantItem" class="checkout-modal-overlay" @click.self="activeModal = 'none'">
+          <div class="checkout-modal" style="border-radius: 20px 20px 0 0;">
+            <div class="checkout-header">
+              <h3 style="margin: 0; font-size: 16px;">{{ getItemName(selectedVariantItem) }}</h3>
+              <button class="close-modal-btn" @click="activeModal = 'none'">✕</button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+              <div v-if="selectedVariantItem.priceGlass" style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 12px;">
+                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ tDyn('Бокал') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceGlass || 0).toFixed(2) }} ₽</span></span>
+                
+                <div v-if="getItemQuantity(selectedVariantItem.id + '_glass') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '90px' }">
+                  <button class="counter-btn" @click="decreaseQuantity(selectedVariantItem.id + '_glass')">-</button>
+                  <span class="counter-value">{{ getItemQuantity(selectedVariantItem.id + '_glass') }}</span>
+                  <button class="counter-btn" @click="increaseQuantity(selectedVariantItem.id + '_glass')">+</button>
+                </div>
+                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_glass', price: selectedVariantItem.priceGlass, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + tDyn('Бокал') + ')') })">
+                  + {{ tDyn('добавить') }}
+                </button>
+              </div>
+
+              <div v-if="selectedVariantItem.priceBottle" style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 12px;">
+                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ tDyn('Бутылка') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceBottle || 0).toFixed(2) }} ₽</span></span>
+                
+                <div v-if="getItemQuantity(selectedVariantItem.id + '_bottle') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '90px' }">
+                  <button class="counter-btn" @click="decreaseQuantity(selectedVariantItem.id + '_bottle')">-</button>
+                  <span class="counter-value">{{ getItemQuantity(selectedVariantItem.id + '_bottle') }}</span>
+                  <button class="counter-btn" @click="increaseQuantity(selectedVariantItem.id + '_bottle')">+</button>
+                </div>
+                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_bottle', price: selectedVariantItem.priceBottle, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + tDyn('Бутылка') + ')') })">
+                  + {{ tDyn('добавить') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div v-if="showCheckoutModal" class="checkout-modal-overlay" @click.self="closeModal">
           <div class="checkout-modal">
@@ -428,7 +460,9 @@ const categories = computed(() => store.categories);
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
 const viewMode = ref<'grid' | 'list'>('list');
-const activeModal = ref<'none' | 'cart' | 'filters' | 'search' | 'share' | 'language'>('none');
+const activeModal = ref<'none' | 'cart' | 'filters' | 'search' | 'share' | 'language' | 'variant'>('none');
+const selectedVariantItem = ref<any>(null);
+const openVariantModal = (item: any) => { selectedVariantItem.value = item; activeModal.value = 'variant'; };
 const searchQuery = ref<string>('');
 const selectedFilters = ref<string[]>([]);
 const cartItems = ref<any[]>([]);
@@ -463,12 +497,15 @@ const t = (key: string) => {
   return translations[currentLang.value]?.[key] || translations['ru'][key] || key;
 };
 
-const translationCache = reactive<Record<string, Record<string, string>>>({
-  'en': {},
-  'de': {},
-  'ab': {},
-  'ru': {}
-});
+const savedCache = localStorage.getItem('translationCache_client');
+  const translationCache = reactive<Record<string, Record<string, string>>>(
+    savedCache ? JSON.parse(savedCache) : {
+      'en': {},
+      'de': {},
+      'ab': {},
+      'ru': {}
+    }
+  );
 
 const translateQueue = new Set<string>();
 
@@ -489,12 +526,13 @@ const performTranslation = async (text: string, targetLangCode: string) => {
     if (!targetCode) return;
 
   try {
-    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
     const data = await res.json();
     const translated = data[0].map((x: any) => x[0]).join('');
     
     if (!translationCache[targetLangCode]) translationCache[targetLangCode] = {};
     translationCache[targetLangCode][text] = translated;
+      localStorage.setItem('translationCache_client', JSON.stringify(translationCache));
   } catch (error) {
     console.error('Translation error:', error);
   } finally {
@@ -809,7 +847,7 @@ const goToConstructor = () => {
 .card-text-block h3 { margin: 4px 0 2px 0; font-size: 11px; font-weight: bold; color: #111111; line-height: 1.2; }
 .card-text-block p { font-size: 9px; color: #666; margin: 0 0 6px 0; }
 .card-bottom-row { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: auto; }
-.price { font-weight: bold; font-size: 11px; }
+.price { font-weight: bold; font-size: 11px; white-space: nowrap; }
 .add-to-cart-btn { color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 11px; font-weight: bold; cursor: pointer; width: 100%; text-align: center; transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 .add-to-cart-btn:active { opacity: 0.8; }
 .counter-controls { display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1.5px solid; border-radius: 8px; padding: 6px 12px; width: 100%; box-sizing: border-box; }
@@ -820,7 +858,7 @@ const goToConstructor = () => {
 .menu-list-row .card-content { flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 0; }
 .menu-list-row .card-text-block { flex: 1; padding-right: 12px; }
 .menu-list-row .card-bottom-row { flex-direction: column; align-items: flex-end; width: 115px; gap: 4px; }
-.menu-list-row .price { font-size: 12px; margin-bottom: 2px; }
+.menu-list-row .price { font-size: 12px; margin-bottom: 2px; white-space: nowrap; }
 .menu-list-row .add-to-cart-btn { padding: 6px 0; font-size: 10px; }
 .menu-list-row .counter-controls { padding: 4px 8px; }
 .floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }

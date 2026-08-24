@@ -75,7 +75,7 @@ const openSidebarView = (view: SidebarView) => {
 };
 
 const sidebarTitle = computed(() => ({
-  main: 'Daur Menu',
+  main: 'Achab',
   orders: 'Заказы',
   staff: 'Персонал',
   payment: 'Оплата',
@@ -330,6 +330,11 @@ const syncToTableStorage = () => {
         name: item.name,
         description: item.description || '',
         price: item.price || 0,
+        priceGlass: item.priceGlass || 0,
+        priceBottle: item.priceBottle || 0,
+        noNuts: item.noNuts || false,
+        noLactose: item.noLactose || false,
+        noGluten: item.noGluten || false,
         isAvailable: item.isAvailable !== false,
         image: item.image || ''
       }))
@@ -382,9 +387,20 @@ const handleFileUpload = async (event: Event) => {
           const catName = row.Category || row['Категория (Category)'] || row['Категория'] || 'Основное меню';
           const title = row.Title || row['Название (Title)'] || row['Название'];
           const description = row.Description || row['Описание / Состав (Description)'] || row['Описание'] || '';
-          const price = Number(row.Price || row['Цена, руб. (Price)'] || row['Цена'] || 0);
-          const priceBottle = Number(row['Цена за бутылку'] || row['Цена (бутылка)'] || 0);
-          const priceGlass = Number(row['Цена за бокал'] || row['Цена (бокал)'] || row['Цена за стакан'] || 0);
+          let rawPrice = row.Price || row['Цена, руб. (Price)'] || row['Цена'] || 0;
+          let price = 0;
+          let priceBottle = Number(row['Цена за бутылку'] || row['Цена (бутылка)'] || 0);
+          let priceGlass = Number(row['Цена за бокал'] || row['Цена (бокал)'] || row['Цена за стакан'] || 0);
+
+          if (typeof rawPrice === 'string' && rawPrice.includes('/')) {
+            const parts = rawPrice.split('/').map(p => Number(p.replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
+            if (parts.length === 2) {
+              priceGlass = Math.min(...parts);
+              priceBottle = Math.max(...parts);
+            }
+          } else {
+            price = Number(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+          }
 
           if (!title) return;
 
@@ -527,7 +543,7 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
               style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
               <MenuIcon :size="18" stroke-width="2" />
             </button>
-            <h2 class="brand-title" style="margin: 0;">Daur Menu</h2>
+            <h2 class="brand-title" style="margin: 0;">Achab</h2>
           </div>
 
           <div class="header-actions-row">

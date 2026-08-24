@@ -44,6 +44,8 @@ model Dish {
   id           String      @id @default(uuid())
   name         String
   price        Float
+  priceGlass   Float?
+  priceBottle  Float?
   description  String?     @db.Text
   image        String?
   categoryId   String?
@@ -99,6 +101,7 @@ model Order {
   rejectionNote String?
   totalPrice    Float
   createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt @default(now())
   restaurantId  String
   restaurant    Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   items         OrderItem[]

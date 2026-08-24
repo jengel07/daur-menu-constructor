@@ -175,11 +175,17 @@ export const ordersApi = {
       body: JSON.stringify({ status }),
     }),
 
-  updateStatusWithNote: (id: string, status: string, rejectionNote?: string) =>
+    updateStatusWithNote: (id: string, status: string, rejectionNote?: string) =>
     request<{ success: boolean }>(`/api/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, rejectionNote }),
     }),
+    
+  delete: (id: string) =>
+    request<{ success: boolean }>(`/api/orders/${id}`, { method: 'DELETE' }),
+    
+  deleteAll: () =>
+    request<{ success: boolean }>('/api/orders/all', { method: 'DELETE' }),
 };
 
 // ============================================================
