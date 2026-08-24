@@ -82,7 +82,7 @@ export const useMenuStore = defineStore('menu', () => {
       const data = await menuApi.get(restaurantId);
 
       if (data.restaurantInfo && Object.keys(data.restaurantInfo).length) {
-        restaurantInfo.value = { ...restaurantInfo.value, ...(data.restaurantInfo as RestaurantInfo) };
+        restaurantInfo.value = { ...restaurantInfo.value, ...(data.restaurantInfo as unknown as RestaurantInfo) };
       }
       if (data.categories?.length) categories.value = data.categories as MenuCategory[];
       if (data.items?.length) items.value = data.items as MenuItem[];
@@ -120,21 +120,31 @@ export const useMenuStore = defineStore('menu', () => {
   };
 
   // ============================================================
-  // Фоновый опрос сервера (каждые 10 сек, не 2)
+  // Фоновый опрос сервера (каждые 10 сек)
   // ============================================================
+  const stopPolling = () => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  };
+
   const startPolling = () => {
     if (pollInterval) clearInterval(pollInterval);
 
     pollInterval = setInterval(async () => {
       const restaurantId = getRestaurantId();
-      if (!restaurantId || !getToken()) return;
+      if (!restaurantId || !getToken()) {
+        stopPolling();
+        return;
+      }
 
       try {
         const data = await menuApi.get(restaurantId);
         if (!data) return;
 
         isInitializing = true;
-        if (data.restaurantInfo) restaurantInfo.value = { ...restaurantInfo.value, ...(data.restaurantInfo as RestaurantInfo) };
+        if (data.restaurantInfo) restaurantInfo.value = { ...restaurantInfo.value, ...(data.restaurantInfo as unknown as RestaurantInfo) };
         if (data.categories?.length) categories.value = data.categories as MenuCategory[];
         if (data.items?.length) items.value = data.items as MenuItem[];
         if (data.generalSettings) generalSettings.value = { ...generalSettings.value, ...(data.generalSettings as typeof generalSettings.value) };
@@ -144,13 +154,6 @@ export const useMenuStore = defineStore('menu', () => {
         // Тихо игнорируем сетевые ошибки при фоновом опросе
       }
     }, 10_000); // 10 секунд вместо 2
-  };
-
-  const stopPolling = () => {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
-    }
   };
 
   // ============================================================

@@ -56,11 +56,11 @@ const processFile = async (file: File) => {
       const items: MenuItem[] = [];
 
       rows.forEach((row, index) => {
-        // Проверяем разные возможные варианты названий колонок в Excel
         const catName = row.Category || row['Категория'] || row['Категория (Category)'] || 'Основное меню';
         const title = row.Title || row['Название'] || row['Название (Title)'] || row['Блюдо'];
         const description = row.Description || row['Описание'] || row['Описание / Состав (Description)'] || '';
         const price = Number(row.Price || row['Цена'] || row['Цена, руб. (Price)'] || 0);
+        const image = row.Image || row['Фото'] || row['Фотография'] || row['Фото (Image)'] || row['Картинка'] || '';
 
         if (!title) return;
 
@@ -79,7 +79,7 @@ const processFile = async (file: File) => {
           description: String(description).trim(),
           price: isNaN(price) ? 0 : price,
           isAvailable: true,
-          image: ''
+          image: String(image).trim()
         });
       });
 

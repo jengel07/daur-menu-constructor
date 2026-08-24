@@ -1,0 +1,1 @@
+import('./prisma/generated/client/index.js').then(({PrismaClient}) => { const p = new PrismaClient(); p.dish.findFirst().then(d => { console.log('Image length:', d?.image?.length); p.$disconnect(); }); });

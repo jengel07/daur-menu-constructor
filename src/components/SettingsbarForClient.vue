@@ -32,8 +32,8 @@
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
-          <h3>Ваш заказ</h3>
-          <button class="clear-filters-text-btn" @click="$emit('clear-cart')">Очистить</button>
+          <h3>{{ tDyn('Ваш заказ') }}</h3>
+          <button class="clear-filters-text-btn" @click="$emit('clear-cart')">{{ tDyn('Очистить') }}</button>
         </div>
         <div class="cart-items-list" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
           <div v-for="cItem in cartItems" :key="cItem.id" style="display: flex; justify-content: space-between; align-items: center;">
@@ -49,10 +49,10 @@
           </div>
         </div>
         <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 6px;">
-          <span>Итого:</span>
+          <span>{{ tDyn('Итого:') }}</span>
           <span>{{ totalPrice.toFixed(2) }} ₽</span>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="$emit('checkout')">Оформить заказ</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="$emit('checkout')">{{ tDyn('Оформить заказ') }}</button>
       </div>
     </div>
 
@@ -71,10 +71,10 @@
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
-          <h3>Фильтры</h3>
-          <button class="clear-filters-text-btn" @click="$emit('clear-filters')">Очистить</button>
+          <h3>{{ tDyn('Фильтры') }}</h3>
+          <button class="clear-filters-text-btn" @click="$emit('clear-filters')">{{ tDyn('Очистить') }}</button>
         </div>
-        <div style="font-size: 11px; font-weight: bold; margin-top: 4px;">Пищевая ценность</div>
+        <div style="font-size: 11px; font-weight: bold; margin-top: 4px;">{{ tDyn('Пищевая ценность') }}</div>
         <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
           <button 
             class="filter-option-btn" 
@@ -82,7 +82,7 @@
             :style="selectedFilters.includes('nutFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'nutFree')"
           >
-            🌰 Без орехов
+            🌰 {{ tDyn('Без орехов') }}
           </button>
           <button 
             class="filter-option-btn" 
@@ -90,7 +90,7 @@
             :style="selectedFilters.includes('lactoseFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'lactoseFree')"
           >
-            🥛 Без лактозы
+            🥛 {{ tDyn('Без лактозы') }}
           </button>
           <button 
             class="filter-option-btn" 
@@ -98,10 +98,10 @@
             :style="selectedFilters.includes('glutenFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
             @click="$emit('toggle-filter', 'glutenFree')"
           >
-            🌾 Без глютена
+            🌾 {{ tDyn('Без глютена') }}
           </button>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">Показать результаты</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">{{ tDyn('Показать результаты') }}</button>
         <div class="modal-footer-text">© Проект от Web-Visual-World | 2024</div>
       </div>
     </div>
@@ -111,7 +111,7 @@
       <div class="bottom-sheet share-sheet">
         <div class="sheet-indicator"></div>
         <div class="share-modal-header">
-          <h3>Поделиться ссылкой</h3>
+          <h3>{{ tDyn('Поделиться ссылкой') }}</h3>
           <button class="close-modal-x" @click="$emit('close')">✕</button>
         </div>
 
@@ -121,11 +121,11 @@
           <div v-else class="share-card-placeholder">🍽️</div>
           <div class="share-card-info">
             <span class="share-card-url">{{ fullShareUrl }}</span>
-            <span class="share-card-desc">Меню ресторана · {{ restaurantInfo.name || 'Jazzve' }}</span>
+            <span class="share-card-desc">{{ tDyn('Меню ресторана ·') }} {{ restaurantInfo.name || 'Jazzve' }}</span>
           </div>
         </div>
 
-        <div class="share-section-title">Поделиться с помощью</div>
+        <div class="share-section-title">{{ tDyn('Поделиться с помощью') }}</div>
         
         <div class="share-social-grid">
           <button class="social-btn" @click="shareTo('telegram')">
@@ -135,7 +135,7 @@
             <PhoneCall :size="18" class="social-lucide-icon wa" stroke-width="2"/> WhatsApp
           </button>
           <button class="social-btn" @click="openStoryPreview">
-            <Instagram :size="18" class="social-lucide-icon ins" stroke-width="2"/> Сторис
+            <Instagram :size="18" class="social-lucide-icon ins" stroke-width="2"/> {{ tDyn('Сторис') }}
           </button>
           <button class="social-btn" @click="shareTo('vk')">
             <Share2 :size="18" class="social-lucide-icon vk" stroke-width="2"/> VK
@@ -222,7 +222,7 @@ import {
 } from 'lucide-vue-next';
 import LanguageModal from './LanguageModal.vue';
 
-const props = defineProps<{
+export interface Props {
   activeModal: string;
   primaryColor: string;
   secondaryColor: string;
@@ -233,9 +233,15 @@ const props = defineProps<{
   searchQuery: string;
   selectedFilters: string[];
   restaurantInfo: any;
-  t: (key: string) => string;
   getItemName: (item: any) => string;
-}>();
+  tDyn?: (key: string) => string;
+  restaurantName?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  tDyn: (key: string) => key,
+  restaurantName: 'Restaurant'
+});
 
 const emit = defineEmits([
   'open', 'close', 'toggle-view', 'select-lang', 'clear-cart', 

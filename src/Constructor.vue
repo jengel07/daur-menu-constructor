@@ -6,9 +6,9 @@ import * as XLSX from 'xlsx';
 
 import { useMenuStore } from './store/menuStore';
 import type { MenuCategory } from './types/menu';
-import { ordersApi } from './api';
+import { ordersApi, staffApi } from './api';
 
-import MenuImport from './components/MenuImport.vue';
+
 import MenuEditor from './components/MenuEditor.vue';
 import BrandingEditor from './components/BrandingEditor.vue';
 import GeneralSettings from './components/GeneralSettings.vue';
@@ -38,12 +38,15 @@ import {
   Tag,
   Trash2,
   LogOut,
-  ChefHat,
+  
   ArrowLeft,
   RefreshCw,
 } from 'lucide-vue-next';
 
-const API_URL = 'http://localhost:3000';
+let API_URL = (import.meta as any).env.VITE_API_URL;
+if (!API_URL || API_URL.includes('192.168.') || API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
+  API_URL = `http://${window.location.hostname}:3000`;
+}
 const router = useRouter();
 const menuStore = useMenuStore();
 
@@ -68,6 +71,7 @@ const closeSidebar = () => {
 const openSidebarView = (view: SidebarView) => {
   sidebarView.value = view;
   if (view === 'orders') loadSidebarOrders();
+  if (view === 'staff') loadStaff();
 };
 
 const sidebarTitle = computed(() => ({
@@ -145,30 +149,62 @@ const getOrderTimestamp = (createdAt: string) => {
 };
 
 // ─── STAFF ────────────────────────────────────────────
-const _loadStaff = () => {
-  try { return JSON.parse(localStorage.getItem('restaurant_staff') || '[]'); } catch { return []; }
-};
-const staff = ref<Array<{ id: string; name: string; role: string; email: string }>>(_loadStaff());
+const staff = ref<Array<{ id: string; name: string; role: string; email: string; status?: string }>>([]);
 const addingStaff = ref(false);
-const staffForm = ref({ name: '', role: 'chef', email: '' });
+const staffForm = ref({ name: '', role: 'cook', email: '', password: '' });
+const staffLoading = ref(false);
+const staffError = ref('');
 
-const _saveStaff = () => localStorage.setItem('restaurant_staff', JSON.stringify(staff.value));
-
-const addStaffMember = () => {
-  if (!staffForm.value.name.trim()) return;
-  staff.value.unshift({ id: Date.now().toString(), ...staffForm.value });
-  staffForm.value = { name: '', role: 'chef', email: '' };
-  addingStaff.value = false;
-  _saveStaff();
+const loadStaff = async () => {
+  staffLoading.value = true;
+  staffError.value = '';
+  try {
+    const res = await staffApi.getAll();
+    staff.value = res.staff;
+  } catch (err: unknown) {
+    staffError.value = err instanceof Error ? err.message : 'Ошибка загрузки персонала';
+  } finally {
+    staffLoading.value = false;
+  }
 };
 
-const removeStaffMember = (id: string) => {
-  staff.value = staff.value.filter(s => s.id !== id);
-  _saveStaff();
+const addStaffMember = async () => {
+  if (!staffForm.value.name.trim() || !staffForm.value.email.trim()) return;
+  if (!staffForm.value.password || staffForm.value.password.length < 6) {
+    staffError.value = 'Пароль должен быть не менее 6 символов';
+    return;
+  }
+  staffError.value = '';
+  staffLoading.value = true;
+  try {
+    const res = await staffApi.create({
+      name: staffForm.value.name,
+      email: staffForm.value.email,
+      password: staffForm.value.password,
+      role: staffForm.value.role,
+    });
+    staff.value.unshift(res.staff);
+    staffForm.value = { name: '', role: 'cook', email: '', password: '' };
+    addingStaff.value = false;
+  } catch (err: unknown) {
+    staffError.value = err instanceof Error ? err.message : 'Ошибка создания сотрудника';
+  } finally {
+    staffLoading.value = false;
+  }
+};
+
+const removeStaffMember = async (id: string) => {
+  try {
+    await staffApi.remove(id);
+    staff.value = staff.value.filter(s => s.id !== id);
+  } catch (err: unknown) {
+    staffError.value = err instanceof Error ? err.message : 'Ошибка удаления';
+  }
 };
 
 const getRoleLabel = (role: string) =>
-  ({ chef: '👨‍🍳 Повар', waiter: '🧑‍💼 Официант', admin: '👑 Администратор' })[role] || role;
+  ({ cook: '👨‍🍳 Повар', chef: '👨‍🍳 Повар', waiter: '🧑‍💼 Официант', admin: '👑 Администратор' })[role] || role;
+
 
 // ─── PAYMENT ──────────────────────────────────────────
 const _loadPayment = () => {
@@ -322,82 +358,104 @@ const triggerFileUpload = () => fileInputRef.value?.click();
 
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
+  const files = Array.from(target.files || []);
+  if (!files.length) return;
 
-  const fileName = file.name.toLowerCase();
+  const dataFiles = files.filter(f => !f.type.startsWith('image/') && f.type !== 'application/pdf');
 
   try {
-    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+    let newCategories: any[] = [];
+    let newItems: any[] = [];
 
-      const categoriesMap = new Map<string, string>();
-      const categories: { id: string; name: string }[] = [];
-      const items: any[] = [];
+    // Обработка дата-файлов (Excel, JSON)
+    for (const file of dataFiles) {
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-      rows.forEach((row) => {
-        const catName = row.Category || row['Категория (Category)'] || row['Категория'] || 'Основное меню';
-        const title = row.Title || row['Название (Title)'] || row['Название'];
-        const description = row.Description || row['Описание / Состав (Description)'] || row['Описание'] || '';
-        const price = Number(row.Price || row['Цена, руб. (Price)'] || row['Цена'] || 0);
+        const categoriesMap = new Map<string, string>();
 
-        if (!title) return;
+        rows.forEach((row) => {
+          const catName = row.Category || row['Категория (Category)'] || row['Категория'] || 'Основное меню';
+          const title = row.Title || row['Название (Title)'] || row['Название'];
+          const description = row.Description || row['Описание / Состав (Description)'] || row['Описание'] || '';
+          const price = Number(row.Price || row['Цена, руб. (Price)'] || row['Цена'] || 0);
+          const priceBottle = Number(row['Цена за бутылку'] || row['Цена (бутылка)'] || 0);
+          const priceGlass = Number(row['Цена за бокал'] || row['Цена (бокал)'] || row['Цена за стакан'] || 0);
 
-        if (!categoriesMap.has(catName)) {
-          const catId = 'cat-' + Math.random().toString(36).substr(2, 9);
-          categoriesMap.set(catName, catId);
-          categories.push({ id: catId, name: catName });
-        }
+          if (!title) return;
 
-        items.push({
-          id: 'item-' + Math.random().toString(36).substr(2, 9),
-          categoryId: categoriesMap.get(catName),
-          category: catName,
-          name: title,
-          description,
-          price,
-          isAvailable: true,
-          image: ''
+          if (!categoriesMap.has(catName)) {
+            const catId = 'cat-' + Math.random().toString(36).substr(2, 9);
+            categoriesMap.set(catName, catId);
+            newCategories.push({ id: catId, name: catName });
+          }
+
+          newItems.push({
+            id: 'item-' + Math.random().toString(36).substr(2, 9),
+            categoryId: categoriesMap.get(catName),
+            category: catName,
+            name: title,
+            description,
+            price,
+            priceBottle: priceBottle > 0 ? priceBottle : undefined,
+            priceGlass: priceGlass > 0 ? priceGlass : undefined,
+            isAvailable: true,
+            image: ''
+          });
         });
+      } else if (fileName.endsWith('.json')) {
+        const text = await file.text();
+        const jsonData = JSON.parse(text);
+
+        if (jsonData.categories && jsonData.items) {
+          newCategories.push(...jsonData.categories);
+          newItems.push(...jsonData.items);
+        } else if (Array.isArray(jsonData)) {
+          jsonData.forEach((cat, cIdx) => {
+            const catId = cat.id || 'cat-' + cIdx;
+            newCategories.push({ id: catId, name: cat.name });
+            if (cat.items) {
+              cat.items.forEach((item: any) => {
+                newItems.push({ ...item, categoryId: catId, category: cat.name });
+              });
+            }
+          });
+        }
+      }
+    }
+
+    if (newCategories.length > 0 || newItems.length > 0) {
+      // Добавляем к текущему меню, чтобы не стирать старое (по просьбе пользователя)
+      const mergedCats = [...menuStore.categories, ...newCategories];
+      // Убираем дубликаты категорий по имени
+      const uniqueCats = Array.from(new Map(mergedCats.map(c => [c.name, c])).values());
+      
+      // Обновляем categoryId у новых блюд, если их категория была слита с существующей
+      newItems.forEach(item => {
+        const catName = item.category || newCategories.find(c => c.id === item.categoryId)?.name;
+        if (catName) {
+          const finalCat = uniqueCats.find(c => c.name === catName);
+          if (finalCat) {
+            item.categoryId = finalCat.id;
+          }
+        }
       });
 
-      menuStore.updateCategories(categories);
-      menuStore.updateItems(items);
+      menuStore.updateCategories(uniqueCats);
+      menuStore.updateItems([...menuStore.items, ...newItems]);
+      
       hasImported.value = true;
       syncToTableStorage();
-      alert(`✅ Импортировано: ${items.length} блюд`);
-
-    } else if (fileName.endsWith('.json')) {
-      const text = await file.text();
-      const jsonData = JSON.parse(text);
-
-      if (jsonData.categories && jsonData.items) {
-        menuStore.updateCategories(jsonData.categories);
-        menuStore.updateItems(jsonData.items);
-      } else if (Array.isArray(jsonData)) {
-        const cats: any[] = [];
-        const its: any[] = [];
-        jsonData.forEach((cat, cIdx) => {
-          const catId = cat.id || 'cat-' + cIdx;
-          cats.push({ id: catId, name: cat.name });
-          if (cat.items) {
-            cat.items.forEach((item: any) => {
-              its.push({ ...item, categoryId: catId, category: cat.name });
-            });
-          }
-        });
-        menuStore.updateCategories(cats);
-        menuStore.updateItems(its);
-      }
-      hasImported.value = true;
-      syncToTableStorage();
-      alert('✅ Меню загружено из JSON!');
+      alert(`✅ Успешно добавлено ${newItems.length} новых блюд!`);
     }
-  } catch (error) {
-    alert('❌ Не удалось прочитать файл');
+
+  } catch (error: any) {
+    console.error(error);
+    alert('❌ Ошибка при обработке файлов: ' + (error.message || 'Неизвестная ошибка'));
   } finally {
     if (target) target.value = '';
   }
@@ -439,12 +497,7 @@ onMounted(async () => {
   profileForm.value.email = menuStore.userInfo?.email || '';
 });
 
-const handleImportSuccess = (data: { categories: typeof menuStore.categories; items: typeof menuStore.items }) => {
-  menuStore.updateCategories(data.categories);
-  menuStore.updateItems(data.items);
-  hasImported.value = true;
-  syncToTableStorage();
-};
+
 
 const resetImport = () => {
   menuStore.updateCategories([]);
@@ -463,7 +516,7 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
 <template>
   <div :class="['constructor-wrapper', { 'light-theme': isLightTheme }]">
 
-    <input type="file" ref="fileInputRef" style="display: none" accept=".xlsx, .xls, .json" @change="handleFileUpload" />
+    <input type="file" ref="fileInputRef" style="display: none" accept=".xlsx,.xls,.json" multiple @change="handleFileUpload" />
 
     <div class="constructor-layout">
 
@@ -506,8 +559,8 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
             <Save :size="14" stroke-width="2" /> Сохранить меню
           </button>
           <button @click="triggerFileUpload" class="btn-upload-file"
-            style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-            <Upload :size="14" stroke-width="2" /> Загрузить из Excel / JSON
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 13px;">
+            <Upload :size="14" stroke-width="2" /> Загрузить блюда (Excel/JSON)
           </button>
           <button @click="resetImport" class="btn-reset-sidebar"
             style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
@@ -686,7 +739,17 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
         <!-- ══ STAFF VIEW ══ -->
         <template v-else-if="sidebarView === 'staff'">
           <div class="smenu-scrollable">
-            <div v-if="staff.length === 0 && !addingStaff" class="smenu-empty">
+            <!-- Ошибка -->
+            <div v-if="staffError" class="smenu-error-msg">⚠️ {{ staffError }}</div>
+
+            <!-- Загрузка -->
+            <div v-if="staffLoading && staff.length === 0" class="smenu-empty">
+              <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+              Загрузка персонала...
+            </div>
+
+            <!-- Пусто -->
+            <div v-if="!staffLoading && staff.length === 0 && !addingStaff" class="smenu-empty">
               <div style="font-size: 32px; margin-bottom: 8px;">👥</div>
               Нет сотрудников
             </div>
@@ -707,23 +770,27 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
             <div v-if="addingStaff" class="smenu-form-card">
               <div class="smenu-form-title">Новый сотрудник</div>
               <input v-model="staffForm.name" placeholder="Имя *" class="smenu-input" />
-              <input v-model="staffForm.email" placeholder="Email" type="email" class="smenu-input" />
+              <input v-model="staffForm.email" placeholder="Email *" type="email" class="smenu-input" />
+              <input v-model="staffForm.password" placeholder="Пароль (мин. 6 символов) *" type="password" class="smenu-input" />
               <select v-model="staffForm.role" class="smenu-input">
-                <option value="chef">👨‍🍳 Повар</option>
+                <option value="cook">👨‍🍳 Повар</option>
                 <option value="waiter">🧑‍💼 Официант</option>
                 <option value="admin">👑 Администратор</option>
               </select>
               <div class="smenu-form-actions">
-                <button class="smenu-btn-secondary" @click="addingStaff = false">Отмена</button>
-                <button class="smenu-btn-primary" @click="addStaffMember">Добавить</button>
+                <button class="smenu-btn-secondary" @click="addingStaff = false; staffError = ''">Отмена</button>
+                <button class="smenu-btn-primary" @click="addStaffMember" :disabled="staffLoading">
+                  {{ staffLoading ? '⏳' : 'Добавить' }}
+                </button>
               </div>
             </div>
           </div>
 
-          <button v-if="!addingStaff" class="smenu-add-btn" @click="addingStaff = true">
+          <button v-if="!addingStaff" class="smenu-add-btn" @click="addingStaff = true; staffError = ''">
             + Добавить сотрудника
           </button>
         </template>
+
 
         <!-- ══ PAYMENT VIEW ══ -->
         <template v-else-if="sidebarView === 'payment'">

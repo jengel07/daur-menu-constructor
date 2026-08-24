@@ -95,35 +95,62 @@
                   <span v-if="viewMode === 'list'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
                   <p v-if="viewMode === 'grid' && getItemDescription(item)">{{ getItemDescription(item) }}</p>
                 </div>
-                <div class="card-bottom-row">
-                  <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
-                  
-                  <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff' }">
-                    <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
-                    <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
-                    <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
+                <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
+                  <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff' }">{{ Number(item.price || 0).toFixed(2) }} ₽</span>
+                    
+                    <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff' }">
+                      <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
+                      <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
+                      <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
+                    </div>
+                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
                   </div>
-                  <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }" @click="addToCart(item)">+ {{ t('add') }}</button>
+
+                  
+
+                  <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <span class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '12px' }">{{ tDyn('Бокал') }}: {{ Number(item.priceGlass || 0).toFixed(2) }} ₽</span>
+                    
+                    <div v-if="getItemQuantity(item.id + '_glass') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '80px', padding: '4px 8px' }">
+                      <button class="counter-btn" @click="decreaseQuantity(item.id + '_glass')">-</button>
+                      <span class="counter-value">{{ getItemQuantity(item.id + '_glass') }}</span>
+                      <button class="counter-btn" @click="increaseQuantity(item.id + '_glass')">+</button>
+                    </div>
+                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '4px 10px', fontSize: '10px' }" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })">+ {{ tDyn('добавить') }}</button>
+                  </div>
+
+                  <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <span class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '12px' }">{{ tDyn('Бутылка') }}: {{ Number(item.priceBottle || 0).toFixed(2) }} ₽</span>
+                    
+                    <div v-if="getItemQuantity(item.id + '_bottle') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '80px', padding: '4px 8px' }">
+                      <button class="counter-btn" @click="decreaseQuantity(item.id + '_bottle')">-</button>
+                      <span class="counter-value">{{ getItemQuantity(item.id + '_bottle') }}</span>
+                      <button class="counter-btn" @click="increaseQuantity(item.id + '_bottle')">+</button>
+                    </div>
+                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '4px 10px', fontSize: '10px' }" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })">+ {{ tDyn('добавить') }}</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <SettingsbarForClient
-          :active-modal="activeModal"
-          :primary-color="restaurantInfo.primaryColor || '#646cff'"
-          :secondary-color="restaurantInfo.secondaryColor || '#333'"
-          :view-mode="viewMode"
-          :current-lang="currentLang"
-          :cart-items="cartItems"
-          :total-price="totalPrice"
-          v-model:searchQuery="searchQuery"
-          :selected-filters="selectedFilters"
-          :restaurant-info="restaurantInfo"
-          :t="t"
+        <SettingsbarForClient 
+          v-if="!showCheckoutModal"
+          :primaryColor="restaurantInfo.primaryColor"
+          :secondaryColor="restaurantInfo.secondaryColor"
+          :currentLang="currentLang"
+          :viewMode="viewMode"
+          :activeModal="activeModal"
+          :cartItems="cartItems"
+          :totalPrice="totalPrice"
+          :searchQuery="searchQuery"
+          :selectedFilters="selectedFilters"
+          :restaurantInfo="restaurantInfo"
           :getItemName="getItemName"
-          @open="(modal) => activeModal = modal"
+          :tDyn="tDyn"
+          @open="(m) => activeModal = m"
           @close="activeModal = 'none'"
           @toggle-view="toggleViewMode"
           @select-lang="selectLanguage"
@@ -133,6 +160,7 @@
           @checkout="startCheckout"
           @toggle-filter="toggleFilter"
           @clear-filters="selectedFilters = []"
+          @update:searchQuery="val => searchQuery = val"
         />
 
         <div v-if="showCheckoutModal" class="checkout-modal-overlay" @click.self="closeModal">
@@ -140,32 +168,32 @@
             
             <template v-if="checkoutStep === 1">
               <div class="checkout-header">
-                <h3>Оформление заказа</h3>
+                <h3>{{ tDyn('Оформление заказа') }}</h3>
                 <button class="close-modal-btn" @click="closeModal">✕</button>
               </div>
               
               <form @submit.prevent="goToReviewStep" class="checkout-form">
                 <div class="form-group">
-                  <label>Тип заказа</label>
+                  <label>{{ tDyn('Тип заказа') }}</label>
                   <select v-model="customerForm.orderType">
-                    <option value="dine_in">🍽️ В заведении (Столик)</option>
-                    <option value="takeaway">🏃 С собой (Самовывоз)</option>
-                    <option value="delivery">🚗 Доставка</option>
+                    <option value="dine_in">🍽️ {{ tDyn('В заведении (Столик)') }}</option>
+                    <option value="takeaway">🏃 {{ tDyn('С собой (Самовывоз)') }}</option>
+                    <option value="delivery">🚗 {{ tDyn('Доставка') }}</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label>Имя {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
+                  <label>{{ tDyn('Имя') }} {{ customerForm.orderType === 'dine_in' ? tDyn('(необязательно)') : '' }}</label>
                   <input 
                     v-model="customerForm.name" 
                     type="text" 
-                    placeholder="Введите ваше имя" 
+                    :placeholder="tDyn('Введите ваше имя')" 
                     :required="customerForm.orderType !== 'dine_in'" 
                   />
                 </div>
 
                 <div class="form-group">
-                  <label>Телефон {{ customerForm.orderType === 'dine_in' ? '(необязательно)' : '' }}</label>
+                  <label>{{ tDyn('Телефон') }} {{ customerForm.orderType === 'dine_in' ? tDyn('(необязательно)') : '' }}</label>
                   <input 
                     v-model="customerForm.phone" 
                     type="tel" 
@@ -175,26 +203,26 @@
                 </div>
 
                 <div v-if="customerForm.orderType === 'dine_in'" class="form-group">
-                  <label>Номер столика</label>
-                  <input v-model="customerForm.tableNumber" type="text" placeholder="Например: 5" required />
+                  <label>{{ tDyn('Номер столика') }}</label>
+                  <input v-model="customerForm.tableNumber" type="text" :placeholder="tDyn('Например: 5')" required />
                 </div>
 
                 <div v-if="customerForm.orderType === 'delivery'" class="form-group">
-                  <label>Адрес доставки</label>
-                  <input v-model="customerForm.address" type="text" placeholder="Улица, дом, квартира" required />
+                  <label>{{ tDyn('Адрес доставки') }}</label>
+                  <input v-model="customerForm.address" type="text" :placeholder="tDyn('Улица, дом, квартира')" required />
                 </div>
 
                 <div v-if="customerForm.orderType === 'takeaway'" class="time-picker-block">
-                  <label class="block-title">Когда приготовить?</label>
+                  <label class="block-title">{{ tDyn('Когда приготовить?') }}</label>
                   <div class="time-inputs-row">
                     <input v-model="customerForm.scheduledTime" type="time" class="time-input" />
                     <input v-model="customerForm.scheduledDate" type="date" class="date-input" />
                   </div>
-                  <span class="hint-text">Нам нужно около 15–20 минут на приготовление</span>
+                  <span class="hint-text">{{ tDyn('Нам нужно около 15–20 минут на приготовление') }}</span>
                 </div>
 
                 <div v-if="customerForm.orderType === 'delivery'" class="time-picker-block">
-                  <label class="block-title">Когда доставить?</label>
+                  <label class="block-title">{{ tDyn('Когда доставить?') }}</label>
                   <div class="time-inputs-row">
                     <input v-model="customerForm.scheduledTime" type="time" class="time-input" />
                     <input v-model="customerForm.scheduledDate" type="date" class="date-input" />
@@ -202,12 +230,12 @@
                 </div>
 
                 <div class="form-group">
-                  <label>Примечание (необязательно)</label>
-                  <textarea v-model="customerForm.comment" placeholder="Напр., соусы отдельно? всё в один пакет?"></textarea>
+                  <label>{{ tDyn('Примечание (необязательно)') }}</label>
+                  <textarea v-model="customerForm.comment" :placeholder="tDyn('Напр., соусы отдельно? всё в один пакет?')"></textarea>
                 </div>
 
                 <div class="checkout-summary">
-                  <span>Итого к оплате:</span>
+                  <span>{{ tDyn('Итого к оплате:') }}</span>
                   <strong>{{ totalPrice.toFixed(2) }} ₽</strong>
                 </div>
 
@@ -216,7 +244,7 @@
                   class="submit-order-btn"
                   :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }"
                 >
-                  Далее: Проверить заказ
+                  {{ tDyn('Далее: Проверить заказ') }}
                 </button>
               </form>
             </template>
@@ -224,13 +252,13 @@
             <template v-else-if="checkoutStep === 2">
               <div class="checkout-header">
                 <button class="back-btn" @click="checkoutStep = 1">〈</button>
-                <h3>Проверка заказа</h3>
+                <h3>{{ tDyn('Проверка заказа') }}</h3>
                 <button class="close-modal-btn" @click="closeModal">✕</button>
               </div>
 
               <div class="review-screen-content">
                 <div class="review-card-block">
-                  <div class="review-card-title">Итого заказа</div>
+                  <div class="review-card-title">{{ tDyn('Итого заказа') }}</div>
                   <div class="review-items-list">
                     <div v-for="item in cartItems" :key="item.id" class="review-item-row">
                       <span class="r-name"><b>{{ item.quantity }}x</b> {{ getItemName(item) }}</span>
@@ -239,53 +267,53 @@
                   </div>
                   <div class="review-totals-divider"></div>
                   <div class="review-total-line">
-                    <span>Подытог</span>
+                    <span>{{ tDyn('Подытог') }}</span>
                     <span>RUB {{ totalPrice.toFixed(2) }}</span>
                   </div>
                   <div class="review-total-line">
-                    <span>Доставка / Сбор</span>
+                    <span>{{ tDyn('Доставка / Сбор') }}</span>
                     <span>RUB 0.00</span>
                   </div>
                   <div class="review-total-line main-total">
-                    <span>Итого</span>
+                    <span>{{ tDyn('Итого') }}</span>
                     <span>RUB {{ totalPrice.toFixed(2) }}</span>
                   </div>
                 </div>
 
                 <div class="review-card-block">
-                  <div class="review-card-title">Ваши данные</div>
+                  <div class="review-card-title">{{ tDyn('Ваши данные') }}</div>
                   <div class="data-row" v-if="customerForm.name">
                     <span class="icon">👤</span>
                     <div>
-                      <div class="label-muted">Имя</div>
+                      <div class="label-muted">{{ tDyn('Имя') }}</div>
                       <div class="val">{{ customerForm.name }}</div>
                     </div>
                   </div>
                   <div class="data-row" v-if="customerForm.phone">
                     <span class="icon">📞</span>
                     <div>
-                      <div class="label-muted">Телефон</div>
+                      <div class="label-muted">{{ tDyn('Телефон') }}</div>
                       <div class="val">{{ customerForm.phone }}</div>
                     </div>
                   </div>
                   <div class="data-row" v-if="customerForm.comment">
                     <span class="icon">📝</span>
                     <div>
-                      <div class="label-muted">Примечание</div>
+                      <div class="label-muted">{{ tDyn('Примечание') }}</div>
                       <div class="val">{{ customerForm.comment }}</div>
                     </div>
                   </div>
                   <div class="data-row" v-if="customerForm.orderType === 'dine_in'">
                     <span class="icon">🪑</span>
                     <div>
-                      <div class="label-muted">Столик</div>
+                      <div class="label-muted">{{ tDyn('Столик') }}</div>
                       <div class="val">№ {{ customerForm.tableNumber }}</div>
                     </div>
                   </div>
                   <div class="data-row" v-if="customerForm.orderType === 'delivery'">
                     <span class="icon">📍</span>
                     <div>
-                      <div class="label-muted">Адрес доставки</div>
+                      <div class="label-muted">{{ tDyn('Адрес доставки') }}</div>
                       <div class="val">{{ customerForm.address }}</div>
                     </div>
                   </div>
@@ -293,34 +321,34 @@
 
                 <div class="review-card-block">
                   <div class="review-card-title">
-                    {{ customerForm.orderType === 'takeaway' ? 'Время самовывоза' : (customerForm.orderType === 'delivery' ? 'Время доставки' : 'Время визита') }}
+                    {{ customerForm.orderType === 'takeaway' ? tDyn('Время самовывоза') : (customerForm.orderType === 'delivery' ? tDyn('Время доставки') : tDyn('Время визита')) }}
                   </div>
                   <div class="time-badge-box">
-                    📅 {{ customerForm.scheduledDate }} в {{ customerForm.scheduledTime }}
+                    📅 {{ customerForm.scheduledDate }} {{ tDyn('в') }} {{ customerForm.scheduledTime }}
                   </div>
-                  <div class="hint-text" style="margin-top: 4px;">Пожалуйста, приходите вовремя</div>
+                  <div class="hint-text" style="margin-top: 4px;">{{ tDyn('Пожалуйста, приходите вовремя') }}</div>
                 </div>
 
                 <div v-if="customerForm.orderType === 'takeaway'" class="review-card-block map-block-wrapper">
-                  <div class="review-card-title">Как добраться (Самовывоз)</div>
+                  <div class="review-card-title">{{ tDyn('Как добраться (Самовывоз)') }}</div>
                   <div class="map-container">
                     <div style="position:relative;overflow:hidden;border-radius:8px;">
                       <iframe src="https://yandex.ru/map-widget/v1/?ll=41.024008%2C43.001192&mode=poi&poi%5Bpoint%5D=41.023803%2C43.001167&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D43328610653&z=19.47" width="100%" height="140" frameborder="0" allowfullscreen="true" style="position:relative;"></iframe>
                     </div>
                   </div>
                   <a href="https://yandex.com/maps/-/CTrKi8~b" target="_blank" rel="noopener noreferrer" class="yandex-map-btn">
-                    Открыть в Яндекс Картах
+                    {{ tDyn('Открыть в Яндекс Картах') }}
                   </a>
                 </div>
 
                 <div class="legal-notice">
-                  Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.
+                  {{ tDyn('Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.') }}
                 </div>
 
                 <div class="review-actions-row">
-                  <button class="btn-secondary-action" @click="checkoutStep = 1">Назад</button>
+                  <button class="btn-secondary-action" @click="checkoutStep = 1">{{ tDyn('Назад') }}</button>
                   <button class="btn-primary-action" @click="confirmOrder" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }">
-                    Разместить заказ
+                    {{ tDyn('Разместить заказ') }}
                   </button>
                 </div>
               </div>
@@ -343,7 +371,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMenuStore } from '../store/menuStore';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
@@ -351,7 +379,12 @@ import { ShoppingCart } from 'lucide-vue-next';
 
 // Динамическое определение IP-адреса хоста
 const hostIP = window.location.hostname;
-const API_URL = (import.meta as any).env.VITE_API_URL || `http://${hostIP}:3000`;
+let API_URL = (import.meta as any).env.VITE_API_URL;
+// Если VITE_API_URL не задан или это локальный/сетевой IP из .env (который мог измениться), 
+// надежнее использовать реальный hostname (IP-адрес), по которому клиент открыл страницу.
+if (!API_URL || API_URL.includes('192.168.') || API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
+  API_URL = `http://${hostIP}:3000`;
+}
 const router = useRouter();
 
 const translations: Record<string, Record<string, string>> = {
@@ -430,12 +463,72 @@ const t = (key: string) => {
   return translations[currentLang.value]?.[key] || translations['ru'][key] || key;
 };
 
+const translationCache = reactive<Record<string, Record<string, string>>>({
+  'en': {},
+  'de': {},
+  'ab': {},
+  'ru': {}
+});
+
+const translateQueue = new Set<string>();
+
+const performTranslation = async (text: string, targetLangCode: string) => {
+  if (!text || targetLangCode === 'ru' || targetLangCode === 'Русский') return;
+  if (translationCache[targetLangCode]?.[text]) return;
+  
+  const cacheKey = `${targetLangCode}:${text}`;
+  if (translateQueue.has(cacheKey)) return;
+  translateQueue.add(cacheKey);
+
+    const langCodeMap: Record<string, string> = {
+      'English': 'en',
+      'Deutsch': 'de',
+      'Аҧсшәа': 'ab'
+    };
+    const targetCode = langCodeMap[targetLangCode];
+    if (!targetCode) return;
+
+  try {
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
+    const data = await res.json();
+    const translated = data[0].map((x: any) => x[0]).join('');
+    
+    if (!translationCache[targetLangCode]) translationCache[targetLangCode] = {};
+    translationCache[targetLangCode][text] = translated;
+  } catch (error) {
+    console.error('Translation error:', error);
+  } finally {
+    translateQueue.delete(cacheKey);
+  }
+};
+
 const getLocalizedValue = (field: any) => {
   if (!field) return '';
+  let text = '';
+  
   if (typeof field === 'object' && field !== null) {
-    return field[currentLang.value] || field['ru'] || Object.values(field)[0] || '';
+    text = field['ru'] || Object.values(field)[0] || '';
+    if (field[currentLang.value]) return field[currentLang.value];
+  } else {
+    text = String(field);
   }
-  return field;
+  
+  const lang = currentLang.value;
+  if (lang === 'ru' || lang === 'Русский') return text;
+  if (translationCache[lang]?.[text]) return translationCache[lang][text];
+  
+  performTranslation(text, lang);
+  return text;
+};
+
+const tDyn = (ruText: string) => {
+  if (!ruText) return '';
+  const lang = currentLang.value;
+  if (lang === 'ru' || lang === 'Русский') return ruText;
+  if (translationCache[lang]?.[ruText]) return translationCache[lang][ruText];
+  
+  performTranslation(ruText, lang);
+  return ruText;
 };
 
 const getItemName = (item: any) => getLocalizedValue(item?.name);
@@ -606,10 +699,18 @@ const closeModal = () => {
   checkoutStep.value = 1;
 };
 
+const getRussianName = (field: any) => {
+  if (!field) return '';
+  if (typeof field === 'object' && field !== null) {
+    return field['ru'] || Object.values(field)[0] || '';
+  }
+  return String(field);
+};
+
 const confirmOrder = async () => {
   const preparedItems = cartItems.value.map(item => ({
     id: item.id,
-    name: getItemName(item),
+    name: getRussianName(item.name),
     price: Number(item.price || 0),
     quantity: item.quantity
   }));

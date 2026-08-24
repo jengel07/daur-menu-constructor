@@ -49,11 +49,20 @@ export function authMiddleware(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // { restaurantId, email }
+    req.user = decoded; // { restaurantId, email, role?, staffId? }
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Токен недействителен или истёк' });
+    return res.status(401).json({ error: 'Токен недействителен или истёк' });
   }
+}
+
+// Middleware: только для администраторов (блокирует повара и официанта)
+export function adminOnly(req, res, next) {
+  const role = req.user?.role;
+  if (role === 'cook' || role === 'waiter') {
+    return res.status(403).json({ error: 'Доступ запрещён для данной роли' });
+  }
+  next();
 }
 
 // ============================================================
@@ -142,7 +151,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login — единый вход для администраторов и персонала
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -151,29 +160,68 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const user = await db.restaurant.findUnique({ where: { email } });
+    // 1. Ищем администратора в таблице Restaurant
+    const adminUser = await db.restaurant.findUnique({ where: { email } });
 
-    if (!user) {
+    if (adminUser) {
+      const isPasswordValid = await bcrypt.compare(password, adminUser.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+
+      const token = jwt.sign(
+        { restaurantId: adminUser.id, email: adminUser.email, role: 'admin' },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      return res.json({
+        success: true,
+        token,
+        restaurantId: adminUser.id,
+        name: adminUser.name,
+        role: 'admin',
+      });
+    }
+
+    // 2. Ищем сотрудника (повар / официант) в таблице Staff
+    const staffUser = await db.staff.findUnique({ where: { email } });
+
+    if (!staffUser) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
-    // Сравниваем хэши
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, staffUser.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
+    // Нормализуем роль: "Повар" → "cook", "Официант" → "waiter"
+    const roleMap = {
+      'cook': 'cook',
+      'waiter': 'waiter',
+      'Повар': 'cook',
+      'Официант': 'waiter',
+    };
+    const normalizedRole = roleMap[staffUser.role] || staffUser.role;
+
     const token = jwt.sign(
-      { restaurantId: user.id, email: user.email },
+      {
+        restaurantId: staffUser.restaurantId,
+        email: staffUser.email,
+        role: normalizedRole,
+        staffId: staffUser.id,
+      },
       JWT_SECRET,
       { expiresIn: '30d' }
     );
 
-    res.json({
+    return res.json({
       success: true,
       token,
-      restaurantId: user.id,
-      name: user.name,
+      restaurantId: staffUser.restaurantId,
+      name: staffUser.name,
+      role: normalizedRole,
     });
   } catch (err) {
     console.error('❌ Ошибка входа:', err.message);
@@ -211,18 +259,21 @@ app.get('/api/menu', async (req, res) => {
       where: whereClause
     });
 
-    if (!menuRecord) {
+    const targetRestId = restaurantId || menuRecord?.restaurantId;
+    const dishRecords = targetRestId ? await db.dish.findMany({ where: { restaurantId: targetRestId } }) : [];
+
+    if (!menuRecord && dishRecords.length === 0) {
       return res.json({ restaurantInfo: {}, categories: [], items: [], generalSettings: {} });
     }
 
     res.json({
       restaurantInfo: {
-        ...(menuRecord.info ? JSON.parse(menuRecord.info) : {}),
-        id: menuRecord.restaurantId // <-- ДОБАВЛЕН ID РЕСТОРАНА
+        ...(menuRecord?.info ? JSON.parse(menuRecord.info) : {}),
+        id: targetRestId
       },
-      categories: menuRecord.cats ? JSON.parse(menuRecord.cats) : [],
-      items: menuRecord.items ? JSON.parse(menuRecord.items) : [],
-      generalSettings: menuRecord.general_settings ? JSON.parse(menuRecord.general_settings) : {},
+      categories: menuRecord?.cats ? JSON.parse(menuRecord.cats) : [],
+      items: dishRecords.length > 0 ? dishRecords : (menuRecord?.items ? JSON.parse(menuRecord.items) : []),
+      generalSettings: menuRecord?.general_settings ? JSON.parse(menuRecord.general_settings) : {},
     });
   } catch (err) {
     console.error('❌ Ошибка чтения публичного меню:', err.message);
@@ -230,8 +281,8 @@ app.get('/api/menu', async (req, res) => {
   }
 });
 
-// GET /api/menu/:restaurantId — защищён JWT, для авторизованного администратора
-app.get('/api/menu/:restaurantId', authMiddleware, async (req, res) => {
+// GET /api/menu/:restaurantId — защищён JWT, только для администратора
+app.get('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) => {
   // Пользователь может читать только своё меню
   if (req.user.restaurantId !== req.params.restaurantId) {
     return res.status(403).json({ error: 'Доступ запрещён' });
@@ -242,18 +293,20 @@ app.get('/api/menu/:restaurantId', authMiddleware, async (req, res) => {
       where: { restaurantId: req.params.restaurantId },
     });
 
-    if (!menuRecord) {
+    const dishRecords = await db.dish.findMany({ where: { restaurantId: req.params.restaurantId } });
+
+    if (!menuRecord && dishRecords.length === 0) {
       return res.json({ restaurantInfo: {}, categories: [], items: [], generalSettings: {} });
     }
 
     res.json({
       restaurantInfo: {
-        ...(menuRecord.info ? JSON.parse(menuRecord.info) : {}),
-        id: menuRecord.restaurantId // <-- ДОБАВЛЕН ID РЕСТОРАНА
+        ...(menuRecord?.info ? JSON.parse(menuRecord.info) : {}),
+        id: req.params.restaurantId
       },
-      categories: menuRecord.cats ? JSON.parse(menuRecord.cats) : [],
-      items: menuRecord.items ? JSON.parse(menuRecord.items) : [],
-      generalSettings: menuRecord.general_settings ? JSON.parse(menuRecord.general_settings) : {},
+      categories: menuRecord?.cats ? JSON.parse(menuRecord.cats) : [],
+      items: dishRecords.length > 0 ? dishRecords : (menuRecord?.items ? JSON.parse(menuRecord.items) : []),
+      generalSettings: menuRecord?.general_settings ? JSON.parse(menuRecord.general_settings) : {},
     });
   } catch (err) {
     console.error('❌ Ошибка чтения меню:', err.message);
@@ -261,24 +314,78 @@ app.get('/api/menu/:restaurantId', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/menu/:restaurantId
-app.post('/api/menu/:restaurantId', authMiddleware, async (req, res) => {
-  // Пользователь может писать только в своё меню
+// POST /api/menu/:restaurantId — только для администратора
+app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) => {
   if (req.user.restaurantId !== req.params.restaurantId) {
     return res.status(403).json({ error: 'Доступ запрещён' });
   }
 
   const { info, items, cats, generalSettings } = req.body;
-  try {
-    await db.menu.updateMany({
-      where: { restaurantId: req.params.restaurantId },
-      data: {
-        info: JSON.stringify(info || {}),
-        items: JSON.stringify(items || []),
-        cats: JSON.stringify(cats || []),
-        general_settings: JSON.stringify(generalSettings || {}),
-      },
-    });
+  const restaurantId = req.params.restaurantId;
+
+    try {
+    // Используем транзакцию Prisma, чтобы всё выполнилось безопасно
+    await db.$transaction(async (tx) => {
+      // 1. Общие настройки и инфо ресторана (оставляем в Menu или Restaurant)
+      const menuUpdateData = {};
+      if (info !== undefined) menuUpdateData.info = JSON.stringify(info || {});
+      if (cats !== undefined) menuUpdateData.cats = JSON.stringify(cats || []);
+      if (generalSettings !== undefined) menuUpdateData.general_settings = JSON.stringify(generalSettings || {});
+
+      if (Object.keys(menuUpdateData).length > 0) {
+        await tx.menu.updateMany({
+          where: { restaurantId },
+          data: menuUpdateData,
+        });
+      }
+
+      // Синхронизируем категории в таблицу Category, чтобы работал внешний ключ (Foreign Key) для Dish
+      if (cats !== undefined) {
+        await tx.category.deleteMany({
+          where: { restaurantId },
+        });
+
+        if (cats && cats.length > 0) {
+          const formattedCats = cats.map((cat, index) => ({
+            id: cat.id,
+            name: cat.name || 'Без названия',
+            restaurantId: restaurantId,
+            orderIndex: index
+          }));
+          await tx.category.createMany({
+            data: formattedCats,
+          });
+        }
+      }
+
+      // 2. Если пришли блюда (items !== undefined), полностью обновляем список блюд
+      if (items !== undefined) {
+        await tx.dish.deleteMany({
+          where: { restaurantId },
+        });
+
+        if (items.length > 0) {
+          const formattedDishes = items.map(dish => ({
+            id: dish.id, // Сохраняем оригинальный ID для корзины и фронта
+            name: dish.name || 'Без названия',
+            price: parseFloat(dish.price) || 0,
+            description: dish.description || '',
+            image: dish.image || '',
+            categoryId: dish.categoryId || null,
+            restaurantId: restaurantId,
+            isAvailable: dish.isAvailable ?? true,
+            noNuts: dish.noNuts ?? false,
+            noLactose: dish.noLactose ?? false,
+            noGluten: dish.noGluten ?? false
+          }));
+
+          await tx.dish.createMany({
+            data: formattedDishes,
+          });
+        }
+      } // CLOSE items !== undefined block
+    }); // CLOSE tx
+
     res.json({ success: true });
   } catch (err) {
     console.error('❌ Ошибка сохранения меню:', err.message);
@@ -287,57 +394,326 @@ app.post('/api/menu/:restaurantId', authMiddleware, async (req, res) => {
 });
 
 // ============================================================
-// ПРИГЛАШЕНИЯ СОТРУДНИКОВ (защищено JWT)
+// УПРАВЛЕНИЕ СОТРУДНИКАМИ (защищено JWT)
 // ============================================================
 
-app.post('/api/staff/invite', authMiddleware, async (req, res) => {
+// POST /api/staff — создать сотрудника с паролем (и опционально отправить email)
+app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { email, role } = req.body;
+    const { name, email, password, role } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email обязателен' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Имя, email и пароль обязательны' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Пароль должен быть не менее 6 символов' });
     }
 
-    const mailOptions = {
-      from: `"Daur Menu" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: 'Приглашение в команду Daur Menu',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
-          <h2>Вас пригласили в команду Daur Menu!</h2>
-          <p>Вам назначена роль: <strong>${role || 'Сотрудник'}</strong>.</p>
-          <p>Для входа в систему используйте ваш email: <b>${email}</b></p>
-        </div>
-      `,
-    };
+    // Нормализуем роль: chef → cook
+    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', admin: 'admin' };
+    const normalizedRole = roleMap[role] || role || 'cook';
 
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ success: true, message: 'Приглашение успешно отправлено' });
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const newStaff = await db.staff.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: normalizedRole,
+        restaurantId: req.user.restaurantId,
+      },
+    });
+
+    // Отправляем email с учётными данными (не критично — игнорируем ошибку)
+    try {
+      await transporter.sendMail({
+        from: `"Daur Menu" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Добро пожаловать в команду Daur Menu!',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
+            <h2>Вас добавили в команду Daur Menu!</h2>
+            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
+            <p>Для входа на кухонный экран используйте:</p>
+            <ul>
+              <li>Email: <b>${email}</b></li>
+              <li>Пароль: <b>${password}</b></li>
+            </ul>
+            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Войти</a></p>
+          </div>
+        `,
+      });
+    } catch (mailErr) {
+      console.warn('⚠️ Не удалось отправить email сотруднику:', mailErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      staff: {
+        id: newStaff.id,
+        name: newStaff.name,
+        email: newStaff.email,
+        role: newStaff.role,
+        status: newStaff.status,
+      },
+    });
   } catch (err) {
-    console.error('❌ Ошибка при отправке письма:', err);
-    res.status(500).json({ success: false, message: 'Не удалось отправить письмо: ' + err.message });
+    console.error('❌ Ошибка создания сотрудника:', err.message);
+    if (err.code === 'P2002') {
+      return res.status(409).json({ success: false, message: 'Сотрудник с таким email уже существует' });
+    }
+    res.status(500).json({ success: false, message: 'Ошибка сервера: ' + err.message });
   }
+});
+
+// GET /api/staff — список сотрудников ресторана
+app.get('/api/staff', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const staffList = await db.staff.findMany({
+      where: { restaurantId: req.user.restaurantId },
+      select: { id: true, name: true, email: true, role: true, status: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, staff: staffList });
+  } catch (err) {
+    console.error('❌ Ошибка получения персонала:', err.message);
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
+  }
+});
+
+// DELETE /api/staff/:id — удалить сотрудника
+app.delete('/api/staff/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const staffMember = await db.staff.findUnique({ where: { id: req.params.id } });
+    if (!staffMember || staffMember.restaurantId !== req.user.restaurantId) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+    await db.staff.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Ошибка удаления сотрудника:', err.message);
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
+  }
+});
+
+// POST /api/staff/invite — устаревший алиас (оставлен для совместимости)
+app.post('/api/staff/invite', authMiddleware, adminOnly, async (req, res) => {
+  res.status(410).json({ success: false, message: 'Используйте POST /api/staff' });
 });
 
 // ============================================================
 // OCR-ПАРСИНГ (защищено JWT)
 // ============================================================
 
-app.post('/api/parse-menu', authMiddleware, upload.single('menuFile'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Файл не загружен' });
+app.post('/api/parse-menu', authMiddleware, adminOnly, upload.array('menuFiles', 10), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'Файлы не загружены' });
   }
 
   try {
+    let combinedText = '';
     const worker = await createWorker('rus');
-    const { data: { text } } = await worker.recognize(req.file.buffer);
+    
+    for (const file of req.files) {
+      if (file.mimetype.startsWith('image/')) {
+        const { data: { text } } = await worker.recognize(file.buffer);
+        combinedText += text + '\n\n';
+      }
+    }
+    
     await worker.terminate();
 
-    const parsedData = parseMenuText(text);
+    const parsedData = parseMenuText(combinedText);
     res.json(parsedData);
   } catch (error) {
     console.error('❌ Ошибка OCR:', error);
     res.status(500).json({ error: 'Не удалось распознать меню: ' + error.message });
+  }
+});
+
+// ============================================================
+// СУПЕРАДМИН — только для SUPERADMIN_EMAIL из .env
+// ============================================================
+
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL;
+
+/** Middleware: проверяет что токен принадлежит суперадмину */
+function superAdminOnly(req, res, next) {
+  console.log(`[SUPERADMIN CHECK] Token email: ${req.user?.email}, Env email: ${SUPERADMIN_EMAIL}`);
+  if (!SUPERADMIN_EMAIL) {
+    return res.status(500).json({ error: 'SUPERADMIN_EMAIL не задан в .env' });
+  }
+  if (req.user?.email !== SUPERADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Доступ запрещён. Требуется суперадмин.' });
+  }
+  next();
+}
+
+// GET /api/superadmin/stats — общая статистика платформы
+app.get('/api/superadmin/stats', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const [restaurantCount, staffCount, orderCount] = await Promise.all([
+      db.restaurant.count(),
+      db.staff.count(),
+      db.order.count(),
+    ]);
+    res.json({ success: true, restaurantCount, staffCount, orderCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/superadmin/restaurants — список всех ресторанов
+app.get('/api/superadmin/restaurants', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const restaurants = await db.restaurant.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        _count: { select: { staff: true, orders: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, restaurants });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/superadmin/restaurants/:id — удалить ресторан со всеми данными
+app.delete('/api/superadmin/restaurants/:id', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const restaurant = await db.restaurant.findUnique({ where: { id: req.params.id } });
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Ресторан не найден' });
+    }
+    if (restaurant.email === SUPERADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Нельзя удалить суперадмина' });
+    }
+
+    await db.restaurant.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка удаления ресторана: ' + err.message });
+  }
+});
+
+// Суперадмин: войти под чужим рестораном
+app.post('/api/superadmin/login-as', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const { restaurantId } = req.body;
+    const targetRestaurant = await db.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!targetRestaurant) return res.status(404).json({ error: 'Ресторан не найден' });
+
+    const token = jwt.sign(
+      { restaurantId: targetRestaurant.id, email: targetRestaurant.email, role: 'admin' },
+      JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      restaurantId: targetRestaurant.id,
+      name: targetRestaurant.name,
+      role: 'admin'
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка: ' + err.message });
+  }
+});
+
+// GET /api/superadmin/staff — все сотрудники платформы
+app.get('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const staff = await db.staff.findMany({
+      select: {
+        id: true, name: true, email: true, role: true, status: true,
+        restaurant: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, staff });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/superadmin/staff — создать сотрудника для ЛЮБОГО ресторана
+app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, res) => {
+  try {
+    const { name, email, password, role, restaurantId } = req.body;
+
+    if (!name || !email || !password || !restaurantId) {
+      return res.status(400).json({ error: 'name, email, password, restaurantId — обязательны' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+    }
+
+    // Проверяем что ресторан существует
+    const restaurant = await db.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Ресторан не найден' });
+    }
+
+    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', admin: 'admin' };
+    const normalizedRole = roleMap[role] || role || 'cook';
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const newStaff = await db.staff.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: normalizedRole,
+        restaurantId,
+      },
+    });
+
+    // Отправляем email с учётными данными
+    try {
+      await transporter.sendMail({
+        from: `"Daur Menu" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Добро пожаловать в команду Daur Menu!',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
+            <h2>Вас добавили в команду Daur Menu!</h2>
+            <p>Ресторан: <strong>${restaurant.name || restaurant.email}</strong></p>
+            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
+            <p>Для входа используйте:</p>
+            <ul>
+              <li>Email: <b>${email}</b></li>
+              <li>Пароль: <b>${password}</b></li>
+            </ul>
+            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Войти</a></p>
+          </div>
+        `,
+      });
+    } catch (mailErr) {
+      console.warn('⚠️ Не удалось отправить email сотруднику:', mailErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      staff: {
+        id: newStaff.id,
+        name: newStaff.name,
+        email: newStaff.email,
+        role: newStaff.role,
+        status: newStaff.status,
+      },
+    });
+  } catch (err) {
+    console.error('❌ Ошибка создания сотрудника:', err.message);
+    if (err.code === 'P2002') {
+      return res.status(409).json({ error: 'Сотрудник с таким email уже существует' });
+    }
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -349,3 +725,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
 });
+
+// Dummy comment to force nodemon restart

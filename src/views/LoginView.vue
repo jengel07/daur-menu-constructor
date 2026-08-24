@@ -7,54 +7,72 @@
 
     <!-- Основная карточка входа/регистрации -->
     <main class="login-container">
-      <h1 class="title">{{ isRegistering ? 'Создать аккаунт' : 'Вход в систему' }}</h1>
+      <!-- Вкладки Вход / Регистрация -->
+      <div class="auth-tabs">
+        <button
+          type="button"
+          class="auth-tab"
+          :class="{ active: !isRegistering }"
+          @click="switchMode(false)"
+        >
+          Вход
+        </button>
+        <button
+          type="button"
+          class="auth-tab"
+          :class="{ active: isRegistering }"
+          @click="switchMode(true)"
+        >
+          Регистрация
+        </button>
+      </div>
+
       <p class="welcome-text">
-        {{ isRegistering ? 'Заполните данные для регистрации.' : 'С возвращением! Пожалуйста, введите ваши данные.' }}
-      </p>
-      
-      <p class="signup-prompt">
-        {{ isRegistering ? 'Уже есть аккаунт?' : 'Ещё нет аккаунта?' }} 
-        <a href="#" @click.prevent="isRegistering = !isRegistering">
-          {{ isRegistering ? 'Войти' : 'Зарегистрироваться' }}
-        </a>
+        {{ isRegistering ? 'Заполните данные для регистрации.' : 'С возвращением! Введите email и пароль.' }}
       </p>
 
       <form @submit.prevent="handleSubmit" class="login-form">
         <!-- Поле имени (только для регистрации) -->
         <div class="form-group" v-if="isRegistering">
-          <label>Имя</label>
-          <input 
-            v-model="name" 
-            type="text" 
-            placeholder="Ваше имя" 
-            required 
+          <label for="register-name">Имя</label>
+          <input
+            id="register-name"
+            name="name"
+            v-model="name"
+            type="text"
+            placeholder="Ваше имя"
+            required
           />
         </div>
 
         <!-- Email field -->
         <div class="form-group">
-          <label>Email адрес</label>
-          <input 
-            v-model="email" 
-            type="email" 
-            placeholder="m@example.com" 
-            required 
+          <label for="user-email">Email адрес</label>
+          <input
+            id="user-email"
+            name="email"
+            v-model="email"
+            type="email"
+            placeholder="m@example.com"
+            required
           />
         </div>
 
         <!-- Password field -->
         <div class="form-group">
-          <label>Пароль</label>
+          <label for="user-password">Пароль</label>
           <div class="password-input-wrapper">
-            <input 
-              v-model="password" 
-              :type="showPassword ? 'text' : 'password'" 
-              placeholder="******" 
-              required 
+            <input
+              id="user-password"
+              name="password"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="******"
+              required
             />
-            <button 
-              type="button" 
-              class="btn-toggle-eye" 
+            <button
+              type="button"
+              class="btn-toggle-eye"
               @click="showPassword = !showPassword"
             >
               👁️
@@ -69,12 +87,21 @@
         <!-- Сообщение об ошибке -->
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
+          <!-- Кнопка быстрого переключения на вход, если email уже занят -->
+          <button
+            v-if="showSwitchToLogin"
+            type="button"
+            class="btn-switch-inline"
+            @click="switchMode(false)"
+          >
+            Войти с этим email →
+          </button>
         </div>
 
         <!-- Submit Button -->
         <button type="submit" class="btn-primary" :disabled="isLoading">
           <span v-if="isLoading">⏳ Загрузка...</span>
-          <span v-else>{{ isRegistering ? 'Зарегистрироваться' : 'Продолжить с Email' }}</span>
+          <span v-else>{{ isRegistering ? 'Создать аккаунт' : 'Войти' }}</span>
         </button>
       </form>
 
@@ -91,8 +118,8 @@
 
       <!-- Footer Policy Links -->
       <footer class="legal-footer">
-        Регистрируясь, вы соглашаетесь с нашими 
-        <a href="#">Условиями использования</a> и 
+        Регистрируясь, вы соглашаетесь с нашими
+        <a href="#">Условиями использования</a> и
         <a href="#">Политикой конфиденциальности</a>.
       </footer>
     </main>
@@ -108,6 +135,7 @@ import { useMenuStore } from '../store/menuStore';
 const router = useRouter();
 const menuStore = useMenuStore();
 
+// По умолчанию — режим ВХОДА, не регистрации
 const isRegistering = ref(false);
 const name = ref('');
 const email = ref('');
@@ -115,51 +143,104 @@ const password = ref('');
 const showPassword = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref('');
+// Показывать ли кнопку «Войти с этим email →» после ошибки «уже существует»
+const showSwitchToLogin = ref(false);
+
+/** Переключение между режимами Вход / Регистрация с очисткой ошибок */
+const switchMode = (register: boolean) => {
+  isRegistering.value = register;
+  errorMessage.value = '';
+  showSwitchToLogin.value = false;
+};
+
+/** Применяем результат успешного ответа бэкенда */
+const applyAuthResult = (result: {
+  token: string;
+  restaurantId: string;
+  name: string;
+  role?: string;
+}) => {
+  setToken(result.token);
+
+  const role = result.role || 'admin';
+
+  localStorage.setItem('currentUser', JSON.stringify({
+    restaurantId: result.restaurantId,
+    name: result.name,
+    email: email.value,
+    role,
+  }));
+
+  menuStore.loadUserInfo();
+
+  // Редирект по роли с гибкой проверкой
+  const lowerRole = role.toLowerCase();
+  
+  // ПРОПИШИТЕ СЮДА ВАШ ЛИЧНЫЙ EMAIL:
+  if (email.value === 'geller.9797@mail.ru') { 
+    router.push('/super-admin');
+  } 
+  else if (
+    lowerRole.includes('cook') ||
+    lowerRole.includes('chef') ||
+    lowerRole.includes('waiter') ||
+    lowerRole.includes('повар') ||
+    lowerRole.includes('официант')
+  ) {
+    router.push('/kitchen-orders');
+  } else {
+    menuStore.loadFromServer();
+    router.push('/constructor');
+  }
+};
 
 const handleSubmit = async () => {
   errorMessage.value = '';
+  showSwitchToLogin.value = false;
   isLoading.value = true;
 
   try {
-    let result;
-
     if (isRegistering.value) {
-      result = await authApi.register({
-        email: email.value,
-        password: password.value,
-        name: name.value || undefined,
-      });
+      // ── Режим РЕГИСТРАЦИИ ──────────────────────────────────────
+      try {
+        const result = await authApi.register({
+          email: email.value,
+          password: password.value,
+          name: name.value || undefined,
+        });
+        applyAuthResult(result);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
+        // Если email уже занят — предлагаем войти вместо регистрации
+        if (
+          msg.includes('уже существует') ||
+          msg.includes('already') ||
+          msg === 'HTTP 409'
+        ) {
+          errorMessage.value = 'Пользователь с таким email уже зарегистрирован.';
+          showSwitchToLogin.value = true;
+        } else {
+          errorMessage.value = msg || 'Ошибка регистрации. Попробуйте снова.';
+        }
+      }
     } else {
-      result = await authApi.login({
+      // ── Режим ВХОДА ───────────────────────────────────────────
+      const result = await authApi.login({
         email: email.value,
         password: password.value,
       });
+      applyAuthResult(result);
     }
-
-    // Сохраняем JWT-токен
-    setToken(result.token);
-
-    // Сохраняем данные пользователя для стора
-    localStorage.setItem('currentUser', JSON.stringify({
-      restaurantId: result.restaurantId,
-      name: result.name,
-      email: email.value,
-    }));
-
-    // Обновляем userInfo в сторе сразу после логина
-    menuStore.loadUserInfo();
-    menuStore.loadFromServer();
-
-    router.push('/constructor');
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Произошла ошибка. Попробуйте снова.';
+    errorMessage.value = err instanceof Error
+      ? err.message
+      : 'Произошла ошибка. Попробуйте снова.';
   } finally {
     isLoading.value = false;
   }
 };
 
 const handleGoogleAuth = () => {
-  // Google OAuth не реализован — показываем сообщение
   errorMessage.value = 'Вход через Google пока недоступен. Используйте Email.';
 };
 </script>
@@ -193,29 +274,37 @@ const handleGoogleAuth = () => {
   text-align: center;
 }
 
-.title {
-  font-size: 26px;
-  font-weight: 800;
-  margin-bottom: 6px;
+.auth-tabs {
+  display: flex;
+  background-color: #f3f3f3;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: background-color 0.2s, color 0.2s;
+  color: #6b7280;
+}
+
+.auth-tab.active {
+  background-color: #ffffff;
   color: #000000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .welcome-text {
   font-size: 14px;
   color: #6b7280;
-  margin-bottom: 6px;
-}
-
-.signup-prompt {
-  font-size: 14px;
-  color: #1a1a1a;
-  margin-bottom: 32px;
-}
-
-.signup-prompt a {
-  color: #000000;
-  font-weight: 600;
-  text-decoration: underline;
+  margin-bottom: 24px;
 }
 
 .login-form {
@@ -292,6 +381,18 @@ const handleGoogleAuth = () => {
   font-size: 13px;
   margin-bottom: 14px;
   text-align: center;
+}
+
+.btn-switch-inline {
+  display: block;
+  margin: 8px auto 0 auto;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 12px;
 }
 
 .btn-primary {

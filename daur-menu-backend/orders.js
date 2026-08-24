@@ -100,7 +100,7 @@ router.post('/', async (req, res) => {
 router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, rejectionNote } = req.body;
 
     const allowedStatuses = ['new', 'progress', 'done', 'cancelled'];
     if (!allowedStatuses.includes(status)) {
@@ -113,9 +113,14 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(403).json({ error: 'Заказ не найден или доступ запрещён' });
     }
 
+    const updateData = { status };
+    if (status === 'cancelled' && rejectionNote) {
+      updateData.rejectionNote = rejectionNote;
+    }
+
     const updatedOrder = await db.order.update({
       where: { id },
-      data: { status },
+      data: updateData,
     });
 
     res.json({ success: true, updatedOrder });

@@ -101,25 +101,41 @@
                     <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
                       <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
                       <div class="card-content">
-                        <div>
-                          <h3>{{ getLocalizedItemName(item.name) }}</h3>
-                          <div class="price">RUB {{ Number(item.price).toFixed(2) }}</div>
-                        </div>
-
-                        <button 
-                          v-if="getItemQuantity(item.id) === 0" 
-                          class="add-to-cart-btn" 
-                          @click="addToCart(item)"
-                          :style="{ backgroundColor: currentRestaurantInfo.primaryColor }"
-                        >
-                          {{ t('addBtn') }}
-                        </button>
-
-                        <div v-else class="counter-controls">
+                                            <div>
+                      <h3>{{ getLocalizedItemName(item.name) }}</h3>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                      <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 12px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
                           <button @click="decreaseQuantity(item.id)">-</button>
                           <span>{{ getItemQuantity(item.id) }}</span>
                           <button @click="increaseQuantity(item.id)">+</button>
                         </div>
+                      </div>
+
+                      <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
+                          <button @click="decreaseQuantity(item.id + '_glass')">-</button>
+                          <span>{{ getItemQuantity(item.id + '_glass') }}</span>
+                          <button @click="increaseQuantity(item.id + '_glass')">+</button>
+                        </div>
+                      </div>
+
+                      <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
+                          <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
+                          <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
+                          <button @click="increaseQuantity(item.id + '_bottle')">+</button>
+                        </div>
+                      </div>
+                    </div>
                       </div>
                     </div>
                   </div>
@@ -386,24 +402,40 @@
                 <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
                   <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
                   <div class="card-content">
-                    <div>
+                                        <div>
                       <h3>{{ getLocalizedItemName(item.name) }}</h3>
-                      <div class="price">RUB {{ Number(item.price).toFixed(2) }}</div>
                     </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                      <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 12px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
+                          <button @click="decreaseQuantity(item.id)">-</button>
+                          <span>{{ getItemQuantity(item.id) }}</span>
+                          <button @click="increaseQuantity(item.id)">+</button>
+                        </div>
+                      </div>
 
-                    <button 
-                      v-if="getItemQuantity(item.id) === 0" 
-                      class="add-to-cart-btn" 
-                      @click="addToCart(item)"
-                      :style="{ backgroundColor: currentRestaurantInfo.primaryColor }"
-                    >
-                      {{ t('addBtn') }}
-                    </button>
+                      <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
+                          <button @click="decreaseQuantity(item.id + '_glass')">-</button>
+                          <span>{{ getItemQuantity(item.id + '_glass') }}</span>
+                          <button @click="increaseQuantity(item.id + '_glass')">+</button>
+                        </div>
+                      </div>
 
-                    <div v-else class="counter-controls">
-                      <button @click="decreaseQuantity(item.id)">-</button>
-                      <span>{{ getItemQuantity(item.id) }}</span>
-                      <button @click="increaseQuantity(item.id)">+</button>
+                      <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
+                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: 'auto', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
+                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
+                          <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
+                          <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
+                          <button @click="increaseQuantity(item.id + '_bottle')">+</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -575,21 +607,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 
 import FloatingSettingsBar from './FloatingSettingsBar.vue';
-import { useOrders } from '../composables/useOrders';
 
-const { addOrder } = useOrders();
+
+
 
 const handleCheckout = () => {
   if (cartItems.value.length === 0) return;
-  addOrder({
-  items: cartItems.value,
-  total: totalPrice.value,
-  type: 'delivery'
-});
+  
   cartItems.value = [];
   currentScreen.value = 'menu';
   alert('Заказ успешно оформлен и отправлен в дашборд!');
@@ -791,6 +819,56 @@ const categoryTranslations: Record<string, Record<string, string>> = {
 const t = (key: string) => {
   const lang = selectedLanguage.value;
   return translations[lang]?.[key] || translations['Русский'][key] || key;
+};
+
+const translationCache = reactive<Record<string, Record<string, string>>>({
+  'English': {},
+  'Deutsch': {},
+  'Аҧсшәа': {},
+  'Русский': {}
+});
+
+const translateQueue = new Set<string>();
+
+
+const tDyn = (ruText: string) => {
+  if (!ruText) return '';
+  const lang = selectedLanguage.value;
+  if (lang === 'ru' || lang === 'Русский') return ruText;
+  if (translationCache[lang]?.[ruText]) return translationCache[lang][ruText];
+  
+  performTranslation(ruText, lang);
+  return ruText;
+};
+
+const performTranslation = async (text: string, lang: string) => {
+  if (!text || lang === 'Русский') return;
+  if (translationCache[lang]?.[text]) return;
+
+  const cacheKey = `${lang}:${text}`;
+  if (translateQueue.has(cacheKey)) return;
+  translateQueue.add(cacheKey);
+
+  const langCodeMap: Record<string, string> = {
+    'English': 'en',
+    'Deutsch': 'de',
+    'Аҧсшәа': 'ab'
+  };
+  const targetCode = langCodeMap[lang];
+  if (!targetCode) return;
+
+  try {
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
+    const data = await res.json();
+    const translated = data[0].map((x: any) => x[0]).join('');
+
+    if (!translationCache[lang]) translationCache[lang] = {};
+    translationCache[lang][text] = translated;
+  } catch (error) {
+    console.error('Translation error:', error);
+  } finally {
+    translateQueue.delete(cacheKey);
+  }
 };
 
 const getLocalizedCategoryName = (name: string) => {

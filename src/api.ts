@@ -3,7 +3,10 @@
  * Автоматически добавляет JWT-токен и базовый URL из .env
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+let BASE_URL = import.meta.env.VITE_API_URL;
+if (!BASE_URL || BASE_URL.includes('192.168.') || BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')) {
+  BASE_URL = `http://${window.location.hostname}:3000`;
+}
 
 // ============================================================
 // Хелперы для работы с токеном
@@ -26,6 +29,23 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+/** Возвращает роль текущего пользователя из localStorage */
+export function getUserRole(): string | null {
+  const saved = localStorage.getItem('currentUser');
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved).role || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Проверяет, является ли пользователь персоналом (не администратором) */
+export function isStaff(): boolean {
+  const role = getUserRole();
+  return role === 'cook' || role === 'waiter';
+}
+
 // ============================================================
 // Базовая функция запроса
 // ============================================================
@@ -38,9 +58,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const { skipAuth = false, ...fetchOptions } = options;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string> || {}),
   };
+
+  // Only set application/json if we are not sending FormData
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
 
   if (!skipAuth) {
     const token = getToken();
@@ -54,8 +78,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers,
   });
 
-  if (response.status === 401 || response.status === 403) {
-    // Токен истёк — очищаем данные и редиректим на логин
+  if (response.status === 401) {
+    // Токен истёк или недействителен — очищаем данные и редиректим на логин
     removeToken();
     window.location.href = '/login';
     throw new Error('Сессия истекла. Войдите снова.');
@@ -81,7 +105,7 @@ export const authApi = {
     ),
 
   login: (data: { email: string; password: string }) =>
-    request<{ success: boolean; token: string; restaurantId: string; name: string }>(
+    request<{ success: boolean; token: string; restaurantId: string; name: string; role: string }>(
       '/api/auth/login',
       { method: 'POST', body: JSON.stringify(data), skipAuth: true }
     ),
@@ -103,16 +127,22 @@ export const menuApi = {
       generalSettings: Record<string, unknown>;
     }>(`/api/menu/${restaurantId}`),
 
-  save: (restaurantId: string, data: {
-    info: unknown;
-    items: unknown[];
-    cats: unknown[];
-    generalSettings: unknown;
-  }) =>
+  save: (restaurantId: string, data: any) =>
     request<{ success: boolean }>(`/api/menu/${restaurantId}`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  parseMenu: (files: FileList | File[]) => {
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('menuFiles', files[i]);
+    }
+    return request<{ categories: any[]; items: any[] }>('/api/parse-menu', {
+      method: 'POST',
+      body: formData,
+    });
+  }
 };
 
 // ============================================================
@@ -144,6 +174,12 @@ export const ordersApi = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  updateStatusWithNote: (id: string, status: string, rejectionNote?: string) =>
+    request<{ success: boolean }>(`/api/orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, rejectionNote }),
+    }),
 };
 
 // ============================================================
@@ -151,9 +187,82 @@ export const ordersApi = {
 // ============================================================
 
 export const staffApi = {
-  invite: (email: string, role: string) =>
-    request<{ success: boolean; message: string }>('/api/staff/invite', {
+  /** Получить всех сотрудников ресторана */
+  getAll: () =>
+    request<{ success: boolean; staff: Array<{ id: string; name: string; email: string; role: string; status: string }> }>(
+      '/api/staff'
+    ),
+
+  /** Создать сотрудника с паролем (сохраняется в БД, email отправляется автоматически) */
+  create: (data: { name: string; email: string; password: string; role: string }) =>
+    request<{ success: boolean; staff: { id: string; name: string; email: string; role: string; status: string } }>(
+      '/api/staff',
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
+
+  /** Удалить сотрудника */
+  remove: (id: string) =>
+    request<{ success: boolean }>(`/api/staff/${id}`, { method: 'DELETE' }),
+};
+
+// ============================================================
+// SUPERADMIN API (только для владельца платформы)
+// ============================================================
+
+export const superAdminApi = {
+  /** Общая статистика платформы */
+  getStats: () =>
+    request<{ success: boolean; restaurantCount: number; staffCount: number; orderCount: number }>(
+      '/api/superadmin/stats'
+    ),
+
+  /** Список всех ресторанов */
+  getRestaurants: () =>
+    request<{
+      success: boolean;
+      restaurants: Array<{
+        id: string;
+        email: string;
+        name: string | null;
+        _count: { staff: number; orders: number };
+      }>;
+    }>('/api/superadmin/restaurants'),
+
+  /** Удалить ресторан со всеми данными */
+  deleteRestaurant: (id: string) =>
+    request<{ success: boolean }>(`/api/superadmin/restaurants/${id}`, { method: 'DELETE' }),
+
+  /** Войти в аккаунт другого ресторана */
+  loginAs: (restaurantId: string) =>
+    request<{ success: boolean; token: string; restaurantId: string; name: string; role: string }>('/api/superadmin/login-as', {
       method: 'POST',
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ restaurantId }),
     }),
+
+  /** Все сотрудники платформы */
+  getAllStaff: () =>
+    request<{
+      success: boolean;
+      staff: Array<{
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+        restaurant: { id: string; name: string | null };
+      }>;
+    }>('/api/superadmin/staff'),
+
+  /** Создать сотрудника для любого ресторана (только суперадмин) */
+  createStaff: (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    restaurantId: string;
+  }) =>
+    request<{ success: boolean; staff: { id: string; name: string; email: string; role: string; status: string } }>(
+      '/api/superadmin/staff',
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
 };

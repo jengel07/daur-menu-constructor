@@ -38,7 +38,10 @@ const syncWithServer = async (updatedItems: MenuItem[]) => {
   const currentUser = localStorage.getItem('currentUser');
   const restaurantId = currentUser ? JSON.parse(currentUser).restaurantId : null;
   const token = localStorage.getItem('authToken');
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  let apiUrl = import.meta.env.VITE_API_URL;
+  if (!apiUrl || apiUrl.includes('192.168.') || apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+    apiUrl = `http://${window.location.hostname}:3000`;
+  }
 
   try {
     if (restaurantId && token) {
@@ -365,7 +368,17 @@ const closeModal = () => {
         <div class="form-row">
           <div class="form-group">
             <label>Цена (₽)</label>
-            <input v-model.number="editingItem.price" type="number" min="0" />
+            <input v-model.number="editingItem.price" type="number" min="0" placeholder="Стандартная цена" />
+          </div>
+          
+          <div class="form-group">
+            <label>Цена за бокал (₽) — опционально</label>
+            <input v-model.number="editingItem.priceGlass" type="number" min="0" placeholder="Для напитков" />
+          </div>
+          
+          <div class="form-group">
+            <label>Цена за бутылку (₽) — опционально</label>
+            <input v-model.number="editingItem.priceBottle" type="number" min="0" placeholder="Для напитков" />
           </div>
 
           <div class="form-group">
