@@ -640,10 +640,11 @@ const performTranslation = async (text: string, targetLangCode: string) => {
   const langCodeMap: Record<string, string> = {
     'English': 'en',
     'Deutsch': 'de',
-    'Аҧсшәа': 'ab'
+    'Аҧсшәа': 'ab',
+    'Русский': 'ru'
   };
-  const targetCode = langCodeMap[lang];
-  if (!targetCode) {
+  const targetCode = langCodeMap[lang] || lang;
+  if (targetCode === 'ru') {
     translateQueue.delete(cacheKey);
     return;
   }
@@ -655,43 +656,45 @@ const performTranslation = async (text: string, targetLangCode: string) => {
   }
 };
 
+const getMappedLang = (lang: string) => {
+  const map: Record<string, string> = {
+    'en': 'English', 'de': 'Deutsch', 'ab': 'Аҧсшәа', 'ru': 'Русский'
+  };
+  return map[lang] || lang;
+};
+
 const t = (key: string) => {
-  const lang = selectedLanguage.value;
+  const lang = getMappedLang(selectedLanguage.value);
   return translations[lang]?.[key] || translations['Русский'][key] || key;
 };
 
 const savedCache = localStorage.getItem('translationCache_mockup');
   const translationCache = reactive<Record<string, Record<string, string>>>(
     savedCache ? JSON.parse(savedCache) : {
-      'English': {},
-      'Deutsch': {},
-      'Аҧсшәа': {},
-      'Русский': {}
+      'en': {}, 'de': {}, 'ab': {}, 'ru': {},
+      'English': {}, 'Deutsch': {}, 'Аҧсшәа': {}, 'Русский': {}
     }
   );
 
 const translateQueue = new Set<string>();
 
-
 const tDyn = (ruText: string) => {
   if (!ruText) return '';
-  const lang = selectedLanguage.value;
-  if (lang === 'ru' || lang === 'Русский') return ruText;
-  if (translationCache[lang]?.[ruText]) return translationCache[lang][ruText];
+  const langCode = selectedLanguage.value;
+  if (langCode === 'ru' || langCode === 'Русский') return ruText;
+  if (translationCache[langCode]?.[ruText]) return translationCache[langCode][ruText];
   
-  performTranslation(ruText, lang);
+  performTranslation(ruText, langCode);
   return ruText;
 };
 
-
-
 const getLocalizedCategoryName = (name: string) => {
-  const lang = selectedLanguage.value;
+  const lang = getMappedLang(selectedLanguage.value);
   return categoryTranslations[name]?.[lang] || name;
 };
 
 const getLocalizedItemName = (name: string) => {
-  const lang = selectedLanguage.value;
+  const lang = getMappedLang(selectedLanguage.value);
   return dishTranslations[name]?.[lang]?.name || name;
 };
 

@@ -388,13 +388,13 @@
           </div>
         </div>
 
-        <div v-if="activeOrderId && !showCheckoutModal" class="floating-order-bar" :class="'status-' + activeOrderStatus">
-          <div class="order-bar-text">
-            <strong>Заказ #{{ activeOrderId.slice(-4) }}</strong>
-            <span>{{ getOrderStatusText() }}</span>
+          <div v-if="activeOrderId && !showCheckoutModal" class="floating-order-bar" :class="'status-' + activeOrderStatus">
+            <div class="order-bar-text">
+              <strong>Заказ #{{ activeOrderNumber || activeOrderId.slice(-4) }}</strong>
+              <span>{{ getOrderStatusText() }}</span>
+            </div>
+            <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click="clearActiveOrder">✕</button>
           </div>
-          <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click="clearActiveOrder">✕</button>
-        </div>
 
         <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
@@ -568,10 +568,11 @@ const performTranslation = async (text: string, targetLangCode: string) => {
   const langCodeMap: Record<string, string> = {
     'English': 'en',
     'Deutsch': 'de',
-    'Аҧсшәа': 'ab'
+    'Аҧсшәа': 'ab',
+    'Русский': 'ru'
   };
-  const targetCode = langCodeMap[targetLangCode];
-  if (!targetCode) {
+  const targetCode = langCodeMap[targetLangCode] || targetLangCode;
+  if (targetCode === 'ru') {
     translateQueue.delete(cacheKey);
     return;
   }
@@ -695,36 +696,41 @@ onUnmounted(() => {
 });
 
 const activeOrderId = ref<string | null>(null);
+const activeOrderNumber = ref<string | null>(null);
 const activeOrderStatus = ref<string>('new');
 let orderPollInterval: any = null;
 
 const startOrderPolling = () => {
   if (orderPollInterval) clearInterval(orderPollInterval);
-  checkOrderStatus(); // initial check
-  orderPollInterval = setInterval(checkOrderStatus, 10000);
+  pollOrderStatus();
+  orderPollInterval = setInterval(pollOrderStatus, 5000);
 };
 
-const checkOrderStatus = async () => {
+const pollOrderStatus = async () => {
   if (!activeOrderId.value) return;
   try {
     const res = await fetch(`${API_URL}/api/orders/${activeOrderId.value}`);
     if (res.ok) {
       const order = await res.json();
       activeOrderStatus.value = order.status;
+      activeOrderNumber.value = order.orderNumber || activeOrderId.value.slice(-4);
       if (order.status === 'done' || order.status === 'archived' || order.status === 'cancelled') {
-        // If done/archived, maybe keep showing for a bit or allow user to dismiss it
+        clearInterval(orderPollInterval);
+        setTimeout(() => {
+          activeOrderId.value = null;
+          activeOrderNumber.value = null;
+          localStorage.removeItem('active_order_id');
+        }, 30000); // прячем через 30 сек после завершения
       }
-    } else if (res.status === 404) {
-      // Order deleted
-      clearActiveOrder();
     }
-  } catch(e) {
-    console.error('Ошибка проверки статуса:', e);
+  } catch (err) {
+    console.error('Ошибка проверки статуса:', err);
   }
 };
 
 const clearActiveOrder = () => {
   activeOrderId.value = null;
+  activeOrderNumber.value = null;
   activeOrderStatus.value = 'new';
   localStorage.removeItem('active_order_id');
   if (orderPollInterval) clearInterval(orderPollInterval);
@@ -882,6 +888,7 @@ const confirmOrder = async () => {
     // Сохраняем активный заказ
     localStorage.setItem('active_order_id', result.orderId);
     activeOrderId.value = result.orderId;
+    activeOrderNumber.value = result.order?.orderNumber || result.orderId.slice(-4);
     activeOrderStatus.value = 'new';
     startOrderPolling();
 

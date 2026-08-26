@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import type { RestaurantInfo } from '../types/menu';
 import html2canvas from 'html2canvas';
 import QrcodeVue from 'qrcode.vue';
@@ -9,6 +9,17 @@ const emit = defineEmits(['update:model-value']);
 
 const downloadFormat = ref('PNG');
 const exportRef = ref<HTMLElement | null>(null);
+
+const qrMode = ref('menu');
+const wifiSsid = ref('');
+const wifiPassword = ref('');
+const qrText = ref(props.modelValue.qrSettings?.text || '');
+
+watch(() => props.modelValue.qrSettings?.text, (newVal) => {
+  if (qrText.value !== newVal) {
+    qrText.value = newVal || '';
+  }
+});
 
 const update = (key: string, value: any) => {
   emit('update:model-value', { 
@@ -41,6 +52,13 @@ const fixQrUrl = () => {
 onMounted(fixQrUrl);
 watch(() => props.modelValue.qrSettings?.url, fixQrUrl);
 
+const currentQrValue = computed(() => {
+  if (qrMode.value === 'wifi') {
+    return `WIFI:S:${wifiSsid.value};T:WPA;P:${wifiPassword.value};;`;
+  }
+  return props.modelValue.qrSettings?.url || 'https://example.com';
+});
+
 const downloadQRCode = async () => {
   if (!exportRef.value) return;
   
@@ -52,7 +70,7 @@ const downloadQRCode = async () => {
     });
     
     const link = document.createElement('a');
-    link.download = `qr-menu-${Date.now()}.png`;
+    link.download = `qr-${qrMode.value}-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   } else if (downloadFormat.value === 'SVG') {
@@ -60,21 +78,21 @@ const downloadQRCode = async () => {
     if (!svgElement) return;
 
     const fullSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="300" height="340" viewBox="0 0 300 340">
+      <svg xmlns="http://www.w3.org/2000/svg" width="272" height="300" viewBox="0 0 272 300">
         <rect width="100%" height="100%" rx="16" fill="${props.modelValue.qrSettings?.textBgColor || '#000000'}" />
-        <g transform="translate(30, 20)">
-          <rect width="240" height="240" rx="10" fill="${props.modelValue?.qrSettings?.textBgColor || '#ffffff'}" />
-          <g transform="translate(20, 20)">
-            ${svgElement.innerHTML}
+        <g transform="translate(24, 24)">
+          <rect width="224" height="224" rx="12" fill="${props.modelValue?.qrSettings?.bgColor || '#ffffff'}" />
+          <g transform="translate(12, 12)">
+            ${svgElement.outerHTML}
           </g>
         </g>
-        <text x="150" y="300" 
+        <text x="136" y="276" 
             fill="${props.modelValue.qrSettings?.textColor || '#ffffff'}" 
             font-family="${props.modelValue.qrSettings?.fontFamily || 'Comfortaa'}" 
             font-size="16" 
             font-weight="bold" 
             text-anchor="middle">
-          ${props.modelValue.qrSettings?.text || ''}
+          ${qrText.value}
         </text>
       </svg>
     `;
@@ -82,7 +100,7 @@ const downloadQRCode = async () => {
     const blob = new Blob([fullSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = `qr-menu-${Date.now()}.svg`;
+    link.download = `qr-${qrMode.value}-${Date.now()}.svg`;
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
@@ -100,21 +118,46 @@ const downloadQRCode = async () => {
         <h3>Настройки QR-кода</h3>
         
         <div class="control-group">
-          <label>Ссылка для QR:</label> 
-          <input 
-            type="text" 
-            :value="modelValue.qrSettings?.url" 
-            @input="update('url', ($event.target as HTMLInputElement).value)"
-            placeholder="https://example.com"
-          >
+          <label>Тип QR-кода:</label>
+          <div style="display: flex; gap: 10px; margin-top: 5px; margin-bottom: 10px;">
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="radio" v-model="qrMode" value="menu"> Меню
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="radio" v-model="qrMode" value="wifi"> Wi-Fi
+            </label>
+          </div>
         </div>
+
+        <template v-if="qrMode === 'menu'">
+          <div class="control-group">
+            <label>Ссылка для QR:</label> 
+            <input 
+              type="text" 
+              :value="modelValue.qrSettings?.url" 
+              @input="update('url', ($event.target as HTMLInputElement).value)"
+              placeholder="https://example.com"
+            >
+          </div>
+        </template>
+
+        <template v-if="qrMode === 'wifi'">
+          <div class="control-group">
+            <label>Имя сети (SSID):</label> 
+            <input type="text" v-model="wifiSsid" placeholder="MyCafe_Guest" />
+          </div>
+          <div class="control-group">
+            <label>Пароль от Wi-Fi:</label> 
+            <input type="text" v-model="wifiPassword" placeholder="Ваш пароль" />
+          </div>
+        </template>
 
         <div class="control-group">
           <label>Текст под QR:</label> 
           <input 
             type="text" 
-            :value="modelValue.qrSettings?.text" 
-            @input="update('text', ($event.target as HTMLInputElement).value)"
+            v-model="qrText"
+            @input="update('text', qrText)"
           >
         </div>
 
@@ -194,14 +237,16 @@ const downloadQRCode = async () => {
         <div 
           class="qr-card-export" 
           :style="{ background: modelValue.qrSettings?.textBgColor || '#000000' }"
+          ref="exportRef"
         >
           <div class="qr-box-export" :style="{ background: modelValue.qrSettings?.bgColor || '#ffffff' }">
             <QrcodeVue 
-              :value="modelValue.qrSettings?.url || 'https://example.com'" 
-              :size="150" 
-              :background="modelValue.qrSettings?.bgColor || '#ffffff'" 
-              :foreground="modelValue.qrSettings?.squareColor || '#000000'" 
+              :value="currentQrValue" 
+              :size="200" 
+              :foreground="modelValue.qrSettings?.squareColor || '#000000'"
+              :background="modelValue.qrSettings?.bgColor || '#ffffff'"
               level="H" 
+              render-as="svg"
             />
           </div>
           <div 
@@ -211,38 +256,9 @@ const downloadQRCode = async () => {
               fontFamily: modelValue.qrSettings?.fontFamily || 'Comfortaa'
             }"
           >
-            {{ modelValue.qrSettings?.text }}
+            {{ qrText }}
           </div>
         </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Скрытый элемент для генерации точной копии карточки в высоком разрешении при скачивании -->
-  <div style="position: absolute; left: -9999px; top: -9999px;">
-    <div 
-      ref="exportRef" 
-      class="qr-card-export" 
-      :style="{ background: modelValue.qrSettings?.textBgColor || '#000000' }"
-    >
-      <div class="qr-box-export" :style="{ background: modelValue.qrSettings?.bgColor || '#ffffff' }">
-        <QrcodeVue 
-          :value="modelValue.qrSettings?.url || 'https://example.com'" 
-          :size="200" 
-          :background="modelValue.qrSettings?.bgColor || '#ffffff'" 
-          :foreground="modelValue.qrSettings?.squareColor || '#000000'" 
-          level="H" 
-        />
-      </div>
-      <div 
-        class="qr-label-export" 
-        :style="{ 
-          color: modelValue.qrSettings?.textColor || '#ffffff',
-          fontFamily: modelValue.qrSettings?.fontFamily || 'Comfortaa'
-        }"
-      >
-        {{ modelValue.qrSettings?.text }}
       </div>
     </div>
   </div>
@@ -360,18 +376,19 @@ const downloadQRCode = async () => {
 }
 
 .qr-card-export {
-  padding: 16px;
+  padding: 24px;
   border-radius: 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 210px;
+  width: max-content;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  margin: 0 auto;
 }
 .qr-box-export {
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: 12px;
   display: flex;
   justify-content: center;
   align-items: center;

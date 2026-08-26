@@ -99,29 +99,6 @@ const handleImageUpload = async (event: Event) => {
   }
 };
 
-const generateImageFromInternet = () => {
-  if (!editingItem.value || !editingItem.value.name) return;
-  
-  isImageLoading.value = true;
-  imageLoadError.value = null;
-  
-  setTimeout(() => {
-    try {
-      const dishName = (editingItem.value!.name || '').trim();
-      const dishDesc = (editingItem.value!.description || '').trim().split(' ').slice(0, 6).join(' '); // Берем первые 6 слов из описания
-      const keywords = ['', 'вкусное', 'в ресторане', 'свежее', 'порция', 'красивая подача', 'аппетитное', 'фото'];
-      const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
-      const searchQuery = encodeURIComponent(`${dishName} ${dishDesc} ${randomKeyword} еда`.trim());
-      // Добавляем rand для сброса кэша браузера при повторном клике
-      const url = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=600&h=450&c=7&rs=1&p=0&rand=${Date.now()}`;
-      editingItem.value!.image = url;
-    } catch (err) {
-      imageLoadError.value = 'Ошибка поиска фото.';
-    } finally {
-      isImageLoading.value = false;
-    }
-  }, 500); // Имитация загрузки для UX
-};
 
 const filteredItems = computed(() => {
   return props.items.filter(item => {
@@ -366,15 +343,6 @@ const closeModal = () => {
               style="display: none" 
             />
           </div>
-          <button 
-            v-if="editingItem.name" 
-            type="button" 
-            class="btn-generate-ai" 
-            @click="generateImageFromInternet" 
-            :disabled="isImageLoading"
-          >
-            <Search :size="14" /> Подобрать фото из интернета
-          </button>
         </div>
         
         <div class="form-group">

@@ -31,7 +31,6 @@ import {
   Upload,
   Menu as MenuIcon,
   X,
-  ShoppingBag,
   Users,
   CreditCard,
   User,
@@ -103,9 +102,6 @@ const filteredSidebarOrders = computed(() =>
   )
 );
 
-const pendingOrdersCount = computed(() =>
-  sidebarOrders.value.filter(o => o.status === 'new' || o.status === 'open').length
-);
 
 const getOrderCountByStatus = (status: string) =>
   sidebarOrders.value.filter(o =>
@@ -645,11 +641,6 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
           </div>
 
           <nav class="smenu-nav">
-            <button class="smenu-nav-item" @click="openSidebarView('orders')">
-              <ShoppingBag :size="18" />
-              <span>Заказы</span>
-              <span v-if="pendingOrdersCount > 0" class="smenu-badge smenu-badge-orange">{{ pendingOrdersCount }}</span>
-            </button>
             <button class="smenu-nav-item" @click="openSidebarView('staff')">
               <Users :size="18" />
               <span>Персонал</span>
