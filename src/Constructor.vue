@@ -526,6 +526,7 @@ const resetImport = () => {
 
 const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
   menuStore.restaurantInfo = { ...menuStore.restaurantInfo, ...newData };
+  syncToTableStorage(); // Autosave to backend
 };
 </script>
 

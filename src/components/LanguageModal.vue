@@ -1,5 +1,5 @@
 <template>
-  <div class="bottom-sheet-overlay" @click.self="$emit('close')">
+  <div class="bottom-sheet-overlay" :class="{ 'theme-light': isDarkMode === false }" @click.self="$emit('close')">
     <div class="bottom-sheet">
       <div class="sheet-indicator"></div>
       <h3>{{ title }}</h3>
@@ -9,7 +9,7 @@
           :key="lang.code"
           class="lang-option-btn" 
           :class="{ active: currentLang === lang.code }" 
-          :style="currentLang === lang.code ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}" 
+          :style="currentLang === lang.code ? { backgroundColor: primaryColor, borderColor: primaryColor, color: '#fff' } : {}" 
           @click="$emit('select', lang.code)"
         >
           {{ lang.flag }} {{ lang.name }}
@@ -25,6 +25,7 @@ defineProps<{
   currentLang: string;
   primaryColor: string;
   title: string;
+  isDarkMode?: boolean;
 }>();
 
 defineEmits<{
@@ -48,11 +49,28 @@ const languages = [
   z-index: 100;
   display: flex;
   align-items: flex-end;
+  --modal-bg: #1e1e1e;
+  --modal-text: #fff;
+  --modal-indicator: #444;
+  --modal-btn-bg: #2a2a2a;
+  --modal-btn-border: #3a3a3a;
+  --modal-btn-text: #fff;
+  --modal-secondary-text: #aaa;
+}
+
+.bottom-sheet-overlay.theme-light {
+  --modal-bg: #ffffff;
+  --modal-text: #171717;
+  --modal-indicator: #e5e5e5;
+  --modal-btn-bg: #f5f5f5;
+  --modal-btn-border: #e0e0e0;
+  --modal-btn-text: #171717;
+  --modal-secondary-text: #666;
 }
 
 .bottom-sheet {
-  background: #1e1e1e;
-  color: #fff;
+  background: var(--modal-bg);
+  color: var(--modal-text);
   width: 100%;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
@@ -65,7 +83,7 @@ const languages = [
 .sheet-indicator {
   width: 28px;
   height: 3px;
-  background: #444;
+  background: var(--modal-indicator);
   border-radius: 2px;
   align-self: center;
 }
@@ -84,9 +102,9 @@ const languages = [
 }
 
 .lang-option-btn {
-  background: #2a2a2a;
-  color: white;
-  border: 1px solid #3a3a3a;
+  background: var(--modal-btn-bg);
+  color: var(--modal-btn-text);
+  border: 1px solid var(--modal-btn-border);
   border-radius: 8px;
   padding: 8px;
   font-size: 10px;
@@ -101,7 +119,7 @@ const languages = [
 .modal-footer-text {
   text-align: center;
   font-size: 8px;
-  color: #666;
+  color: var(--modal-secondary-text);
   margin-top: 4px;
 }
 </style>

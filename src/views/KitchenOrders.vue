@@ -239,7 +239,7 @@ const orders = ref<any[]>([])
 const loading = ref(false)
 const error = ref('')
 const currentTab = ref<string>('new')
-const isLight = ref(false)
+const isLight = ref(true)
 const lastRefreshed = ref<Date | null>(null)
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
@@ -317,11 +317,82 @@ const lastRefreshedStr = computed(() => {
   return lastRefreshed.value.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 })
 
+const orderStatuses = ref<Map<string, string>>(new Map());
+let isFirstLoad = true;
+
+// Глобальный контекст для звука, инициализируется по клику
+let audioCtx: AudioContext | null = null;
+const initAudio = () => {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Воспроизводим тишину для разблокировки на iOS
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+    } catch(e) {
+      console.error("Audio init failed", e);
+    }
+  }
+};
+
+const playBeep = () => {
+  try {
+    if (!audioCtx) initAudio();
+    if (audioCtx?.state === 'suspended') audioCtx.resume();
+    
+    const ctx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); 
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.8);
+    osc.stop(ctx.currentTime + 0.8);
+  } catch(e) {
+    console.error("Audio playback failed", e);
+  }
+};
+
 async function fetchOrders() {
   loading.value = true
   error.value = ''
   try {
     const data = await ordersApi.getAll() as any[]
+    
+    if (!isFirstLoad) {
+      let shouldBeep = false;
+      for (const o of data) {
+        const oldStatus = orderStatuses.value.get(o.id);
+        const isNewToCook = role === 'cook' && (o.status === 'new' || o.status === 'open') && oldStatus !== o.status;
+        const isNewToWaiter = role === 'waiter' && (o.status === 'new' || o.status === 'open' || o.status === 'done') && oldStatus !== o.status;
+        
+        if (isNewToCook || isNewToWaiter) {
+          shouldBeep = true;
+          break;
+        }
+      }
+      if (shouldBeep) {
+         playBeep();
+      }
+    }
+    
+    const newMap = new Map();
+    data.forEach(o => newMap.set(o.id, o.status));
+    orderStatuses.value = newMap;
+    
+    isFirstLoad = false;
+    
     orders.value = data
     lastRefreshed.value = new Date()
   } catch (e: any) {
@@ -363,10 +434,14 @@ function logout() {
 onMounted(() => {
   fetchOrders()
   refreshTimer = setInterval(fetchOrders, 15000)
+  window.addEventListener('click', initAudio, { once: true })
+  window.addEventListener('touchstart', initAudio, { once: true })
 })
 
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
+  window.removeEventListener('click', initAudio)
+  window.removeEventListener('touchstart', initAudio)
 })
 </script>
 
@@ -538,8 +613,12 @@ onUnmounted(() => {
 
   .k-archive-container { display: flex; flex-direction: column; gap: 24px; }
   .k-archive-group { display: flex; flex-direction: column; gap: 12px; }
-  .k-archive-date { margin: 0; font-size: 16px; font-weight: bold; color: #4b5563; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
-  .k-card.archived { opacity: 0.8; background: #f9fafb; border-color: #e5e7eb; }
-  .k-card-total { display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; font-size: 14px; }
+  .k-archive-date { margin: 0; font-size: 16px; font-weight: bold; color: #8b90b5; border-bottom: 1px solid #2d3148; padding-bottom: 8px; }
+  .light-theme .k-archive-date { color: #4b5563; border-color: #e5e7eb; }
+  
+  .k-card.archived { opacity: 0.6; background: #12141f; border-color: #2d3148; }
+  .light-theme .k-card.archived { opacity: 0.8; background: #f9fafb; border-color: #e5e7eb; }
+  
+  .k-card-total { display: flex; justify-content: space-between; border-top: 1px solid #2d3148; margin-top: 12px; padding-top: 12px; font-size: 14px; }
   .light-theme .k-card-total { border-color: #e5e7eb; }
 </style>

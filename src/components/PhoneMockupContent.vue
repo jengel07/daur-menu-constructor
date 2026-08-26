@@ -101,202 +101,67 @@
                     <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
                       <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
                       <div class="card-content">
-                                            <div>
-                      <h3>{{ getLocalizedItemName(item.name) }}</h3>
-                    </div>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-                      <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 12px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
-                          <button @click="decreaseQuantity(item.id)">-</button>
-                          <span>{{ getItemQuantity(item.id) }}</span>
-                          <button @click="increaseQuantity(item.id)">+</button>
+                        <div class="card-text-block">
+                          <h3>{{ getLocalizedItemName(item.name) }}</h3>
+                          <span v-if="viewMode === 'list'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', whiteSpace: 'nowrap' }">
+                            <template v-if="!item.priceBottle && !item.priceGlass">{{ Number(item.price || 0).toFixed(2) }} ₽</template>
+                            <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
+                          </span>
                         </div>
-                      </div>
-
-                      <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
-                          <button @click="decreaseQuantity(item.id + '_glass')">-</button>
-                          <span>{{ getItemQuantity(item.id + '_glass') }}</span>
-                          <button @click="increaseQuantity(item.id + '_glass')">+</button>
+                        <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
+                          <span v-if="viewMode === 'grid'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+                            <template v-if="!item.priceBottle && !item.priceGlass">
+                              {{ Number(item.price || 0).toFixed(2) }} ₽
+                            </template>
+                            <template v-else>
+                              {{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽
+                            </template>
+                          </span>
+                          
+                          <div v-if="!item.priceBottle && !item.priceGlass">
+                            <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: currentRestaurantInfo.primaryColor || '#646cff' }">
+                              <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
+                              <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
+                              <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
+                            </div>
+                            <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
+                          </div>
                         </div>
-                      </div>
-
-                      <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
-                          <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
-                          <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
-                          <button @click="increaseQuantity(item.id + '_bottle')">+</button>
-                        </div>
-                      </div>
-                    </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Плавающая панель настроек внутри превью -->
-              <FloatingSettingsBar 
+              <SettingsbarForClient 
                 :primaryColor="currentRestaurantInfo.primaryColor"
-                :selectedLanguage="selectedLanguage"
+                :secondaryColor="currentRestaurantInfo.secondaryColor"
+                :currentLang="selectedLanguage"
                 :viewMode="viewMode"
-                @open-modal="(modalName: any) => activeModal = modalName"
+                :activeModal="activeModal"
+                :cartItems="cartItems"
+                :totalPrice="totalPrice"
+                :searchQuery="searchQuery"
+                :selectedFilters="selectedFilters"
+                :restaurantInfo="currentRestaurantInfo"
+                :getItemName="getLocalizedItemName"
+                :tDyn="tDyn"
+                @open="(m: any) => activeModal = m"
+                @close="activeModal = 'none'"
                 @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
+                @select-lang="(lang: string) => selectedLanguage = lang"
+                @clear-cart="cartItems = []"
+                @increase="increaseQuantity"
+                @decrease="decreaseQuantity"
+                @checkout="handleCheckout"
+                @toggle-filter="toggleFilter"
+                @clear-filters="clearAllFilters"
+                @update:searchQuery="(val: string) => searchQuery = val"
               />
 
-              <!-- Тоаст -->
-              <div v-if="showToast" class="toast-notification">
-                {{ toastMessage }}
-              </div>
-
-              <!-- Модальное окно: Язык -->
-              <div v-if="activeModal === 'language'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-                <div class="bottom-sheet">
-                  <div class="sheet-indicator"></div>
-                  <div class="sheet-header"><h3>{{ t('langTitle') }}</h3></div>
-                  <div class="languages-grid">
-                    <button class="lang-option" :class="{ active: selectedLanguage === 'Deutsch' }" @click="selectedLanguage = 'Deutsch'; activeModal = 'none'"><span class="flag-icon">🇩🇪</span> Deutsch</button>
-                    <button class="lang-option" :class="{ active: selectedLanguage === 'English' }" @click="selectedLanguage = 'English'; activeModal = 'none'"><span class="flag-icon">🇬🇧</span> English</button>
-                    <button class="lang-option" :class="{ active: selectedLanguage === 'Русский' }" @click="selectedLanguage = 'Русский'; activeModal = 'none'"><span class="flag-icon">🇷🇺</span> Русский</button>
-                    <button class="lang-option" :class="{ active: selectedLanguage === 'Аҧсшәа' }" @click="selectedLanguage = 'Аҧсшәа'; activeModal = 'none'"><span class="flag-icon">🟢</span> Аҧсшәа</button>
-                  </div>
-                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-                </div>
-              </div>
-
-              <!-- Модальное окно: Поиск -->
-              <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-                <div class="bottom-sheet">
-                  <div class="sheet-indicator"></div>
-                  <div class="sheet-header-flex">
-                    <h3>{{ t('searchTitle') }}</h3>
-                    <button class="clear-filters-text-btn" @click="searchQuery = ''">{{ t('clearFilters') }}</button>
-                  </div>
-                  <div class="search-input-wrapper">
-                    <span class="search-icon-prefix">🔍</span>
-                    <input v-model="searchQuery" type="text" class="search-modal-input" :placeholder="t('searchPlaceholder')" autofocus />
-                    <button v-if="searchQuery" class="clear-input-btn" @click="searchQuery = ''">✕</button>
-                  </div>
-                  <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }} ({{ filteredItems.length }})</button>
-                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-                </div>
-              </div>
-
-              <!-- Модальное окно: Фильтры -->
-              <div v-if="activeModal === 'filters'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-                <div class="bottom-sheet">
-                  <div class="sheet-indicator"></div>
-                  <div class="sheet-header-flex">
-                    <h3>{{ t('filtersTitle') }}</h3>
-                    <button class="clear-filters-text-btn" @click="clearAllFilters">{{ t('clearFilters') }}</button>
-                  </div>
-                  <div class="filters-section-content">
-                    <div class="filters-category-title">{{ t('nutritionTitle') }}</div>
-                    <div class="languages-grid">
-                      <button class="lang-option" :class="{ active: selectedFilters.includes('nuts') }" @click="toggleFilter('nuts')"><span class="flag-icon">🌰</span> Без орехов</button>
-                      <button class="lang-option" :class="{ active: selectedFilters.includes('lactose') }" @click="toggleFilter('lactose')"><span class="flag-icon">🥛</span> Без лактозы</button>
-                      <button class="lang-option" :class="{ active: selectedFilters.includes('gluten') }" @click="toggleFilter('gluten')"><span class="flag-icon">🌾</span> Без глютена</button>
-                    </div>
-                  </div>
-                  <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }}</button>
-                  <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-                </div>
-              </div>
-
-              <!-- Модальное окно: Шеринг -->
-              <div v-if="activeModal === 'share'" class="share-modal-overlay" @click.self="activeModal = 'none'">
-                <div class="windows-share-dialog">
-                  <div class="win-share-header">
-                    <div class="win-share-title-row">
-                      <span class="win-share-icon">📤</span>
-                      <span class="win-share-heading">Поделиться ссылкой</span>
-                    </div>
-                    <button class="win-share-close" @click="activeModal = 'none'">✕</button>
-                  </div>
-                  <div class="win-link-card">
-                    <div class="win-link-preview-left">
-                      <div class="win-link-thumb">
-                        <img v-if="currentRestaurantInfo.avatarImage" :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
-                        <span v-else>🍽️</span>
-                      </div>
-                      <div class="win-link-text">
-                        <div class="win-link-url">{{ shareUrl }}</div>
-                        <div class="win-link-sub">Меню ресторана · {{ currentRestaurantInfo.name || t('restaurantName') }}</div>
-                      </div>
-                    </div>
-                    <div class="win-link-actions">
-                      <button class="win-action-icon-btn" title="QR-код" @click="activeTab = 'qrcode'; activeModal = 'none';">🔲</button>
-                      <button class="win-action-icon-btn" title="Копировать ссылку" @click="copyShareLink">🔗</button>
-                    </div>
-                  </div>
-                  <div class="win-share-section-title">Поделиться с помощью</div>
-                  <div class="win-apps-grid">
-                    <button class="win-app-item" @click="shareViaSocial('telegram')"><div class="win-app-icon" style="background: #229ED9;">✈️</div><span>Telegram</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('whatsapp')"><div class="win-app-icon" style="background: #25D366;">💬</div><span>WhatsApp</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('twitter')"><div class="win-app-icon" style="background: #000000;">𝕏</div><span>Twitter</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('facebook')"><div class="win-app-icon" style="background: #1877F2;">📘</div><span>Facebook</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('linkedin')"><div class="win-app-icon" style="background: #0A66C2;">💼</div><span>LinkedIn</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('gmail')"><div class="win-app-icon" style="background: #EA4335;">✉️</div><span>Gmail</span></button>
-                    <button class="win-app-item" @click="shareViaSocial('outlook')"><div class="win-app-icon" style="background: #0078D4;">📧</div><span>Outlook</span></button>
-                    <button class="win-app-item" @click="copyShareLink"><div class="win-app-icon" style="background: #646cff;">📋</div><span>Копировать</span></button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Плавающая плашка корзины -->
-              <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, zIndex: 20 }">
-                <span class="cart-title">{{ t('cartTitle') }}</span>
-                <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
-              </div>
-            </template>
-
-            <!-- ЭКРАН КОРЗИНЫ -->
-            <template v-else-if="currentScreen === 'cart'">
-              <div class="cart-screen-header">
-                <button class="cart-close-btn" @click="currentScreen = 'menu'">✕</button>
-                <h2>{{ t('cartHeader') }}</h2>
-                <button class="cart-clear-all-btn" @click="cartItems = []">🗑️</button>
-              </div>
-
-              <div class="cart-screen-body">
-                <div class="closed-notice" v-html="t('closedNotice')"></div>
-
-                <div class="cart-items-list">
-                  <div v-for="item in cartItems" :key="item.id" class="cart-item-row">
-                    <div class="cart-item-info">
-                      <div class="cart-item-name">{{ getLocalizedItemName(item.name) }}</div>
-                      <div class="cart-item-price">RUB {{ (item.price * item.quantity).toFixed(2) }}</div>
-                    </div>
-                    <div class="cart-item-actions" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }">
-                      <button @click="decreaseQuantity(item.id)">🗑️</button>
-                      <span class="cart-item-qty">{{ item.quantity }}</span>
-                      <button @click="increaseQuantity(item.id)">+</button>
-                    </div>
-                  </div>
-                </div>
-
-                <button @click="handleCheckout" class="checkout-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor }" style="width: 100%; margin-top: 16px; padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                  Оформить заказ
-                </button>
-
-                <div class="add-more-link" @click="currentScreen = 'menu'" style="margin-top: 12px; text-align: center; cursor: pointer;">
-                  {{ t('addMore') }}
-                </div>
-              </div>
-
-              <div class="cart-screen-footer">
-                <div class="subtotal-row">
-                  <span>{{ t('subtotal') }}</span>
-                  <span class="subtotal-sum">RUB {{ totalPrice.toFixed(2) }}</span>
-                </div>
-                <div class="powered-by">{{ t('poweredBy') }}</div>
+              <div v-if="cartItems.length > 0 && activeModal !== 'cart'" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#10b981', zIndex: 20 }">
+                <span class="cart-title">{{ tDyn('Посмотреть корзину') }}</span>
+                <span class="cart-total">{{ totalPrice.toFixed(2) }} ₽</span>
               </div>
             </template>
           </div>
@@ -402,39 +267,30 @@
                 <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
                   <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
                   <div class="card-content">
-                                        <div>
+                    <div class="card-text-block">
                       <h3>{{ getLocalizedItemName(item.name) }}</h3>
+                      <span v-if="viewMode === 'list'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', whiteSpace: 'nowrap' }">
+                        <template v-if="!item.priceBottle && !item.priceGlass">{{ Number(item.price || 0).toFixed(2) }} ₽</template>
+                        <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
+                      </span>
                     </div>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-                      <div v-if="!item.priceBottle && !item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price">RUB {{ Number(item.price || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id) === 0" class="add-to-cart-btn" @click="addToCart(item)" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 12px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '80px', padding: '4px' }">
-                          <button @click="decreaseQuantity(item.id)">-</button>
-                          <span>{{ getItemQuantity(item.id) }}</span>
-                          <button @click="increaseQuantity(item.id)">+</button>
+                    <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
+                      <span v-if="viewMode === 'grid'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+                        <template v-if="!item.priceBottle && !item.priceGlass">
+                          {{ Number(item.price || 0).toFixed(2) }} ₽
+                        </template>
+                        <template v-else>
+                          {{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽
+                        </template>
+                      </span>
+                      
+                      <div v-if="!item.priceBottle && !item.priceGlass">
+                        <div v-if="getItemQuantity(item.id) > 0" class="counter-controls" :style="{ borderColor: currentRestaurantInfo.primaryColor || '#646cff' }">
+                          <button class="counter-btn" @click="decreaseQuantity(item.id)">-</button>
+                          <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
+                          <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
                         </div>
-                      </div>
-
-                      <div v-if="item.priceGlass" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price" style="font-size: 12px;">{{ tDyn('Бокал') }}: RUB {{ Number(item.priceGlass || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_glass') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_glass', price: item.priceGlass, name: ((item.name as any)?.ru || item.name) + ' (Бокал)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
-                          <button @click="decreaseQuantity(item.id + '_glass')">-</button>
-                          <span>{{ getItemQuantity(item.id + '_glass') }}</span>
-                          <button @click="increaseQuantity(item.id + '_glass')">+</button>
-                        </div>
-                      </div>
-
-                      <div v-if="item.priceBottle" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="price" style="font-size: 12px;">{{ tDyn('Бутылка') }}: RUB {{ Number(item.priceBottle || 0).toFixed(2) }}</div>
-                        <button v-if="getItemQuantity(item.id + '_bottle') === 0" class="add-to-cart-btn" @click="addToCart({ ...item, id: item.id + '_bottle', price: item.priceBottle, name: ((item.name as any)?.ru || item.name) + ' (Бутылка)' })" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, width: '100%', padding: '4px 8px', fontSize: '10px' }">{{ t('addBtn') }}</button>
-                        <div v-else class="counter-controls" :style="{ width: '70px', padding: '2px 4px' }">
-                          <button @click="decreaseQuantity(item.id + '_bottle')">-</button>
-                          <span>{{ getItemQuantity(item.id + '_bottle') }}</span>
-                          <button @click="increaseQuantity(item.id + '_bottle')">+</button>
-                        </div>
+                        <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
                       </div>
                     </div>
                   </div>
@@ -443,118 +299,35 @@
             </div>
           </div>
 
-          <!-- Плавающая панель настроек -->
-          <FloatingSettingsBar 
+          <SettingsbarForClient 
             :primaryColor="currentRestaurantInfo.primaryColor"
-            :selectedLanguage="selectedLanguage"
+            :secondaryColor="currentRestaurantInfo.secondaryColor"
+            :currentLang="selectedLanguage"
             :viewMode="viewMode"
-            @open-modal="(modalName: any) => activeModal = modalName"
+            :activeModal="activeModal"
+            :cartItems="cartItems"
+            :totalPrice="totalPrice"
+            :searchQuery="searchQuery"
+            :selectedFilters="selectedFilters"
+            :restaurantInfo="currentRestaurantInfo"
+            :getItemName="getLocalizedItemName"
+            :tDyn="tDyn"
+            @open="(m: any) => activeModal = m"
+            @close="activeModal = 'none'"
             @toggle-view="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
+            @select-lang="(lang: string) => selectedLanguage = lang"
+            @clear-cart="cartItems = []"
+            @increase="increaseQuantity"
+            @decrease="decreaseQuantity"
+            @checkout="handleCheckout"
+            @toggle-filter="toggleFilter"
+            @clear-filters="clearAllFilters"
+            @update:searchQuery="(val: string) => searchQuery = val"
           />
 
-          <!-- Тоаст -->
-          <div v-if="showToast" class="toast-notification">
-            {{ toastMessage }}
-          </div>
-
-          <!-- Модальное окно: Язык -->
-          <div v-if="activeModal === 'language'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-            <div class="bottom-sheet">
-              <div class="sheet-indicator"></div>
-              <div class="sheet-header"><h3>{{ t('langTitle') }}</h3></div>
-              <div class="languages-grid">
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Deutsch' }" @click="selectedLanguage = 'Deutsch'; activeModal = 'none'"><span class="flag-icon">🇩🇪</span> Deutsch</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'English' }" @click="selectedLanguage = 'English'; activeModal = 'none'"><span class="flag-icon">🇬🇧</span> English</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Русский' }" @click="selectedLanguage = 'Русский'; activeModal = 'none'"><span class="flag-icon">🇷🇺</span> Русский</button>
-                <button class="lang-option" :class="{ active: selectedLanguage === 'Аҧсшәа' }" @click="selectedLanguage = 'Аҧсшәа'; activeModal = 'none'"><span class="flag-icon">🟢</span> Аҧсшәа</button>
-              </div>
-              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-            </div>
-          </div>
-
-          <!-- Модальное окно: Поиск -->
-          <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-            <div class="bottom-sheet">
-              <div class="sheet-indicator"></div>
-              <div class="sheet-header-flex">
-                <h3>{{ t('searchTitle') }}</h3>
-                <button class="clear-filters-text-btn" @click="searchQuery = ''">{{ t('clearFilters') }}</button>
-              </div>
-              <div class="search-input-wrapper">
-                <span class="search-icon-prefix">🔍</span>
-                <input v-model="searchQuery" type="text" class="search-modal-input" :placeholder="t('searchPlaceholder')" autofocus />
-                <button v-if="searchQuery" class="clear-input-btn" @click="searchQuery = ''">✕</button>
-              </div>
-              <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }} ({{ filteredItems.length }})</button>
-              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-            </div>
-          </div>
-
-          <!-- Модальное окно: Фильтры -->
-          <div v-if="activeModal === 'filters'" class="bottom-sheet-overlay" @click.self="activeModal = 'none'">
-            <div class="bottom-sheet">
-              <div class="sheet-indicator"></div>
-              <div class="sheet-header-flex">
-                <h3>{{ t('filtersTitle') }}</h3>
-                <button class="clear-filters-text-btn" @click="clearAllFilters">{{ t('clearFilters') }}</button>
-              </div>
-              <div class="filters-section-content">
-                <div class="filters-category-title">{{ t('nutritionTitle') }}</div>
-                <div class="languages-grid">
-                  <button class="lang-option" :class="{ active: selectedFilters.includes('nuts') }" @click="toggleFilter('nuts')"><span class="flag-icon">🌰</span> Без орехов</button>
-                  <button class="lang-option" :class="{ active: selectedFilters.includes('lactose') }" @click="toggleFilter('lactose')"><span class="flag-icon">🥛</span> Без лактозы</button>
-                  <button class="lang-option" :class="{ active: selectedFilters.includes('gluten') }" @click="toggleFilter('gluten')"><span class="flag-icon">🌾</span> Без глютена</button>
-                </div>
-              </div>
-              <button class="show-results-btn" @click="activeModal = 'none'">{{ t('showResults') }}</button>
-              <div class="sheet-footer-brand">{{ t('poweredBy') }}</div>
-            </div>
-          </div>
-
-          <!-- Модальное окно: Шеринг -->
-          <div v-if="activeModal === 'share'" class="share-modal-overlay" @click.self="activeModal = 'none'">
-            <div class="windows-share-dialog">
-              <div class="win-share-header">
-                <div class="win-share-title-row">
-                  <span class="win-share-icon">📤</span>
-                  <span class="win-share-heading">Поделиться ссылкой</span>
-                </div>
-                <button class="win-share-close" @click="activeModal = 'none'">✕</button>
-              </div>
-              <div class="win-link-card">
-                <div class="win-link-preview-left">
-                  <div class="win-link-thumb">
-                    <img v-if="currentRestaurantInfo.avatarImage" :src="currentRestaurantInfo.avatarImage" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover;" />
-                    <span v-else>🍽️</span>
-                  </div>
-                  <div class="win-link-text">
-                    <div class="win-link-url">{{ shareUrl }}</div>
-                    <div class="win-link-sub">Меню ресторана · {{ currentRestaurantInfo.name || t('restaurantName') }}</div>
-                  </div>
-                </div>
-                <div class="win-link-actions">
-                  <button class="win-action-icon-btn" title="QR-код" @click="activeTab = 'qrcode'; activeModal = 'none';">🔲</button>
-                  <button class="win-action-icon-btn" title="Копировать ссылку" @click="copyShareLink">🔗</button>
-                </div>
-              </div>
-              <div class="win-share-section-title">Поделиться с помощью</div>
-              <div class="win-apps-grid">
-                <button class="win-app-item" @click="shareViaSocial('telegram')"><div class="win-app-icon" style="background: #229ED9;">✈️</div><span>Telegram</span></button>
-                <button class="win-app-item" @click="shareViaSocial('whatsapp')"><div class="win-app-icon" style="background: #25D366;">💬</div><span>WhatsApp</span></button>
-                <button class="win-app-item" @click="shareViaSocial('twitter')"><div class="win-app-icon" style="background: #000000;">𝕏</div><span>Twitter</span></button>
-                <button class="win-app-item" @click="shareViaSocial('facebook')"><div class="win-app-icon" style="background: #1877F2;">📘</div><span>Facebook</span></button>
-                <button class="win-app-item" @click="shareViaSocial('linkedin')"><div class="win-app-icon" style="background: #0A66C2;">💼</div><span>LinkedIn</span></button>
-                <button class="win-app-item" @click="shareViaSocial('gmail')"><div class="win-app-icon" style="background: #EA4335;">✉️</div><span>Gmail</span></button>
-                <button class="win-app-item" @click="shareViaSocial('outlook')"><div class="win-app-icon" style="background: #0078D4;">📧</div><span>Outlook</span></button>
-                <button class="win-app-item" @click="copyShareLink"><div class="win-app-icon" style="background: #646cff;">📋</div><span>Копировать</span></button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Плавающая плашка корзины -->
-          <div v-if="cartItems.length > 0" class="floating-cart-bar" @click="currentScreen = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor, zIndex: 20 }">
-            <span class="cart-title">{{ t('cartTitle') }}</span>
-            <span class="cart-total">RUB {{ totalPrice.toFixed(2) }}</span>
+          <div v-if="cartItems.length > 0 && activeModal !== 'cart'" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#10b981', zIndex: 20 }">
+            <span class="cart-title">{{ tDyn('Посмотреть корзину') }}</span>
+            <span class="cart-total">{{ totalPrice.toFixed(2) }} ₽</span>
           </div>
         </template>
 
@@ -610,7 +383,7 @@
 import { ref, computed, reactive } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 
-import FloatingSettingsBar from './FloatingSettingsBar.vue';
+import SettingsbarForClient from './SettingsbarForClient.vue';
 
 
 
@@ -666,15 +439,13 @@ const currentCategories = computed(() => {
 
 const currentScreen = ref<'menu' | 'cart'>('menu');
 const activeTab = ref<'menu' | 'qrcode'>('menu');
-const activeModal = ref<'none' | 'language' | 'search' | 'filters' | 'share'>('none');
+const activeModal = ref<'none' | 'language' | 'search' | 'filters' | 'share' | 'cart' | 'checkout'>('none');
 const viewMode = ref<'grid' | 'list'>('grid');
 const selectedCategory = ref<string | null>(null);
 const searchQuery = ref('');
 const selectedLanguage = ref('Русский');
 const selectedFilters = ref<string[]>([]);
 const isWifiExpanded = ref(false);
-const showToast = ref(false);
-const toastMessage = ref('');
 const shareUrl = ref(window.location.origin);
 const isFullscreenPreview = ref(false);
 
@@ -816,6 +587,74 @@ const categoryTranslations: Record<string, Record<string, string>> = {
   'Морепродукты': { 'Русский': 'Морепродукты', 'English': 'Seafood', 'Deutsch': 'Meeresfrüchte', 'Аҧсшәа': 'Амшын атоварқәа' }
 };
 
+let pendingTranslations: {text: string, lang: string, targetCode: string}[] = [];
+let batchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const processBatch = async () => {
+  batchTimeout = null;
+  const batch = [...pendingTranslations];
+  pendingTranslations = [];
+  
+  if (batch.length === 0) return;
+  
+  const byLang: Record<string, { items: string[], langStr: string }> = {};
+  for (const item of batch) {
+    if (!byLang[item.targetCode]) byLang[item.targetCode] = { items: [], langStr: item.lang };
+    byLang[item.targetCode].items.push(item.text);
+  }
+  
+  for (const [targetCode, group] of Object.entries(byLang)) {
+    try {
+      const res = await fetch(`http://localhost:3000/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: group.items, targetLang: targetCode })
+      });
+      const data = await res.json();
+      if (data.success && data.translations) {
+        if (!translationCache[group.langStr]) translationCache[group.langStr] = {};
+        for (let i = 0; i < group.items.length; i++) {
+          translationCache[group.langStr][group.items[i]] = data.translations[i];
+        }
+      }
+    } catch (err) {
+      console.error('Translation error:', err);
+    } finally {
+      for (const t of group.items) {
+        translateQueue.delete(`${group.langStr}:${t}`);
+      }
+    }
+  }
+};
+
+const performTranslation = async (text: string, targetLangCode: string) => {
+  if (!text || targetLangCode === 'ru' || targetLangCode === 'Русский') return;
+  const lang = targetLangCode;
+  
+  if (translationCache[lang]?.[text]) return;
+  
+  const cacheKey = `${lang}:${text}`;
+  if (translateQueue.has(cacheKey)) return;
+  translateQueue.add(cacheKey);
+
+  const langCodeMap: Record<string, string> = {
+    'English': 'en',
+    'Deutsch': 'de',
+    'Аҧсшәа': 'ab'
+  };
+  const targetCode = langCodeMap[lang];
+  if (!targetCode) {
+    translateQueue.delete(cacheKey);
+    return;
+  }
+
+  pendingTranslations.push({ text, lang: targetLangCode, targetCode });
+  
+  if (!batchTimeout) {
+    batchTimeout = setTimeout(processBatch, 200);
+  }
+};
+
 const t = (key: string) => {
   const lang = selectedLanguage.value;
   return translations[lang]?.[key] || translations['Русский'][key] || key;
@@ -844,36 +683,7 @@ const tDyn = (ruText: string) => {
   return ruText;
 };
 
-const performTranslation = async (text: string, lang: string) => {
-  if (!text || lang === 'Русский') return;
-  if (translationCache[lang]?.[text]) return;
 
-  const cacheKey = `${lang}:${text}`;
-  if (translateQueue.has(cacheKey)) return;
-  translateQueue.add(cacheKey);
-
-  const langCodeMap: Record<string, string> = {
-    'English': 'en',
-    'Deutsch': 'de',
-    'Аҧсшәа': 'ab'
-  };
-  const targetCode = langCodeMap[lang];
-  if (!targetCode) return;
-
-  try {
-    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
-    const data = await res.json();
-    const translated = data[0].map((x: any) => x[0]).join('');
-
-    if (!translationCache[lang]) translationCache[lang] = {};
-    translationCache[lang][text] = translated;
-    localStorage.setItem('translationCache_mockup', JSON.stringify(translationCache));
-  } catch (error) {
-    console.error('Translation error:', error);
-  } finally {
-    translateQueue.delete(cacheKey);
-  }
-};
 
 const getLocalizedCategoryName = (name: string) => {
   const lang = selectedLanguage.value;
@@ -937,23 +747,6 @@ const toggleFilter = (filter: string) => {
   else selectedFilters.value.push(filter);
 };
 
-const copyShareLink = () => {
-  navigator.clipboard.writeText(shareUrl.value);
-  triggerToast('Ссылка скопирована!');
-  activeModal.value = 'none';
-};
-
-const shareViaSocial = (network: string) => {
-  triggerToast(`Поделиться в ${network}`);
-  activeModal.value = 'none';
-};
-
-const triggerToast = (msg: string) => {
-  toastMessage.value = msg;
-  showToast.value = true;
-  setTimeout(() => { showToast.value = false; }, 2000);
-};
-
 const openPreview = () => {
   // Сохраняем актуальные данные в localStorage
   if (props.restaurantInfo) localStorage.setItem('preview_restaurantInfo', JSON.stringify(props.restaurantInfo));
@@ -972,5 +765,5 @@ const openPreview = () => {
 .close-fullscreen-btn { background: #ff4d4f; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
 .fullscreen-phone-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 20px; }
 .phone-mockup.fullscreen-mode { transform: scale(1.1); }
+.floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
 </style>
-

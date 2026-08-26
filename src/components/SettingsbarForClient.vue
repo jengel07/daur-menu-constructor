@@ -28,7 +28,7 @@
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО: КОРЗИНА -->
-    <div v-if="activeModal === 'cart'" class="bottom-sheet-overlay" @click.self="$emit('close')">
+    <div v-if="activeModal === 'cart'" class="bottom-sheet-overlay" :class="{ 'theme-light': restaurantInfo.isDarkMode === false }" @click.self="$emit('close')">
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
@@ -52,7 +52,7 @@
           <span>{{ tDyn('Итого:') }}</span>
           <span>{{ totalPrice.toFixed(2) }} ₽</span>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="$emit('checkout')">{{ tDyn('Оформить заказ') }}</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', color: '#fff' }" @click="$emit('checkout')">{{ tDyn('Оформить заказ') }}</button>
       </div>
     </div>
 
@@ -61,13 +61,14 @@
       v-if="activeModal === 'language'"
       :current-lang="currentLang"
       :primary-color="primaryColor"
+      :is-dark-mode="restaurantInfo.isDarkMode"
       title="Выберите язык"
       @close="$emit('close')"
       @select="(lang) => $emit('select-lang', lang)"
     />
 
     <!-- МОДАЛЬНОЕ ОКНО: ФИЛЬТРЫ -->
-    <div v-if="activeModal === 'filters'" class="bottom-sheet-overlay" @click.self="$emit('close')">
+    <div v-if="activeModal === 'filters'" class="bottom-sheet-overlay" :class="{ 'theme-light': restaurantInfo.isDarkMode === false }" @click.self="$emit('close')">
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <div class="sheet-header-flex">
@@ -79,7 +80,7 @@
           <button 
             class="filter-option-btn" 
             :class="{ active: selectedFilters.includes('nutFree') }"
-            :style="selectedFilters.includes('nutFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
+            :style="selectedFilters.includes('nutFree') ? { borderColor: primaryColor, backgroundColor: primaryColor, color: '#fff' } : {}"
             @click="$emit('toggle-filter', 'nutFree')"
           >
             🌰 {{ tDyn('Без орехов') }}
@@ -87,7 +88,7 @@
           <button 
             class="filter-option-btn" 
             :class="{ active: selectedFilters.includes('lactoseFree') }"
-            :style="selectedFilters.includes('lactoseFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
+            :style="selectedFilters.includes('lactoseFree') ? { borderColor: primaryColor, backgroundColor: primaryColor, color: '#fff' } : {}"
             @click="$emit('toggle-filter', 'lactoseFree')"
           >
             🥛 {{ tDyn('Без лактозы') }}
@@ -95,19 +96,19 @@
           <button 
             class="filter-option-btn" 
             :class="{ active: selectedFilters.includes('glutenFree') }"
-            :style="selectedFilters.includes('glutenFree') ? { borderColor: primaryColor, background: 'rgba(255,255,255,0.1)' } : {}"
+            :style="selectedFilters.includes('glutenFree') ? { borderColor: primaryColor, backgroundColor: primaryColor, color: '#fff' } : {}"
             @click="$emit('toggle-filter', 'glutenFree')"
           >
             🌾 {{ tDyn('Без глютена') }}
           </button>
         </div>
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">{{ tDyn('Показать результаты') }}</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', color: '#fff', marginTop: '8px' }" @click="$emit('close')">{{ tDyn('Показать результаты') }}</button>
         <div class="modal-footer-text">© Проект от Web-Visual-World | 2024</div>
       </div>
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО: ПОДЕЛИТЬСЯ -->
-    <div v-if="activeModal === 'share'" class="bottom-sheet-overlay" @click.self="$emit('close')">
+    <div v-if="activeModal === 'share'" class="bottom-sheet-overlay" :class="{ 'theme-light': restaurantInfo.isDarkMode === false }" @click.self="$emit('close')">
       <div class="bottom-sheet share-sheet">
         <div class="sheet-indicator"></div>
         <div class="share-modal-header">
@@ -157,7 +158,7 @@
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО: ИНТЕРАКТИВНОЕ ПРЕВЬЮ СТОРИС -->
-    <div v-if="activeModal === 'story-preview'" class="bottom-sheet-overlay" @click.self="$emit('close')">
+    <div v-if="activeModal === 'story-preview'" class="bottom-sheet-overlay" :class="{ 'theme-light': restaurantInfo.isDarkMode === false }" @click.self="$emit('close')">
       <div class="bottom-sheet story-preview-sheet">
         <div class="sheet-indicator"></div>
         <div class="share-modal-header">
@@ -183,14 +184,14 @@
         </p>
 
         <!-- Кнопка скачивания -->
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff' }" @click="downloadStoryImage">
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', color: '#fff' }" @click="downloadStoryImage">
           📥 Скачать картинку для Instagram
         </button>
       </div>
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО: ПОИСК -->
-    <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" @click.self="$emit('close')">
+    <div v-if="activeModal === 'search'" class="bottom-sheet-overlay" :class="{ 'theme-light': restaurantInfo.isDarkMode === false }" @click.self="$emit('close')">
       <div class="bottom-sheet">
         <div class="sheet-indicator"></div>
         <h3>Поиск по меню</h3>
@@ -199,9 +200,9 @@
           :value="searchQuery" 
           @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)" 
           placeholder="Введите название блюда..." 
-          style="width: 100%; padding: 6px; font-size: 10px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; margin-top: 6px;" 
+          class="search-input"
         />
-        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', marginTop: '8px' }" @click="$emit('close')">Найти</button>
+        <button class="show-results-btn" :style="{ backgroundColor: primaryColor || '#646cff', color: '#fff', marginTop: '8px' }" @click="$emit('close')">Найти</button>
       </div>
     </div>
 
@@ -365,17 +366,41 @@ const shareTo = (platform: string) => {
   flex-shrink: 0;
   margin: 0 4px;
 }
-.bottom-sheet-overlay {
+.bottom-sheet-overlay, .share-modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   z-index: 100;
   display: flex;
   align-items: flex-end;
+  --modal-bg: #1e1e1e;
+  --modal-text: #fff;
+  --modal-indicator: #444;
+  --modal-btn-bg: #2a2a2a;
+  --modal-btn-border: #3a3a3a;
+  --modal-btn-text: #fff;
+  --modal-secondary-text: #aaa;
+  --modal-title-text: #ccc;
+  --modal-story-bg: linear-gradient(135deg, #1e1e1e, #111111);
+  --modal-story-instr-bg: #252525;
 }
+
+.bottom-sheet-overlay.theme-light, .share-modal-overlay.theme-light {
+  --modal-bg: #ffffff;
+  --modal-text: #171717;
+  --modal-indicator: #e5e5e5;
+  --modal-btn-bg: #f5f5f5;
+  --modal-btn-border: #e0e0e0;
+  --modal-btn-text: #171717;
+  --modal-secondary-text: #666;
+  --modal-title-text: #444;
+  --modal-story-bg: linear-gradient(135deg, #f0f0f0, #ffffff);
+  --modal-story-instr-bg: #f9f9f9;
+}
+
 .bottom-sheet {
-  background: #1e1e1e;
-  color: #fff;
+  background: var(--modal-bg);
+  color: var(--modal-text);
   width: 100%;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
@@ -387,7 +412,7 @@ const shareTo = (platform: string) => {
 .sheet-indicator {
   width: 28px;
   height: 3px;
-  background: #444;
+  background: var(--modal-indicator);
   border-radius: 2px;
   align-self: center;
 }
@@ -404,20 +429,31 @@ const shareTo = (platform: string) => {
 .clear-filters-text-btn {
   background: transparent;
   border: none;
-  color: #888;
+  color: var(--modal-secondary-text);
   font-size: 10px;
   cursor: pointer;
   text-decoration: underline;
 }
 .show-results-btn, .filter-option-btn {
-  background: #2a2a2a;
-  color: white;
-  border: 1px solid #3a3a3a;
+  background: var(--modal-btn-bg);
+  color: var(--modal-btn-text);
+  border: 1px solid var(--modal-btn-border);
   border-radius: 8px;
   padding: 8px;
   font-size: 10px;
   cursor: pointer;
   text-align: left;
+}
+.search-input {
+  width: 100%;
+  padding: 6px;
+  font-size: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--modal-btn-border);
+  background: var(--modal-btn-bg);
+  color: var(--modal-btn-text);
+  margin-top: 6px;
+  box-sizing: border-box;
 }
 .show-results-btn {
   border: none;
@@ -427,10 +463,22 @@ const shareTo = (platform: string) => {
 .modal-footer-text {
   text-align: center;
   font-size: 8px;
-  color: #666;
+  color: var(--modal-secondary-text);
   margin-top: 4px;
 }
 /* Стили для расширенного окна «Поделиться» */
+.windows-share-dialog {
+  background: var(--modal-bg);
+  color: var(--modal-text);
+  width: 100%;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
 .share-modal-header {
   display: flex;
   justify-content: space-between;
@@ -439,19 +487,19 @@ const shareTo = (platform: string) => {
 .close-modal-x {
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--modal-secondary-text);
   cursor: pointer;
   font-size: 14px;
 }
 .share-preview-card {
-  background: #2a2a2a;
+  background: var(--modal-btn-bg);
   border-radius: 10px;
   padding: 8px;
   display: flex;
   gap: 8px;
   align-items: center;
   margin: 4px 0;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--modal-btn-border);
 }
 .share-card-img, .share-card-placeholder {
   width: 40px;
@@ -461,7 +509,7 @@ const shareTo = (platform: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #333;
+  background: var(--modal-indicator);
 }
 .share-card-info {
   display: flex;
@@ -470,18 +518,18 @@ const shareTo = (platform: string) => {
 }
 .share-card-url {
   font-size: 10px;
-  color: #fff;
+  color: var(--modal-btn-text);
   font-weight: bold;
 }
 .share-card-desc {
   font-size: 9px;
-  color: #aaa;
+  color: var(--modal-secondary-text);
 }
 .share-section-title {
   font-size: 11px;
   font-weight: bold;
   margin-top: 4px;
-  color: #ccc;
+  color: var(--modal-title-text);
 }
 .share-social-grid {
   display: grid;
@@ -490,21 +538,21 @@ const shareTo = (platform: string) => {
   margin-top: 4px;
 }
 .social-btn {
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background: var(--modal-btn-bg);
+  border: 1px solid var(--modal-btn-border);
   border-radius: 8px;
   padding: 6px 4px;
-  color: #fff;
+  color: var(--modal-btn-text);
   font-size: 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: opacity 0.2s;
 }
 .social-btn:hover {
-  background: #3a3a3a;
+  opacity: 0.8;
 }
 .social-lucide-icon {
   margin-bottom: 2px;
@@ -514,7 +562,7 @@ const shareTo = (platform: string) => {
 .story-mockup-container {
   width: 100%;
   height: 140px;
-  background: linear-gradient(135deg, #1e1e1e, #111111);
+  background: var(--modal-story-bg);
   border-radius: 10px;
   border: 2px solid;
   display: flex;
@@ -531,7 +579,7 @@ const shareTo = (platform: string) => {
 }
 .story-mockup-tag {
   font-size: 8px;
-  color: #aaa;
+  color: var(--modal-secondary-text);
   letter-spacing: 1px;
 }
 .story-mockup-title {
@@ -540,14 +588,14 @@ const shareTo = (platform: string) => {
 }
 .story-mockup-hint {
   font-size: 7px;
-  color: #777;
+  color: var(--modal-secondary-text);
 }
 .story-instruction {
   font-size: 9px;
-  color: #ccc;
+  color: var(--modal-secondary-text);
   margin: 4px 0;
   line-height: 1.3;
-  background: #252525;
+  background: var(--modal-story-instr-bg);
   padding: 8px;
   border-radius: 6px;
 }

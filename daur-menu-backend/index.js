@@ -69,10 +69,10 @@ export function adminOnly(req, res, next) {
 // EMAIL (SMTP)
 // ============================================================
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
+export const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: parseInt(process.env.SMTP_PORT) === 465 || process.env.SMTP_SECURE === 'true', // true для 465 порта, false для 587
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -93,14 +93,40 @@ transporter.verify((error) => {
 // ============================================================
 
 // POST /api/orders — публичный, клиент оформляет заказ без токена
-// (ordersRouter обрабатывает POST / внутри, передаём напрямую без authMiddleware)
 app.post('/api/orders', (req, res, next) => {
   req.url = '/';
   ordersRouter(req, res, next);
 });
 
+// GET /api/orders/:id — публичный для проверки статуса клиентом
+app.get('/api/orders/:id', (req, res, next) => {
+  req.url = `/${req.params.id}`;
+  ordersRouter(req, res, next);
+});
+
 // GET /api/orders и PATCH /api/orders/:id/status — защищены JWT
 app.use('/api/orders', authMiddleware, ordersRouter);
+
+// ============================================================
+// ПЕРЕВОДЧИК (Публичный)
+// ============================================================
+app.post('/api/translate', async (req, res) => {
+  try {
+    const { texts, targetLang } = req.body;
+    if (!texts || !targetLang) return res.status(400).json({ error: 'Missing parameters' });
+    
+    const translate = (await import('google-translate-api-x')).default;
+    const result = await translate(texts, { to: targetLang });
+    
+    // Если передан массив, result — это массив объектов, иначе один объект
+    const translations = Array.isArray(result) ? result.map(r => r.text) : [result.text];
+    
+    res.json({ success: true, translations });
+  } catch (error) {
+    console.error('Translation error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ============================================================
 // АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ
@@ -370,7 +396,9 @@ app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) 
             name: dish.name || 'Без названия',
             price: parseFloat(dish.price) || 0,
             priceGlass: parseFloat(dish.priceGlass) || null,
+            priceGlassLabel: dish.priceGlassLabel || null,
             priceBottle: parseFloat(dish.priceBottle) || null,
+            priceBottleLabel: dish.priceBottleLabel || null,
             description: dish.description || '',
             image: dish.image || '',
             categoryId: dish.categoryId || null,

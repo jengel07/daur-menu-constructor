@@ -45,7 +45,9 @@ model Dish {
   name         String
   price        Float
   priceGlass   Float?
+  priceGlassLabel String?
   priceBottle  Float?
+  priceBottleLabel String?
   description  String?     @db.Text
   image        String?
   categoryId   String?

@@ -157,7 +157,6 @@
           @update:searchQuery="val => searchQuery = val"
         />
 
-                <!-- Модалка вариантов -->
         <div v-if="activeModal === 'variant' && selectedVariantItem" class="checkout-modal-overlay" @click.self="activeModal = 'none'">
           <div class="checkout-modal" style="border-radius: 20px 20px 0 0;">
             <div class="checkout-header">
@@ -167,27 +166,27 @@
             
             <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
               <div v-if="selectedVariantItem.priceGlass" style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 12px;">
-                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ tDyn('Бокал') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceGlass || 0).toFixed(2) }} ₽</span></span>
+                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ selectedVariantItem.priceGlassLabel || tDyn('Бокал') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceGlass || 0).toFixed(2) }} ₽</span></span>
                 
                 <div v-if="getItemQuantity(selectedVariantItem.id + '_glass') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '90px' }">
                   <button class="counter-btn" @click="decreaseQuantity(selectedVariantItem.id + '_glass')">-</button>
                   <span class="counter-value">{{ getItemQuantity(selectedVariantItem.id + '_glass') }}</span>
                   <button class="counter-btn" @click="increaseQuantity(selectedVariantItem.id + '_glass')">+</button>
                 </div>
-                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_glass', price: selectedVariantItem.priceGlass, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + tDyn('Бокал') + ')') })">
+                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_glass', price: selectedVariantItem.priceGlass, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + (selectedVariantItem.priceGlassLabel || tDyn('Бокал')) + ')') })">
                   + {{ tDyn('добавить') }}
                 </button>
               </div>
 
               <div v-if="selectedVariantItem.priceBottle" style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 12px;">
-                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ tDyn('Бутылка') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceBottle || 0).toFixed(2) }} ₽</span></span>
+                <span style="font-weight: bold; font-size: 14px; color: #111;">{{ selectedVariantItem.priceBottleLabel || tDyn('Бутылка') }}<br><span style="color: #666; font-size: 12px; font-weight: normal;">{{ Number(selectedVariantItem.priceBottle || 0).toFixed(2) }} ₽</span></span>
                 
                 <div v-if="getItemQuantity(selectedVariantItem.id + '_bottle') > 0" class="counter-controls" :style="{ borderColor: restaurantInfo.primaryColor || '#646cff', width: '90px' }">
                   <button class="counter-btn" @click="decreaseQuantity(selectedVariantItem.id + '_bottle')">-</button>
                   <span class="counter-value">{{ getItemQuantity(selectedVariantItem.id + '_bottle') }}</span>
                   <button class="counter-btn" @click="increaseQuantity(selectedVariantItem.id + '_bottle')">+</button>
                 </div>
-                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_bottle', price: selectedVariantItem.priceBottle, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + tDyn('Бутылка') + ')') })">
+                <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: 'auto', padding: '8px 16px', color: 'white' }" @click="addToCart({ ...selectedVariantItem, id: selectedVariantItem.id + '_bottle', price: selectedVariantItem.priceBottle, name: ((selectedVariantItem.name?.ru || selectedVariantItem.name) + ' (' + (selectedVariantItem.priceBottleLabel || tDyn('Бутылка')) + ')') })">
                   + {{ tDyn('добавить') }}
                 </button>
               </div>
@@ -389,6 +388,14 @@
           </div>
         </div>
 
+        <div v-if="activeOrderId && !showCheckoutModal" class="floating-order-bar" :class="'status-' + activeOrderStatus">
+          <div class="order-bar-text">
+            <strong>Заказ #{{ activeOrderId.slice(-4) }}</strong>
+            <span>{{ getOrderStatusText() }}</span>
+          </div>
+          <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click="clearActiveOrder">✕</button>
+        </div>
+
         <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
             <ShoppingCart :size="18" stroke-width="2" /> 
@@ -509,6 +516,47 @@ const savedCache = localStorage.getItem('translationCache_client');
 
 const translateQueue = new Set<string>();
 
+let pendingTranslations: {text: string, lang: string, targetCode: string}[] = [];
+let batchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const processBatch = async () => {
+  batchTimeout = null;
+  const batch = [...pendingTranslations];
+  pendingTranslations = [];
+  
+  if (batch.length === 0) return;
+  
+  const byLang: Record<string, { items: string[], langStr: string }> = {};
+  for (const item of batch) {
+    if (!byLang[item.targetCode]) byLang[item.targetCode] = { items: [], langStr: item.lang };
+    byLang[item.targetCode].items.push(item.text);
+  }
+  
+  for (const [targetCode, group] of Object.entries(byLang)) {
+    try {
+      const res = await fetch(`${API_URL}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: group.items, targetLang: targetCode })
+      });
+      const data = await res.json();
+      if (data.success && data.translations) {
+        if (!translationCache[group.langStr]) translationCache[group.langStr] = {};
+        for (let i = 0; i < group.items.length; i++) {
+          translationCache[group.langStr][group.items[i]] = data.translations[i];
+        }
+        localStorage.setItem('translationCache_client', JSON.stringify(translationCache));
+      }
+    } catch (err) {
+      console.error('Translation error:', err);
+    } finally {
+      for (const t of group.items) {
+        translateQueue.delete(`${group.langStr}:${t}`);
+      }
+    }
+  }
+};
+
 const performTranslation = async (text: string, targetLangCode: string) => {
   if (!text || targetLangCode === 'ru' || targetLangCode === 'Русский') return;
   if (translationCache[targetLangCode]?.[text]) return;
@@ -517,26 +565,21 @@ const performTranslation = async (text: string, targetLangCode: string) => {
   if (translateQueue.has(cacheKey)) return;
   translateQueue.add(cacheKey);
 
-    const langCodeMap: Record<string, string> = {
-      'English': 'en',
-      'Deutsch': 'de',
-      'Аҧсшәа': 'ab'
-    };
-    const targetCode = langCodeMap[targetLangCode];
-    if (!targetCode) return;
-
-  try {
-    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=ru&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`);
-    const data = await res.json();
-    const translated = data[0].map((x: any) => x[0]).join('');
-    
-    if (!translationCache[targetLangCode]) translationCache[targetLangCode] = {};
-    translationCache[targetLangCode][text] = translated;
-      localStorage.setItem('translationCache_client', JSON.stringify(translationCache));
-  } catch (error) {
-    console.error('Translation error:', error);
-  } finally {
+  const langCodeMap: Record<string, string> = {
+    'English': 'en',
+    'Deutsch': 'de',
+    'Аҧсшәа': 'ab'
+  };
+  const targetCode = langCodeMap[targetLangCode];
+  if (!targetCode) {
     translateQueue.delete(cacheKey);
+    return;
+  }
+
+  pendingTranslations.push({ text, lang: targetLangCode, targetCode });
+  
+  if (!batchTimeout) {
+    batchTimeout = setTimeout(processBatch, 200);
   }
 };
 
@@ -638,11 +681,66 @@ const handleStorageEvent = (event: StorageEvent) => {
 onMounted(() => {
   loadClientMenu();
   window.addEventListener('storage', handleStorageEvent);
+  
+  const savedOrderId = localStorage.getItem('active_order_id');
+  if (savedOrderId) {
+    activeOrderId.value = savedOrderId;
+    startOrderPolling();
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('storage', handleStorageEvent);
+  if (orderPollInterval) clearInterval(orderPollInterval);
 });
+
+const activeOrderId = ref<string | null>(null);
+const activeOrderStatus = ref<string>('new');
+let orderPollInterval: any = null;
+
+const startOrderPolling = () => {
+  if (orderPollInterval) clearInterval(orderPollInterval);
+  checkOrderStatus(); // initial check
+  orderPollInterval = setInterval(checkOrderStatus, 10000);
+};
+
+const checkOrderStatus = async () => {
+  if (!activeOrderId.value) return;
+  try {
+    const res = await fetch(`${API_URL}/api/orders/${activeOrderId.value}`);
+    if (res.ok) {
+      const order = await res.json();
+      activeOrderStatus.value = order.status;
+      if (order.status === 'done' || order.status === 'archived' || order.status === 'cancelled') {
+        // If done/archived, maybe keep showing for a bit or allow user to dismiss it
+      }
+    } else if (res.status === 404) {
+      // Order deleted
+      clearActiveOrder();
+    }
+  } catch(e) {
+    console.error('Ошибка проверки статуса:', e);
+  }
+};
+
+const clearActiveOrder = () => {
+  activeOrderId.value = null;
+  activeOrderStatus.value = 'new';
+  localStorage.removeItem('active_order_id');
+  if (orderPollInterval) clearInterval(orderPollInterval);
+};
+
+const getOrderStatusText = () => {
+  switch (activeOrderStatus.value) {
+    case 'new': return 'Принят, ожидайте...';
+    case 'progress': return 'Готовится 🧑‍🍳';
+    case 'done': return 'Относится официантом / Заберите сами 🎉';
+    case 'archived': return 'Завершен ✅';
+    case 'cancelled': return 'Отменен ❌';
+    default: return 'Обрабатывается...';
+  }
+};
+
 
 const filteredItems = computed(() => {
   let result = items.value;
@@ -779,6 +877,14 @@ const confirmOrder = async () => {
       throw new Error(err.error || `HTTP ${response.status}`);
     }
 
+    const result = await response.json();
+    
+    // Сохраняем активный заказ
+    localStorage.setItem('active_order_id', result.orderId);
+    activeOrderId.value = result.orderId;
+    activeOrderStatus.value = 'new';
+    startOrderPolling();
+
     cartItems.value = [];
     closeModal();
     customerForm.value = { 
@@ -792,7 +898,6 @@ const confirmOrder = async () => {
       scheduledDate: getTodayDateStr()
     };
 
-    alert('Заказ успешно отправлен на кухню!');
   } catch (error) {
     console.error('Ошибка при отправке заказа:', error);
     alert('Не удалось отправить заказ. Проверьте соединение с сервером.');
@@ -862,6 +967,15 @@ const goToConstructor = () => {
 .menu-list-row .add-to-cart-btn { padding: 6px 0; font-size: 10px; }
 .menu-list-row .counter-controls { padding: 4px 8px; }
 .floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
+.floating-order-bar { position: absolute; top: 115px; left: 12px; right: 12px; color: white; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.3); box-sizing: border-box; transition: background 0.3s ease; }
+.floating-order-bar.status-new { background: #3b82f6; }
+.floating-order-bar.status-progress { background: #f59e0b; }
+.floating-order-bar.status-done { background: #10b981; }
+.floating-order-bar.status-archived { background: #6b7280; }
+.floating-order-bar.status-cancelled { background: #ef4444; }
+.order-bar-text { display: flex; flex-direction: column; gap: 2px; }
+.order-bar-text strong { font-size: 12px; }
+.close-order-btn { background: rgba(0,0,0,0.2); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .empty-search-notice { text-align: center; font-size: 10px; margin-top: 25px; color: #888; }
 .checkout-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: flex-end; }
 .checkout-modal { background: #f4f5f7; color: #111; width: 100%; max-height: 92%; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; overflow-y: auto; animation: slideUp 0.3s ease-out; }

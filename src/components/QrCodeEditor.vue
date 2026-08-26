@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import type { RestaurantInfo } from '../types/menu';
 import html2canvas from 'html2canvas';
 import QrcodeVue from 'qrcode.vue';
@@ -18,17 +18,28 @@ const update = (key: string, value: any) => {
 };
 
 // --- АВТОМАТИЧЕСКАЯ ГЕНЕРАЦИЯ ССЫЛКИ ---
-onMounted(() => {
-  const restaurantId = (props.modelValue as any).id || (props.modelValue as any).restaurantId;
+const fixQrUrl = () => {
+  const currentUserRaw = localStorage.getItem('currentUser');
+  let realRestaurantId = (props.modelValue as any).id || (props.modelValue as any).restaurantId;
+  
+  if (!realRestaurantId && currentUserRaw) {
+    try {
+      realRestaurantId = JSON.parse(currentUserRaw).restaurantId;
+    } catch (e) {}
+  }
+
   const currentUrl = props.modelValue.qrSettings?.url || '';
 
-  // Если URL пустой, содержит старый предпросмотр или стоит пример — генерируем автоматически
-  if (restaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com')) {
+  // Если URL пустой, содержит старый предпросмотр, стоит пример или содержит undefined — генерируем автоматически
+  if (realRestaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com' || currentUrl.includes('undefined'))) {
     // Формируем правильную ссылку с текущим IP и нужным ID
-    const autoUrl = `${window.location.origin}/client?id=${restaurantId}`;
+    const autoUrl = `${window.location.origin}/client?id=${realRestaurantId}`;
     update('url', autoUrl);
   }
-});
+};
+
+onMounted(fixQrUrl);
+watch(() => props.modelValue.qrSettings?.url, fixQrUrl);
 
 const downloadQRCode = async () => {
   if (!exportRef.value) return;

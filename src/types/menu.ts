@@ -5,6 +5,8 @@ export interface MenuItem {
   price: number;
   priceBottle?: number;
   priceGlass?: number;
+  priceGlassLabel?: string;
+  priceBottleLabel?: string;
   categoryId: string;
   isAvailable: boolean;
   image?: string;

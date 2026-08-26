@@ -74,13 +74,81 @@ router.post('/', async (req, res) => {
         items: {
           create: (items || []).map(item => ({
             name: String(item.name),
-            price: Number(item.price) || 0, // Исправлено: Prisma ожидает Float, а не String
+            price: Number(item.price) || 0,
             quantity: Number(item.quantity) || 1,
           })),
         },
       },
       include: { items: true },
     });
+
+    // ── Автоматические уведомления ──
+    try {
+      const menu = await db.menu.findFirst({ where: { restaurantId } });
+      const info = menu?.info ? JSON.parse(menu.info) : {};
+      const settings = info.orderSettings || {};
+      
+      const itemsList = (items || []).map(item => `▫️ ${item.name} — ${item.quantity} шт.`).join('\n');
+      const orderTypeStr = type === 'onsite' ? '🍽 В заведении' : (type === 'pickup' ? '📦 Самовывоз' : '🚴 Доставка');
+      const timeStr = scheduledTime ? `\n⏰ Ко времени: <b>${scheduledTime}</b>` : '';
+      const commentStr = comment ? `\n💬 Комментарий: <i>${comment}</i>` : '';
+
+      const orderText = `🔔 <b>Новый заказ #${newOrder.orderNumber}</b>
+
+${orderTypeStr}
+👤 Клиент: <b>${customerName || 'Не указан'}</b>
+📞 Телефон: ${customerPhone ? `<a href="tel:${customerPhone.replace(/\D/g, '')}">${customerPhone}</a>` : 'Не указан'}
+📍 Адрес/Стол: <b>${address || tableNumber || 'Не указан'}</b>${timeStr}${commentStr}
+
+📝 <b>Состав заказа:</b>
+${itemsList || 'Нет позиций'}
+
+💰 <b>Итого: ${Number(total).toFixed(0)} ₽</b>`;
+
+      // Версия для Email (без HTML-тегов Telegram, так как там text)
+      const emailText = orderText.replace(/<[^>]+>/g, '');
+
+      if (settings.emailNotif) {
+         import('./index.js').then(module => {
+            if (module.transporter) {
+              const toEmail = settings.emailAddress || process.env.SMTP_USER;
+              module.transporter.sendMail({
+                from: `"Achab Orders" <${process.env.SMTP_USER}>`,
+                to: toEmail,
+                subject: `Новый заказ #${newOrder.orderNumber}`,
+                text: emailText
+              }).catch(e => console.error("Email send error", e));
+            }
+         });
+      }
+      
+      if (settings.notifType === 'telegram' && settings.telegramWebhook) {
+        let url = settings.telegramWebhook;
+        
+        if (url.includes('api.telegram.org') && url.includes('sendMessage')) {
+          const separator = url.includes('?') ? '&' : '?';
+          url = `${url}${separator}text=${encodeURIComponent(orderText)}&parse_mode=HTML`;
+          
+          fetch(url)
+            .then(r => r.json())
+            .then(data => console.log('Telegram sent:', data.ok))
+            .catch(e => console.error('Telegram error:', e));
+        } else {
+          // Иначе просто отправляем POST на любой Webhook (например, Make.com)
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: newOrder.orderNumber,
+              type, customerName, customerPhone, address, tableNumber,
+              total, text: orderText
+            })
+          }).catch(e => console.error('Webhook error:', e));
+        }
+      }
+    } catch(notifErr) {
+      console.error("Ошибка при отправке уведомлений:", notifErr);
+    }
 
     res.status(201).json({
       success: true,
@@ -91,6 +159,20 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('❌ Ошибка при сохранении заказа:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /:id — публичный доступ для клиента к своему заказу
+router.get('/:id', async (req, res) => {
+  try {
+    const order = await db.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: true }
+    });
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

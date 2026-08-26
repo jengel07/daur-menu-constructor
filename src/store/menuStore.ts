@@ -74,6 +74,12 @@ export const useMenuStore = defineStore('menu', () => {
   // Загрузка данных с сервера
   // ============================================================
   const loadFromServer = async () => {
+    // В публичном режиме клиента не нужно загружать данные админа из токена, 
+    // так как ClientView сам загрузит нужное меню по ID из ссылки.
+    if (window.location.pathname === '/client' && !window.location.search.includes('preview=true')) {
+      return;
+    }
+
     const restaurantId = getRestaurantId();
     if (!restaurantId || !getToken()) return;
 
@@ -101,6 +107,10 @@ export const useMenuStore = defineStore('menu', () => {
   };
 
   const loadFromLocalStorage = () => {
+    if (window.location.pathname === '/client' && !window.location.search.includes('preview=true')) {
+      return;
+    }
+
     const restaurantId = getRestaurantId();
     const key = restaurantId ? `restaurantData_${restaurantId}` : 'restaurantData';
     const savedState = localStorage.getItem(key) || localStorage.getItem('restaurantData');
@@ -195,6 +205,8 @@ export const useMenuStore = defineStore('menu', () => {
     [restaurantInfo, categories, items, generalSettings],
     () => {
       if (isInitializing) return;
+      if (window.location.pathname === '/client' && !window.location.search.includes('preview=true')) return;
+      
       syncWifi();
       saveToLocalStorage();
       syncToServer();

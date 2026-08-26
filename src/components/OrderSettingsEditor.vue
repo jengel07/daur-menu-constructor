@@ -288,26 +288,30 @@
                 <div class="notification-tabs">
                   <button :class="{ active: notifType === 'dashboard' }"
                     @click="notifType = 'dashboard'">📋 Dashboard</button>
-                  <button :class="{ active: notifType === 'whatsapp' }"
-                    @click="notifType = 'whatsapp'">💬 WhatsApp</button>
+                  <button :class="{ active: notifType === 'telegram' }"
+                    @click="notifType = 'telegram'">✈️ Telegram</button>
                 </div>
-                <div v-if="notifType === 'whatsapp'" class="input-group mt-16">
-                  <label>Номер WhatsApp</label>
+                <div v-if="notifType === 'telegram'" class="input-group mt-16">
+                  <label>Ссылка Telegram Бота (Webhook / sendMessage)</label>
                   <div class="phone-input-wrapper">
-                    <div class="country-select"><span>🇷🇺</span></div>
-                    <input type="tel" v-model="whatsappNumber" placeholder="+7 (999) 000-00-00"
-                      class="text-input phone-input" @blur="saveSettings" />
+                    <input type="text" v-model="telegramWebhook" placeholder="https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<ID>"
+                      class="text-input" style="padding-left: 10px;" @blur="saveSettings" />
                   </div>
+                  <p style="font-size: 10px; color: #888; margin-top: 4px;">Скопируйте URL с chat_id. Мы автоматически добавим к нему &text=...</p>
                 </div>
                 <div class="setting-row-switch mt-16">
                   <div class="notif-text-desc"><span>Уведомлять по email</span>
-                    <p>Копия каждого заказа на ваш аккаунт</p>
+                    <p>Копия каждого заказа на почту</p>
                   </div>
                   <label class="switch"><input type="checkbox" v-model="emailNotif"
                       @change="saveSettings" /><span class="slider round"></span></label>
                 </div>
+                <div v-if="emailNotif" class="input-group mt-8">
+                  <input type="email" v-model="emailAddress" placeholder="email@example.com (Оставьте пустым для админской почты)" class="text-input" @blur="saveSettings" />
+                </div>
               </div>
 
+              <button class="btn-activate" style="width: 100%; margin-top: 16px; margin-bottom: 8px;" @click="manualSave">Сохранить</button>
               <button class="btn-deactivate" @click="deactivateOrdering">Отключить приём заказов</button>
             </div>
           </template>
@@ -324,6 +328,7 @@ import type { RestaurantInfo } from '../types/menu';
 import { ordersApi } from '../api';
 
 const props = defineProps<{ modelValue: RestaurantInfo }>();
+const emit = defineEmits(['update:modelValue']);
 
 const isLightTheme = computed(() => {
   return typeof document !== 'undefined' &&
@@ -356,7 +361,7 @@ const _loadSettings = () => {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch { return {}; }
 };
 
-const _saved = _loadSettings();
+const _saved = (props.modelValue as any).orderSettings || _loadSettings();
 
 // ═══════════════════════════════════════════════════════
 // ORDER MODE (controls ClientView behaviour)
@@ -502,6 +507,30 @@ const deleteAllOrders = async () => {
   }
 };
 
+const knownOrderIds = ref<Set<string>>(new Set());
+let isFirstLoad = true;
+
+const playBeep = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); 
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.8);
+    osc.stop(ctx.currentTime + 0.8);
+  } catch(e) {
+    console.error("Audio playback failed", e);
+  }
+};
+
 const fetchOrders = async () => {
   isLoading.value = true;
   try {
@@ -510,6 +539,14 @@ const fetchOrders = async () => {
       ...o,
       total: Number(o.totalPrice ?? o.total ?? 0),
     }));
+    
+    if (!isFirstLoad) {
+      const hasNew = data.some(o => !knownOrderIds.value.has(o.id) && o.status === 'new');
+      if (hasNew) playBeep();
+    }
+    knownOrderIds.value = new Set(data.map(o => o.id));
+    isFirstLoad = false;
+    
   } catch (e) {
     console.error('Ошибка загрузки заказов:', e);
   } finally {
@@ -571,8 +608,9 @@ const minOrder = ref(_saved.minOrder ?? 0);
 const freeFrom = ref(_saved.freeFrom ?? 0);
 const onsiteActive = ref(_saved.onsiteActive ?? true);
 const notifType = ref(_saved.notifType ?? 'dashboard');
-const whatsappNumber = ref(_saved.whatsappNumber ?? '');
+const telegramWebhook = ref(_saved.telegramWebhook ?? _saved.whatsappNumber ?? '');
 const emailNotif = ref(_saved.emailNotif ?? false);
+const emailAddress = ref(_saved.emailAddress ?? '');
 
 const workDays = ref(_saved.workDays ?? [
   { name: 'Понедельник', active: true },
@@ -598,7 +636,7 @@ const deactivateOrdering = () => {
   applyMode('menu');
 };
 
-// Persist ALL settings to localStorage so ClientView can read them
+// Persist ALL settings to localStorage so ClientView can read them locally
 const saveSettings = () => {
   const data = {
     currentMode: currentMode.value,
@@ -613,16 +651,25 @@ const saveSettings = () => {
     freeFrom: freeFrom.value,
     onsiteActive: onsiteActive.value,
     notifType: notifType.value,
-    whatsappNumber: whatsappNumber.value,
+    telegramWebhook: telegramWebhook.value,
     emailNotif: emailNotif.value,
+    emailAddress: emailAddress.value,
     workDays: workDays.value,
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
   localStorage.setItem('menu_order_mode', currentMode.value);
+  
+  // Also emit to parent to save to backend
+  emit('update:modelValue', { ...props.modelValue, orderSettings: data });
 };
 
 // Save on first load to ensure ClientView always has a value
 saveSettings();
+
+const manualSave = () => {
+  saveSettings();
+  alert('✅ Настройки заказов успешно сохранены!');
+};
 </script>
 
 <style scoped>

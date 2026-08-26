@@ -99,6 +99,29 @@ const handleImageUpload = async (event: Event) => {
   }
 };
 
+const generateImageFromInternet = () => {
+  if (!editingItem.value || !editingItem.value.name) return;
+  
+  isImageLoading.value = true;
+  imageLoadError.value = null;
+  
+  setTimeout(() => {
+    try {
+      const dishName = (editingItem.value!.name || '').trim();
+      const dishDesc = (editingItem.value!.description || '').trim().split(' ').slice(0, 6).join(' '); // Берем первые 6 слов из описания
+      const keywords = ['', 'вкусное', 'в ресторане', 'свежее', 'порция', 'красивая подача', 'аппетитное', 'фото'];
+      const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+      const searchQuery = encodeURIComponent(`${dishName} ${dishDesc} ${randomKeyword} еда`.trim());
+      // Добавляем rand для сброса кэша браузера при повторном клике
+      const url = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=600&h=450&c=7&rs=1&p=0&rand=${Date.now()}`;
+      editingItem.value!.image = url;
+    } catch (err) {
+      imageLoadError.value = 'Ошибка поиска фото.';
+    } finally {
+      isImageLoading.value = false;
+    }
+  }, 500); // Имитация загрузки для UX
+};
 
 const filteredItems = computed(() => {
   return props.items.filter(item => {
@@ -150,7 +173,9 @@ const openEditModal = (item?: MenuItem) => {
       isAvailable: true,
       noNuts: false,
       noLactose: false,
-      noGluten: false
+      noGluten: false,
+      priceGlassLabel: '',
+      priceBottleLabel: ''
     };
   }
   isModalOpen.value = true;
@@ -341,6 +366,15 @@ const closeModal = () => {
               style="display: none" 
             />
           </div>
+          <button 
+            v-if="editingItem.name" 
+            type="button" 
+            class="btn-generate-ai" 
+            @click="generateImageFromInternet" 
+            :disabled="isImageLoading"
+          >
+            <Search :size="14" /> Подобрать фото из интернета
+          </button>
         </div>
         
         <div class="form-group">
@@ -375,13 +409,19 @@ const closeModal = () => {
           </div>
           
           <div class="form-group">
-            <label>Цена за бокал (₽) — опционально</label>
-            <input v-model.number="editingItem.priceGlass" type="number" min="0" placeholder="Для напитков" />
+            <label>Опция 1: Название и Цена (₽)</label>
+            <div style="display: flex; gap: 8px;">
+              <input v-model="editingItem.priceGlassLabel" type="text" placeholder="Бокал, 0.5л..." style="flex: 1; min-width: 0;" />
+              <input v-model.number="editingItem.priceGlass" type="number" min="0" placeholder="Цена" style="width: 80px; flex-shrink: 0;" />
+            </div>
           </div>
           
           <div class="form-group">
-            <label>Цена за бутылку (₽) — опционально</label>
-            <input v-model.number="editingItem.priceBottle" type="number" min="0" placeholder="Для напитков" />
+            <label>Опция 2: Название и Цена (₽)</label>
+            <div style="display: flex; gap: 8px;">
+              <input v-model="editingItem.priceBottleLabel" type="text" placeholder="Бутылка, 1л..." style="flex: 1; min-width: 0;" />
+              <input v-model.number="editingItem.priceBottle" type="number" min="0" placeholder="Цена" style="width: 80px; flex-shrink: 0;" />
+            </div>
           </div>
 
           <div class="form-group">
@@ -650,11 +690,14 @@ input:checked + .slider:before {
   padding: 32px;
   max-width: 500px;
   width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 20px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
   color: var(--text-main, white);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-title {
@@ -667,11 +710,14 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .form-group label {
   font-size: 0.85rem;
   color: var(--text-muted, #a0a0a0);
+  word-break: break-word;
+  white-space: normal;
 }
 
 .form-group input, .form-group textarea, .form-group select {
@@ -681,6 +727,32 @@ input:checked + .slider:before {
   padding: 10px 12px;
   color: var(--text-main, white);
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-generate-ai {
+  margin-top: 8px;
+  background: var(--bg-input-inner, #1e1e24);
+  color: var(--accent, #646cff);
+  border: 1px dashed var(--accent, #646cff);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-generate-ai:hover {
+  background: var(--accent, #646cff);
+  color: #fff;
+}
+.btn-generate-ai:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .form-row {
@@ -801,6 +873,12 @@ input:checked + .slider:before {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 500px) {
+  .form-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>
