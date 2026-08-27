@@ -10,9 +10,34 @@ import { parseMenuText } from './menuParser.js';
 import db from './db.js';
 import ordersRouter from './orders.js';
 
+import os from 'os';
+
 dotenv.config();
 
 const app = express();
+
+app.get('/api/lan-ip', (req, res) => {
+  let lanIp = 'localhost';
+  
+  if (process.env.FRONTEND_URL) {
+    try {
+      const url = new URL(process.env.FRONTEND_URL);
+      lanIp = url.hostname;
+    } catch (e) {}
+  }
+
+  if (lanIp === 'localhost') {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          lanIp = net.address;
+        }
+      }
+    }
+  }
+  res.json({ ip: lanIp });
+});
 const upload = multer({ storage: multer.memoryStorage() });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
@@ -747,13 +772,25 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
   }
 });
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // ============================================================
 // ЗАПУСК СЕРВЕРА
 // ============================================================
+
+// Отдача статики фронтенда (папка public)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Fallback для SPA (Vue Router)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
 });
-
-// Dummy comment to force nodemon restart

@@ -29,7 +29,7 @@ const update = (key: string, value: any) => {
 };
 
 // --- АВТОМАТИЧЕСКАЯ ГЕНЕРАЦИЯ ССЫЛКИ ---
-const fixQrUrl = () => {
+const fixQrUrl = async () => {
   const currentUserRaw = localStorage.getItem('currentUser');
   let realRestaurantId = (props.modelValue as any).id || (props.modelValue as any).restaurantId;
   
@@ -41,10 +41,25 @@ const fixQrUrl = () => {
 
   const currentUrl = props.modelValue.qrSettings?.url || '';
 
-  // Если URL пустой, содержит старый предпросмотр, стоит пример или содержит undefined — генерируем автоматически
-  if (realRestaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com' || currentUrl.includes('undefined'))) {
-    // Формируем правильную ссылку с текущим IP и нужным ID
-    const autoUrl = `${window.location.origin}/client?id=${realRestaurantId}`;
+  if (realRestaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com' || currentUrl.includes('undefined') || currentUrl.includes('localhost'))) {
+    
+    let origin = window.location.origin;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      try {
+        const res = await fetch('/api/lan-ip');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ip && data.ip !== 'localhost') {
+            const port = window.location.port ? `:${window.location.port}` : '';
+            origin = `${window.location.protocol}//${data.ip}${port}`;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch LAN IP', e);
+      }
+    }
+
+    const autoUrl = `${origin}/client?id=${realRestaurantId}`;
     update('url', autoUrl);
   }
 };
