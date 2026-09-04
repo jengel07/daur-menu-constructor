@@ -61,13 +61,14 @@ const selectedCategoryId = ref<string>('all');
 
 // Дополнительные фильтры питания (без орехов, без лактозы, без глютена)
 const dietaryFilters = ref({
-  noNuts: false,
-  noLactose: false,
-  noGluten: false
+  nutFree: false,
+    glutenFree: false,
+    vegetarian: false,
+    vegan: false
 });
 
 const isModalOpen = ref(false);
-const editingItem = ref<(Partial<MenuItem> & { image?: string; noNuts?: boolean; noLactose?: boolean; noGluten?: boolean }) | null>(null);
+const editingItem = ref<(Partial<MenuItem> & { image?: string; nutFree?: boolean; glutenFree?: boolean; vegetarian?: boolean; vegan?: boolean }) | null>(null);
 
 const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -108,11 +109,12 @@ const filteredItems = computed(() => {
     const matchesCategory = selectedCategoryId.value === 'all' || String(item.categoryId) === String(selectedCategoryId.value);
     
     // Проверка фильтров питания
-    const matchesNoNuts = !dietaryFilters.value.noNuts || (item as any).noNuts;
-    const matchesNoLactose = !dietaryFilters.value.noLactose || (item as any).noLactose;
-    const matchesNoGluten = !dietaryFilters.value.noGluten || (item as any).noGluten;
+    const matchesNutFree = !dietaryFilters.value.nutFree || (item as any).nutFree;
+    const matchesGlutenFree = !dietaryFilters.value.glutenFree || (item as any).glutenFree;
+    const matchesVegetarian = !dietaryFilters.value.vegetarian || (item as any).vegetarian;
+      const matchesVegan = !dietaryFilters.value.vegan || (item as any).vegan;
 
-    return matchesSearch && matchesCategory && matchesNoNuts && matchesNoLactose && matchesNoGluten;
+    return matchesSearch && matchesCategory && matchesNutFree && matchesGlutenFree && matchesVegetarian && matchesVegan;
   });
 });
 
@@ -148,9 +150,10 @@ const openEditModal = (item?: MenuItem) => {
       image: '',
       categoryId: firstCat ? firstCat.id : '',
       isAvailable: true,
-      noNuts: false,
-      noLactose: false,
-      noGluten: false,
+      nutFree: false,
+    glutenFree: false,
+    vegetarian: false,
+    vegan: false,
       priceGlassLabel: '',
       priceBottleLabel: ''
     };
@@ -275,10 +278,11 @@ const closeModal = () => {
           <h3 class="item-name">{{ item.name }}</h3>
           <p class="item-desc">{{ item.description }}</p>
           
-          <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;" v-if="(item as any).noNuts || (item as any).noLactose || (item as any).noGluten">
-            <span v-if="(item as any).noNuts" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без орехов</span>
-            <span v-if="(item as any).noLactose" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без лактозы</span>
-            <span v-if="(item as any).noGluten" style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">Без глютена</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;" v-if="(item as any).nutFree || (item as any).glutenFree || (item as any).vegetarian || (item as any).vegan">
+            <span v-if="(item as any).nutFree" style="font-size: 14px;" title="Без орехов">🥜</span>
+            <span v-if="(item as any).glutenFree" style="font-size: 14px;" title="Без глютена">🌾</span>
+            <span v-if="(item as any).vegetarian" style="font-size: 14px;" title="Вегетарианское">🥗</span>
+            <span v-if="(item as any).vegan" style="font-size: 14px;" title="Веганское">🌱</span>
           </div>
         </div>
 
@@ -356,19 +360,30 @@ const closeModal = () => {
         </div>
 
         <div class="form-group">
-          <label>Особенности питания</label>
-          <div style="display: flex; gap: 15px; margin-top: 6px; flex-wrap: wrap;">
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-              <input type="checkbox" v-model="editingItem.noNuts" /> Без орехов
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-              <input type="checkbox" v-model="editingItem.noLactose" /> Без лактозы
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-              <input type="checkbox" v-model="editingItem.noGluten" /> Без глютена
-            </label>
+            <label>Диетические теги</label>
+            <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+              <label class="compact-tag-toggle" :class="{ active: editingItem.nutFree }">
+                <input type="checkbox" v-model="editingItem.nutFree" style="display: none;" />
+                <span class="tag-icon">🥜</span>
+                <span class="tag-text">Без орехов</span>
+              </label>
+              <label class="compact-tag-toggle" :class="{ active: editingItem.glutenFree }">
+                <input type="checkbox" v-model="editingItem.glutenFree" style="display: none;" />
+                <span class="tag-icon">🌾</span>
+                <span class="tag-text">Без глютена</span>
+              </label>
+              <label class="compact-tag-toggle" :class="{ active: editingItem.vegetarian }">
+                <input type="checkbox" v-model="editingItem.vegetarian" style="display: none;" />
+                <span class="tag-icon">🥗</span>
+                <span class="tag-text">Вег.</span>
+              </label>
+              <label class="compact-tag-toggle" :class="{ active: editingItem.vegan }">
+                <input type="checkbox" v-model="editingItem.vegan" style="display: none;" />
+                <span class="tag-icon">🌱</span>
+                <span class="tag-text">Веган</span>
+              </label>
+            </div>
           </div>
-        </div>
 
         <div class="form-row">
           <div class="form-group">
@@ -849,4 +864,26 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+
+.compact-tag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card, #2d2d2d);
+  border: 1px solid var(--border-color, #3d3d3d);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.compact-tag-toggle.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  color: #818cf8;
+}
+.tag-icon { font-size: 14px; }
+
 </style>

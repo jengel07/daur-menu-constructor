@@ -242,7 +242,12 @@ const _loadFilters = () => {
   } catch { return { nutFree: true, glutenFree: true, vegetarian: true, vegan: true }; }
 };
 const filterSettings = ref(_loadFilters());
-const saveFilterSettings = () => localStorage.setItem('filter_settings', JSON.stringify(filterSettings.value));
+const saveFilterSettings = () => {
+  localStorage.setItem('filter_settings', JSON.stringify(filterSettings.value));
+  if (!menuStore.restaurantInfo) return;
+  menuStore.restaurantInfo = { ...menuStore.restaurantInfo, filterSettings: filterSettings.value };
+  if (typeof syncToTableStorage === 'function') syncToTableStorage();
+};
 
 const availableFilters = [
   { key: 'nutFree', icon: '🥜', name: 'Без орехов', desc: 'Блюда не содержат орехи и арахис' },

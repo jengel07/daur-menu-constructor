@@ -8,6 +8,16 @@
 
       <form @submit.prevent="handleInvite" class="modal-body">
         <div class="form-group">
+          <label>Имя сотрудника</label>
+          <input 
+            type="text" 
+            v-model="form.name" 
+            placeholder="Иван" 
+            required 
+          />
+        </div>
+        
+        <div class="form-group">
           <label>Email сотрудника</label>
           <input 
             type="email" 
@@ -15,11 +25,22 @@
             placeholder="colleague@example.com" 
             required 
           />
-          <p class="field-hint">На этот адрес отправим ссылку для входа в систему</p>
+          <p class="field-hint">Для входа в систему</p>
         </div>
 
         <div class="form-group">
-          <label>Роль в заведении</label>
+          <label>Пароль</label>
+          <input 
+            type="password" 
+            v-model="form.password" 
+            placeholder="Минимум 6 символов" 
+            required 
+            minlength="6"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Роль</label>
           <select v-model="form.role" required>
             <option value="chef">Шеф-повар / Кухня (Доступ к заказам и стоп-листам)</option>
             <option value="waiter">Официант (Создание и статус заказов)</option>
@@ -41,33 +62,35 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import axios from 'axios';
+import { staffApi } from '../../api';
 
 const emit = defineEmits(['close', 'invited']);
 
 const loading = ref(false);
 const form = ref({
+  name: '',
   email: '',
+  password: '',
   role: 'chef'
 });
 
 const handleInvite = async () => {
-  if (!form.value.email) return;
+  if (!form.value.email || !form.value.password || !form.value.name) return;
   
   loading.value = true;
   try {
-    // Отправка запроса на ваш бэкенд
-    const response = await axios.post('http://192.168.31.240:3000/api/staff/invite', {
+    const response = await staffApi.create({
+      name: form.value.name,
       email: form.value.email,
+      password: form.value.password,
       role: form.value.role
     });
 
-    // Передаем данные родительскому компоненту, чтобы обновить интерфейс
-    emit('invited', response.data.staff || { ...form.value });
+    emit('invited', response.staff || { ...form.value, id: Date.now(), status: 'active' });
     emit('close');
   } catch (error: any) {
-    console.error('Ошибка при отправке приглашения:', error);
-    alert(error.response?.data?.message || 'Ошибка при отправке приглашения');
+    console.error('Ошибка при добавлении:', error);
+    alert(error.message || 'Ошибка при добавлении');
   } finally {
     loading.value = false;
   }

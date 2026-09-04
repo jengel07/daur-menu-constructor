@@ -429,9 +429,11 @@ app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) 
             categoryId: dish.categoryId || null,
             restaurantId: restaurantId,
             isAvailable: dish.isAvailable ?? true,
-            noNuts: dish.noNuts ?? false,
-            noLactose: dish.noLactose ?? false,
-            noGluten: dish.noGluten ?? false
+            noNuts: dish.noNuts ?? dish.nutFree ?? false,
+            noLactose: dish.noLactose ?? dish.lactoseFree ?? false,
+            noGluten: dish.noGluten ?? dish.glutenFree ?? false,
+            vegetarian: dish.vegetarian ?? false,
+            vegan: dish.vegan ?? false
           }));
 
           await tx.dish.createMany({
@@ -469,16 +471,20 @@ app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
     const normalizedRole = roleMap[role] || role || 'cook';
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    const newStaff = await db.staff.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: normalizedRole,
-        restaurantId: req.user.restaurantId,
-      },
-    });
+      let newStaff = await db.staff.findUnique({ where: { email } });
+      if (newStaff) {
+        if (newStaff.restaurantId !== req.user.restaurantId) {
+          return res.status(403).json({ success: false, message: 'Этот email уже используется в другом заведении.' });
+        }
+        newStaff = await db.staff.update({
+          where: { email },
+          data: { name, password: hashedPassword, role: normalizedRole }
+        });
+      } else {
+        newStaff = await db.staff.create({
+          data: { name, email, password: hashedPassword, role: normalizedRole, restaurantId: req.user.restaurantId }
+        });
+      }
 
     // Отправляем email с учётными данными (не критично — игнорируем ошибку)
     try {
@@ -495,7 +501,7 @@ app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
               <li>Email: <b>${email}</b></li>
               <li>Пароль: <b>${password}</b></li>
             </ul>
-            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Войти</a></p>
+            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}">Войти</a></p>
           </div>
         `,
       });
@@ -718,16 +724,20 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
     const normalizedRole = roleMap[role] || role || 'cook';
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    const newStaff = await db.staff.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: normalizedRole,
-        restaurantId,
-      },
-    });
+      let newStaff = await db.staff.findUnique({ where: { email } });
+      if (newStaff) {
+        if (newStaff.restaurantId !== restaurantId) {
+          return res.status(403).json({ success: false, message: 'Этот email уже используется в другом заведении.' });
+        }
+        newStaff = await db.staff.update({
+          where: { email },
+          data: { name, password: hashedPassword, role: normalizedRole }
+        });
+      } else {
+        newStaff = await db.staff.create({
+          data: { name, email, password: hashedPassword, role: normalizedRole, restaurantId }
+        });
+      }
 
     // Отправляем email с учётными данными
     try {
@@ -745,7 +755,7 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
               <li>Email: <b>${email}</b></li>
               <li>Пароль: <b>${password}</b></li>
             </ul>
-            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Войти</a></p>
+            <p>Ссылка для входа: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}">Войти</a></p>
           </div>
         `,
       });

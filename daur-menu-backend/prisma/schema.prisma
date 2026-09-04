@@ -58,6 +58,8 @@ model Dish {
   noNuts       Boolean     @default(false)
   noLactose    Boolean     @default(false)
   noGluten     Boolean     @default(false)
+  vegetarian   Boolean     @default(false)
+  vegan        Boolean     @default(false)
   tags         DishTag[]
   orderItems   OrderItem[]
 }

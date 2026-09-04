@@ -10,6 +10,10 @@ export interface MenuItem {
   categoryId: string;
   isAvailable: boolean;
   image?: string;
+  nutFree?: boolean;
+  glutenFree?: boolean;
+  vegetarian?: boolean;
+  vegan?: boolean;
 }
 
 export interface MenuCategory {

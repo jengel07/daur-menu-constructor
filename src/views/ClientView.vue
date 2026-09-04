@@ -770,6 +770,8 @@ const filteredItems = computed(() => {
         if (f === 'nutFree') return item.noNuts || item.nutFree || item.isNutFree || item.nut_free || (Array.isArray(item.tags) && item.tags.includes('nutFree'));
         if (f === 'lactoseFree') return item.noLactose || item.lactoseFree || item.isLactoseFree || item.lactose_free || (Array.isArray(item.tags) && item.tags.includes('lactoseFree'));
         if (f === 'glutenFree') return item.noGluten || item.glutenFree || item.isGlutenFree || item.gluten_free || (Array.isArray(item.tags) && item.tags.includes('glutenFree'));
+        if (f === 'vegetarian') return item.vegetarian || item.isVegetarian || (Array.isArray(item.tags) && item.tags.includes('vegetarian'));
+        if (f === 'vegan') return item.vegan || item.isVegan || (Array.isArray(item.tags) && item.tags.includes('vegan'));
         return false;
       });
     });
