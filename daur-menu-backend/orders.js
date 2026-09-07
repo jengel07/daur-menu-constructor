@@ -113,7 +113,7 @@ ${itemsList || 'Нет позиций'}
             if (module.transporter) {
               const toEmail = settings.emailAddress || process.env.SMTP_USER;
               module.transporter.sendMail({
-                from: `"Achab Orders" <${process.env.SMTP_USER}>`,
+                from: `"${info.name || 'Уведомления'}" <${process.env.SMTP_USER}>`,
                 to: toEmail,
                 subject: `Новый заказ #${newOrder.orderNumber}`,
                 text: emailText

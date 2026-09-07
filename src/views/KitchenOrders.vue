@@ -24,6 +24,9 @@
       </div>
 
       <div class="k-header-actions">
+        <button class="k-btn-refresh" style="background: #eab308; color: #000;" @click="showStopList = true">
+          🛑 Стоп-лист
+        </button>
         <button class="k-btn-icon" :title="isLight ? 'Тёмная тема' : 'Светлая тема'" @click="isLight = !isLight">
           {{ isLight ? '🌙' : '☀️' }}
         </button>
@@ -143,7 +146,7 @@
             <div class="k-info-row">
               <template v-if="order.type === 'delivery'">
                 🚴 {{ order.address || 'Адрес не указан' }}
-              </template>
+                </template>
               <template v-else-if="order.type === 'pickup'">
                 📦 Самовывоз
               </template>
@@ -226,12 +229,14 @@
       </div>
     </div>
   </div>
+    <StopListModal v-if="showStopList" :is-light="isLight" @close="showStopList = false" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ordersApi } from '../api'
+import StopListModal from '../components/kitchen/StopListModal.vue'
 
 const router = useRouter()
 
@@ -239,6 +244,7 @@ const orders = ref<any[]>([])
 const loading = ref(false)
 const error = ref('')
 const currentTab = ref<string>('new')
+const showStopList = ref(false)
 const isLight = ref(true)
 const lastRefreshed = ref<Date | null>(null)
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -375,7 +381,7 @@ async function fetchOrders() {
       for (const o of data) {
         const oldStatus = orderStatuses.value.get(o.id);
         const isNewToCook = role === 'cook' && (o.status === 'new' || o.status === 'open') && oldStatus !== o.status;
-        const isNewToWaiter = role === 'waiter' && (o.status === 'new' || o.status === 'open' || o.status === 'done') && oldStatus !== o.status;
+        const isNewToWaiter = (role === 'waiter' || role === 'barista') && (o.status === 'new' || o.status === 'open' || o.status === 'done') && oldStatus !== o.status;
         
         if (isNewToCook || isNewToWaiter) {
           shouldBeep = true;

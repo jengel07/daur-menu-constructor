@@ -43,6 +43,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
 const SALT_ROUNDS = 12;
 
+
+
+
 // ============================================================
 // MIDDLEWARES
 // ============================================================
@@ -84,11 +87,62 @@ export function authMiddleware(req, res, next) {
 // Middleware: только для администраторов (блокирует повара и официанта)
 export function adminOnly(req, res, next) {
   const role = req.user?.role;
-  if (role === 'cook' || role === 'waiter') {
+  if (role === 'cook' || role === 'waiter' || role === 'barista') {
     return res.status(403).json({ error: 'Доступ запрещён для данной роли' });
   }
   next();
 }
+
+// ============================================================
+// СТОП-ЛИСТ (ДЛЯ ПЕРСОНАЛА)
+// ============================================================
+
+// GET /api/staff/menu - Получение меню для стоп-листа
+app.get('/api/staff/menu', authMiddleware, async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const categories = await db.category.findMany({
+      where: { restaurantId },
+      orderBy: { orderIndex: 'asc' }
+    });
+    const dishes = await db.dish.findMany({
+      where: { restaurantId },
+      orderBy: { name: 'asc' }
+    });
+    res.json({ categories, items: dishes });
+  } catch (error) {
+    console.error('Ошибка получения меню персоналом:', error.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// PATCH /api/staff/dishes/:id/availability - Обновление доступности блюда
+app.patch('/api/staff/dishes/:id/availability', authMiddleware, async (req, res) => {
+  try {
+    const { isAvailable } = req.body;
+    const { id } = req.params;
+    const restaurantId = req.user.restaurantId;
+
+    const dish = await db.dish.findFirst({
+      where: { id, restaurantId }
+    });
+
+    if (!dish) {
+      return res.status(404).json({ error: 'Блюдо не найдено' });
+    }
+
+    await db.dish.update({
+      where: { id },
+      data: { isAvailable }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка обновления стоп-листа:', error.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 
 // ============================================================
 // EMAIL (SMTP)
@@ -251,8 +305,10 @@ app.post('/api/auth/login', async (req, res) => {
     const roleMap = {
       'cook': 'cook',
       'waiter': 'waiter',
+      'barista': 'barista',
       'Повар': 'cook',
       'Официант': 'waiter',
+      'Бариста': 'barista',
     };
     const normalizedRole = roleMap[staffUser.role] || staffUser.role;
 
@@ -467,7 +523,7 @@ app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
     }
 
     // Нормализуем роль: chef → cook
-    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', admin: 'admin' };
+    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', barista: 'barista', admin: 'admin' };
     const normalizedRole = roleMap[role] || role || 'cook';
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -488,14 +544,16 @@ app.post('/api/staff', authMiddleware, adminOnly, async (req, res) => {
 
     // Отправляем email с учётными данными (не критично — игнорируем ошибку)
     try {
-      await transporter.sendMail({
-        from: `"Achab" <${process.env.SMTP_USER}>`,
+      const restaurantData = await db.restaurant.findUnique({ where: { id: req.user?.restaurantId || restaurantId } }).catch(()=>null);
+        const restName = restaurantData?.name || 'нашу команду';
+        await transporter.sendMail({
+        from: `"${restName}" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Добро пожаловать в команду Achab!',
+        subject: `Добро пожаловать в команду ${restName}!`,
         html: `
           <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
-            <h2>Вас добавили в команду Achab!</h2>
-            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
+            <h2>Вас добавили в команду ${restName}!</h2>
+            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole === 'barista' ? 'Бариста' : normalizedRole}</strong></p>
             <p>Для входа на кухонный экран используйте:</p>
             <ul>
               <li>Email: <b>${email}</b></li>
@@ -720,7 +778,7 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
       return res.status(404).json({ error: 'Ресторан не найден' });
     }
 
-    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', admin: 'admin' };
+    const roleMap = { chef: 'cook', cook: 'cook', waiter: 'waiter', barista: 'barista', admin: 'admin' };
     const normalizedRole = roleMap[role] || role || 'cook';
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -741,15 +799,17 @@ app.post('/api/superadmin/staff', authMiddleware, superAdminOnly, async (req, re
 
     // Отправляем email с учётными данными
     try {
-      await transporter.sendMail({
-        from: `"Achab" <${process.env.SMTP_USER}>`,
+      const restaurantData = await db.restaurant.findUnique({ where: { id: req.user?.restaurantId || restaurantId } }).catch(()=>null);
+        const restName = restaurantData?.name || 'нашу команду';
+        await transporter.sendMail({
+        from: `"${restaurant.name || 'нашу команду'}" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Добро пожаловать в команду Achab!',
+        subject: `Добро пожаловать в команду ${restaurant.name || 'нашу команду'}!`,
         html: `
           <div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
-            <h2>Вас добавили в команду Achab!</h2>
+            <h2>Вас добавили в команду ${restName}!</h2>
             <p>Ресторан: <strong>${restaurant.name || restaurant.email}</strong></p>
-            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole}</strong></p>
+            <p>Роль: <strong>${normalizedRole === 'cook' ? 'Повар' : normalizedRole === 'waiter' ? 'Официант' : normalizedRole === 'barista' ? 'Бариста' : normalizedRole}</strong></p>
             <p>Для входа используйте:</p>
             <ul>
               <li>Email: <b>${email}</b></li>

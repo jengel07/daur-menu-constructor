@@ -43,7 +43,7 @@ import {
 } from 'lucide-vue-next';
 
 let API_URL = (import.meta as any).env.VITE_API_URL;
-if (!API_URL || API_URL.includes('192.168.') || API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
+if (!API_URL || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname) || window.location.hostname === 'localhost') {
   API_URL = `http://${window.location.hostname}:3000`;
 }
 const router = useRouter();

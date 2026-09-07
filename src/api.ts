@@ -4,9 +4,22 @@
  */
 
 let BASE_URL = import.meta.env.VITE_API_URL;
-if (!BASE_URL || BASE_URL.includes('192.168.') || BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')) {
+if (!BASE_URL || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname) || window.location.hostname === 'localhost') {
   BASE_URL = `http://${window.location.hostname}:3000`;
 }
+
+
+// ============================================================
+// STAFF MENU API (STOP-LIST)
+// ============================================================
+export const staffMenuApi = {
+  getMenu: () => request<{ categories: any[]; items: any[] }>('/api/staff/menu'),
+  updateAvailability: (id: string, isAvailable: boolean) => 
+    request<{ success: boolean }>(`/api/staff/dishes/${id}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isAvailable })
+    })
+};
 
 // ============================================================
 // Хелперы для работы с токеном

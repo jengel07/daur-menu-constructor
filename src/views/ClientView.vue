@@ -421,7 +421,7 @@ const hostIP = window.location.hostname;
 let API_URL = (import.meta as any).env.VITE_API_URL;
 // Если VITE_API_URL не задан или это локальный/сетевой IP из .env (который мог измениться), 
 // надежнее использовать реальный hostname (IP-адрес), по которому клиент открыл страницу.
-if (!API_URL || API_URL.includes('192.168.') || API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
+if (!API_URL || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname) || window.location.hostname === 'localhost') {
   API_URL = `http://${hostIP}:3000`;
 }
 const router = useRouter();

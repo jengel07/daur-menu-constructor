@@ -39,7 +39,7 @@ const syncWithServer = async (updatedItems: MenuItem[]) => {
   const restaurantId = currentUser ? JSON.parse(currentUser).restaurantId : null;
   const token = localStorage.getItem('authToken');
   let apiUrl = import.meta.env.VITE_API_URL;
-  if (!apiUrl || apiUrl.includes('192.168.') || apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+  if (!apiUrl || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname) || window.location.hostname === 'localhost') {
     apiUrl = `http://${window.location.hostname}:3000`;
   }
 

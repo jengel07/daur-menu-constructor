@@ -41,7 +41,9 @@ const fixQrUrl = async () => {
 
   const currentUrl = props.modelValue.qrSettings?.url || '';
 
-  if (realRestaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com' || currentUrl.includes('undefined') || currentUrl.includes('localhost'))) {
+  
+  const isOldLocalIp = currentUrl.includes('/client?id=') && !currentUrl.startsWith(window.location.origin);
+  if (realRestaurantId && (!currentUrl || currentUrl.includes('preview=true') || currentUrl === 'https://example.com' || currentUrl.includes('undefined') || currentUrl.includes('localhost') || isOldLocalIp)) {
     
     let origin = window.location.origin;
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
