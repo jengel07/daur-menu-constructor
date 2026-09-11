@@ -18,7 +18,7 @@
       <div class="fs-divider"></div>
 
       <button class="fs-icon-btn" @click="$emit('toggle-view')" title="Режим отображения">
-        <component :is="viewMode === 'grid' ? List : LayoutGrid" :size="20" stroke-width="2" />
+        <component :is="viewMode === 'list' ? LayoutGrid : (viewMode === 'grid' ? Square : List)" :size="20" stroke-width="2" />
       </button>
       <div class="fs-divider"></div>
 
@@ -218,7 +218,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { 
-  Languages, SlidersHorizontal, Share2, LayoutGrid, List, Search, 
+  Languages, SlidersHorizontal, Share2, LayoutGrid, List, Search, Square, 
   Send, PhoneCall, Instagram, Facebook, Globe, Mail, Copy 
 } from 'lucide-vue-next';
 import LanguageModal from './LanguageModal.vue';

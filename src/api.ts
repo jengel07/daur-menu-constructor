@@ -285,3 +285,23 @@ export const superAdminApi = {
       { method: 'POST', body: JSON.stringify(data) }
     ),
 };
+
+
+// ============================================================
+// BANNERS API
+// ============================================================
+export const bannersApi = {
+  getAll: (restaurantId: string) => request<{ banners: any[] }>(`/api/banners/${restaurantId}`),
+  getActive: (restaurantId: string) => request<{ banners: any[] }>(`/api/banners/active/${restaurantId}`, { skipAuth: true }),
+  create: (restaurantId: string, data: { imageUrl: string; targetItemId?: string; order?: number }) => 
+    request<{ banner: any }>(`/api/banners/${restaurantId}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  update: (id: string, data: { isActive?: boolean; targetItemId?: string; order?: number }) =>
+    request<{ banner: any }>(`/api/banners/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    }),
+  remove: (id: string) => request<{ success: boolean }>(`/api/banners/${id}`, { method: 'DELETE' })
+};

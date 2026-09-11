@@ -1,15 +1,11 @@
 const fs = require('fs');
-let content = fs.readFileSync('daur-menu-backend/prisma/schema.prisma', 'utf8');
+const path = 'daur-menu-backend/prisma/schema.prisma';
+let code = fs.readFileSync(path, 'utf8');
 
-const target = `  createdAt     DateTime    @default(now())`;
-const replacement = `  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt @default(now())`;
+code = code.replace(
+  '  banners    PromotionBanner[] ресторана',
+  '  banners    PromotionBanner[]'
+);
 
-if (!content.includes('updatedAt')) {
-  content = content.replace(target, replacement);
-  fs.writeFileSync('daur-menu-backend/prisma/schema.prisma', content);
-  console.log('Added updatedAt to Order model');
-} else {
-  console.log('updatedAt already exists');
-}
-
+fs.writeFileSync(path, code);
+console.log('Fixed schema.prisma');

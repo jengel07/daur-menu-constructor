@@ -22,6 +22,7 @@ export const useMenuStore = defineStore('menu', () => {
     wifiEnabled: true,
     wifiSsid: '',
     wifiPassword: '',
+    yandexReviewLink: 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/',
   });
 
   const userInfo = ref({

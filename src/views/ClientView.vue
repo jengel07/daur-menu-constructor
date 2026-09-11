@@ -10,7 +10,8 @@
         color: restaurantInfo.textColor || '#fff'  
       }">
         
-        <div class="phone-header" :style="{  
+        <div class="phone-body">
+          <div class="phone-header" :style="{  
           backgroundColor: restaurantInfo.secondaryColor || '#333',  
           backgroundImage: restaurantInfo.coverImage  
             ? (restaurantInfo.showCoverGradient !== false  
@@ -29,7 +30,6 @@
           <div class="phone-logo" style="color: #ffffff;">{{ restaurantInfo.name || 'Jazzve' }}</div>
         </div>
 
-        <div class="phone-body">
           
           <div  
             v-if="Boolean(store.generalSettings?.wifiEnabled)"  
@@ -62,6 +62,8 @@
             </div>
           </div>
 
+          <PromoBanners :restaurantId="computedRestaurantId" />
+
           <div class="phone-categories">
             <button  
               class="phone-cat-badge"  
@@ -86,9 +88,9 @@
           <div v-if="filteredItems.length === 0" class="empty-search-notice">
             {{ t('noDishes') }}
           </div>
-          <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : 'menu-items-list-phone'">
-            <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
-              <img v-if="viewMode === 'grid' && item.image" :src="item.image" :alt="getItemName(item)" />
+          <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : (viewMode === 'full' ? 'menu-items-full-phone' : 'menu-items-list-phone')">
+            <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : (viewMode === 'full' ? 'menu-card-full' : 'menu-list-row')">
+              <img v-if="(viewMode === 'grid' || viewMode === 'full') && item.image" :src="item.image" :alt="getItemName(item)" />
               <div class="card-content">
                 <div class="card-text-block">
                   <h3>{{ getItemName(item) }}</h3>
@@ -96,10 +98,10 @@
                     <template v-if="!item.priceBottle && !item.priceGlass">{{ Number(item.price || 0).toFixed(2) }} ₽</template>
                     <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
                   </span>
-                  <p v-if="viewMode === 'grid' && getItemDescription(item)">{{ getItemDescription(item) }}</p>
+                  <p v-if="(viewMode === 'grid' || viewMode === 'full') && getItemDescription(item)">{{ getItemDescription(item) }}</p>
                 </div>
                 <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
-                  <span v-if="viewMode === 'grid'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+                  <span v-if="viewMode === 'grid' || viewMode === 'full'" class="price" :style="{ color: restaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
                     <template v-if="!item.priceBottle && !item.priceGlass">
                       {{ Number(item.price || 0).toFixed(2) }} ₽
                     </template>
@@ -265,6 +267,8 @@
                   <textarea v-model="customerForm.comment" :placeholder="tDyn('Напр., соусы отдельно? всё в один пакет?')"></textarea>
                 </div>
 
+
+
                 <div class="checkout-summary">
                   <span>{{ tDyn('Итого к оплате:') }}</span>
                   <strong>{{ totalPrice.toFixed(2) }} ₽</strong>
@@ -376,6 +380,9 @@
                   {{ tDyn('Размещая заказ, вы соглашаетесь на обработку ваших данных для его выполнения.') }}
                 </div>
 
+
+                
+
                 <div class="review-actions-row">
                   <button class="btn-secondary-action" @click="checkoutStep = 1">{{ tDyn('Назад') }}</button>
                   <button class="btn-primary-action" @click="confirmOrder" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff' }">
@@ -388,13 +395,93 @@
           </div>
         </div>
 
-          <div v-if="activeOrderId && !showCheckoutModal" class="floating-order-bar" :class="'status-' + activeOrderStatus">
-            <div class="order-bar-text">
-              <strong>Заказ #{{ activeOrderNumber || activeOrderId.slice(-4) }}</strong>
-              <span>{{ getOrderStatusText() }}</span>
+          
+          <div v-if="activeOrderId && !showCheckoutModal" class="active-order-container" style="position: absolute; top: 15px; left: 12px; right: 12px; bottom: 80px; z-index: 20; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding-bottom: 16px; scrollbar-width: none;">
+            <div class="floating-order-bar" @click="isOrderExpanded = !isOrderExpanded">
+              <div class="order-bar-icon-wrapper" :class="'status-' + activeOrderStatus">
+                <Clock v-if="activeOrderStatus === 'new'" :size="20" stroke-width="2" />
+                <ChefHat v-else-if="activeOrderStatus === 'progress'" :size="20" stroke-width="2" />
+                <CheckCircle v-else-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived'" :size="20" stroke-width="2" />
+                <XCircle v-else :size="20" stroke-width="2" />
+              </div>
+              <div class="order-bar-text">
+                <strong>{{ tDyn('Заказ') }} #{{ activeOrderNumber || activeOrderId.slice(-4) }}</strong>
+                <span>{{ getOrderStatusText() }}</span>
+              </div>
+              <div class="order-bar-right">
+                <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click.stop="clearActiveOrder">
+                  <X :size="14" stroke-width="3" />
+                </button>
+                <ChevronDown class="order-bar-chevron" :class="{ 'expanded': isOrderExpanded }" :size="20" />
+              </div>
             </div>
-            <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click="clearActiveOrder">✕</button>
+
+              <div v-if="isOrderExpanded && activeOrderData" class="order-receipt-card" style="margin-top: 8px;">
+                <div class="receipt-header">
+                  <strong>{{ tDyn('Чек заказа') }}</strong>
+                  <span>{{ new Date(activeOrderData.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</span>
+                </div>
+                <div class="receipt-items">
+                  <div v-for="item in activeOrderData.items" :key="item.id" class="receipt-item">
+                    <span class="r-name">{{ item.quantity }}x {{ item.name }}</span>
+                    <span class="r-price">{{ Number(item.price * item.quantity).toFixed(2) }} ₽</span>
+                  </div>
+                </div>
+                <div class="receipt-total">
+                  <span>{{ tDyn('Итого') }}</span>
+                  <span>{{ Number(activeOrderData.totalPrice).toFixed(2) }} ₽</span>
+                </div>
+              </div>
+
+            
+            <div v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived'" style="animation: fadeIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 16px;">
+              <div class="feedback-widget">
+                  <div class="feedback-title">{{ tDyn('Вам все понравилось?') }}</div>
+                  <div class="stars-container">
+                    <Star 
+                      v-for="i in 5" :key="i"
+                      :class="['star-icon', { 'filled': i <= orderRating }]"
+                      @click="orderRating = i"
+                    />
+                  </div>
+                  
+                  <div v-if="orderRating > 0 && !feedbackSubmitted" class="feedback-details-section">
+                      <div class="feedback-subtitle">{{ tDyn('Что именно вам особенно понравилось или не понравилось?') }}</div>
+                      <div class="feedback-options-scroll">
+                        <div 
+                          v-for="opt in feedbackOptions" :key="opt.id"
+                          class="feedback-option-card"
+                          :class="{ 'selected': orderFeedback.includes(opt.id) }"
+                          @click.prevent="toggleFeedback(opt.id)"
+                        >
+                          <component :is="opt.icon" class="feedback-opt-icon" />
+                          <span class="feedback-opt-label">{{ tDyn(opt.label) }}</span>
+                        </div>
+                      </div>
+                      
+                      <textarea v-model="orderFeedbackText" class="feedback-textarea" :placeholder="tDyn('Расскажите подробнее...')"></textarea>
+                      <button class="feedback-submit-btn" @click="submitFeedback">{{ tDyn('Отправить отзыв') }}</button>
+                      
+                      <div v-if="orderRating >= 4" class="yandex-review-prompt">
+                        <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
+                          Оставить отзыв на Яндекс Картах
+                        </a>
+                      </div>
+                    </div>
+                    <div v-if="feedbackSubmitted" class="feedback-success-msg">
+                      {{ tDyn('Спасибо за ваш отзыв!') }}
+                      
+                      <div v-if="orderRating >= 4" class="yandex-review-prompt" style="margin-top: 12px;">
+                        <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
+                          Оставить отзыв на Яндекс Картах
+                        </a>
+                      </div>
+
+                    </div>
+                  </div>
+            </div>
           </div>
+    
 
         <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
@@ -411,10 +498,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
+
+const computedRestaurantId = computed(() => {
+  try {
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    return (store.restaurantInfo as any)?.id || (store.restaurantInfo as any)?.restaurantId || user.restaurantId;
+  } catch (e) {
+    return (store.restaurantInfo as any)?.id || (store.restaurantInfo as any)?.restaurantId;
+  }
+});
 import { useRouter } from 'vue-router';
 import { useMenuStore } from '../store/menuStore';
+import PromoBanners from '../components/client/PromoBanners.vue';
 import SettingsbarForClient from '../components/SettingsbarForClient.vue';
-import { ShoppingCart } from 'lucide-vue-next';
+import { ShoppingCart, Star, ConciergeBell, ClipboardCheck, Armchair, Clock, ChefHat, CheckCircle, XCircle, ChevronDown, X } from 'lucide-vue-next';
 
 // Динамическое определение IP-адреса хоста
 const hostIP = window.location.hostname;
@@ -466,7 +563,7 @@ const categories = computed(() => store.categories);
 
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
-const viewMode = ref<'grid' | 'list'>('list');
+const viewMode = ref<'grid' | 'list' | 'full'>('full');
 const activeModal = ref<'none' | 'cart' | 'filters' | 'search' | 'share' | 'language' | 'variant'>('none');
 const selectedVariantItem = ref<any>(null);
 const openVariantModal = (item: any) => { selectedVariantItem.value = item; activeModal.value = 'variant'; };
@@ -488,6 +585,43 @@ const getCurrentTimeStr = () => {
 
 const showCheckoutModal = ref(false);
 const checkoutStep = ref<1 | 2>(1);
+
+const orderRating = ref(0);
+const orderFeedback = ref<string[]>([]);
+  const orderFeedbackText = ref<string>('');
+  const feedbackSubmitted = ref<boolean>(false);
+const feedbackOptions = [
+  { id: 'kitchen', label: 'Кухня', icon: ConciergeBell },
+  { id: 'service', label: 'Обслуживание', icon: ClipboardCheck },
+  { id: 'interior', label: 'Интерьер', icon: Armchair }
+];
+
+  const submitFeedback = async () => {
+    if (!activeOrderId.value || !orderRating.value) return;
+    try {
+      const fbStr = orderFeedback.value.length > 0 ? `[${orderFeedback.value.join(', ')}] ` : '';
+      const fullText = fbStr + orderFeedbackText.value;
+      
+      const res = await fetch(`${API_URL}/api/orders/${activeOrderId.value}/feedback`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: orderRating.value, feedback: fullText })
+      });
+      if (res.ok) {
+        feedbackSubmitted.value = true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleFeedback = (id: string) => {
+  if (orderFeedback.value.includes(id)) {
+    orderFeedback.value = orderFeedback.value.filter(x => x !== id);
+  } else {
+    orderFeedback.value.push(id);
+  }
+};
 
 const customerForm = ref({
   name: '',
@@ -698,6 +832,8 @@ onUnmounted(() => {
 const activeOrderId = ref<string | null>(null);
 const activeOrderNumber = ref<string | null>(null);
 const activeOrderStatus = ref<string>('new');
+const activeOrderData = ref<any>(null);
+const isOrderExpanded = ref<boolean>(false);
 let orderPollInterval: any = null;
 
 const startOrderPolling = () => {
@@ -713,14 +849,11 @@ const pollOrderStatus = async () => {
     if (res.ok) {
       const order = await res.json();
       activeOrderStatus.value = order.status;
+        activeOrderData.value = order;
       activeOrderNumber.value = order.orderNumber || activeOrderId.value.slice(-4);
       if (order.status === 'done' || order.status === 'archived' || order.status === 'cancelled') {
         clearInterval(orderPollInterval);
-        setTimeout(() => {
-          activeOrderId.value = null;
-          activeOrderNumber.value = null;
-          localStorage.removeItem('active_order_id');
-        }, 30000); // прячем через 30 сек после завершения
+        // Auto-close removed so user can leave feedback // прячем через 30 сек после завершения
       }
     }
   } catch (err) {
@@ -732,6 +865,8 @@ const clearActiveOrder = () => {
   activeOrderId.value = null;
   activeOrderNumber.value = null;
   activeOrderStatus.value = 'new';
+    activeOrderData.value = null;
+    isOrderExpanded.value = false;
   localStorage.removeItem('active_order_id');
   if (orderPollInterval) clearInterval(orderPollInterval);
 };
@@ -892,7 +1027,8 @@ const confirmOrder = async () => {
     activeOrderId.value = result.orderId;
     activeOrderNumber.value = result.order?.orderNumber || result.orderId.slice(-4);
     activeOrderStatus.value = 'new';
-    startOrderPolling();
+      activeOrderData.value = result.order;
+      startOrderPolling();
 
     cartItems.value = [];
     closeModal();
@@ -919,8 +1055,10 @@ const selectLanguage = (lang: string) => {
 };
 
 const toggleViewMode = () => {
-  viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid';
-};
+    if (viewMode.value === 'list') viewMode.value = 'grid';
+    else if (viewMode.value === 'grid') viewMode.value = 'full';
+    else viewMode.value = 'list';
+  };
 
 const goToConstructor = () => {
   router.push('/constructor');
@@ -946,8 +1084,8 @@ const goToConstructor = () => {
 .phone-mockup { width: 330px; max-width: 100vw; height: 90vh; max-height: 750px; background: #000; border: 10px solid #2a2a2a; border-radius: 36px; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 15px 40px rgba(0,0,0,0.35); box-sizing: border-box; }
 @media (max-width: 600px) { .phone-mockup { width: 100vw; height: 100vh; height: 100dvh; max-height: none; border: none; border-radius: 0; box-shadow: none; } }
 .phone-screen { display: flex; flex-direction: column; height: 100%; position: relative; overflow: hidden; }
-.phone-header { height: 110px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; color: white; text-align: center; }
-.phone-body { flex: 1; padding: 10px; overflow-y: auto; padding-bottom: 95px; }
+.phone-header { height: 110px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; color: white; text-align: center; margin: 0 -10px 10px -10px; }
+.phone-body { flex: 1; padding: 0 10px 95px 10px; overflow-y: auto; }
 .phone-avatar-wrapper { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #fff; background: #333; overflow: hidden; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; }
 .phone-logo { font-weight: bold; font-size: 13px; text-shadow: 0 0 4px rgba(0,0,0,0.5); }
 .phone-categories { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
@@ -976,15 +1114,74 @@ const goToConstructor = () => {
 .menu-list-row .add-to-cart-btn { padding: 6px 0; font-size: 10px; }
 .menu-list-row .counter-controls { padding: 4px 8px; }
 .floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
-.floating-order-bar { position: absolute; top: 115px; left: 12px; right: 12px; color: white; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.3); box-sizing: border-box; transition: background 0.3s ease; }
-.floating-order-bar.status-new { background: #3b82f6; }
-.floating-order-bar.status-progress { background: #f59e0b; }
-.floating-order-bar.status-done { background: #10b981; }
-.floating-order-bar.status-archived { background: #6b7280; }
-.floating-order-bar.status-cancelled { background: #ef4444; }
-.order-bar-text { display: flex; flex-direction: column; gap: 2px; }
-.order-bar-text strong { font-size: 12px; }
-.close-order-btn { background: rgba(0,0,0,0.2); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.floating-order-bar {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 20;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+.order-bar-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.order-bar-icon-wrapper.status-new { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+.order-bar-icon-wrapper.status-progress { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+.order-bar-icon-wrapper.status-done { background: linear-gradient(135deg, #34d399, #10b981); }
+.order-bar-icon-wrapper.status-archived { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+.order-bar-icon-wrapper.status-cancelled { background: linear-gradient(135deg, #f87171, #ef4444); }
+
+.order-bar-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.order-bar-text strong { font-size: 14px; color: #111; }
+.order-bar-text span { font-size: 11px; color: #6b7280; font-weight: 600; line-height: 1.2; }
+
+.order-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.order-bar-chevron {
+  color: #9ca3af;
+  transition: transform 0.3s ease;
+}
+.order-bar-chevron.expanded {
+  transform: rotate(180deg);
+}
+.close-order-btn {
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0;
+}
+.close-order-btn:hover { background: #e2e8f0; color: #334155; }
+
 .empty-search-notice { text-align: center; font-size: 10px; margin-top: 25px; color: #888; }
 .checkout-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: flex-end; }
 .checkout-modal { background: #f4f5f7; color: #111; width: 100%; max-height: 92%; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; overflow-y: auto; animation: slideUp 0.3s ease-out; }
@@ -1026,4 +1223,235 @@ const goToConstructor = () => {
 .review-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-secondary-action { flex: 1; background: #e2e8f0; color: #333; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
 .btn-primary-action { flex: 2; color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
+.feedback-widget {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 10px;
+  text-align: center;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.feedback-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 12px;
+}
+.stars-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.star-icon {
+  width: 32px;
+  height: 32px;
+  color: #e2e8f0;
+  fill: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.star-icon.filled {
+  color: #facc15;
+  fill: #facc15;
+}
+.feedback-details-section {
+  margin-top: 16px;
+  animation: fadeIn 0.3s ease;
+}
+.feedback-subtitle {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.feedback-options-scroll {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.feedback-options-scroll::-webkit-scrollbar {
+  display: none;
+}
+.feedback-option-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 90px;
+  height: 75px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 8px;
+}
+.feedback-option-card.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.feedback-option-card.selected .feedback-opt-icon {
+  color: #1d4ed8;
+}
+.feedback-opt-icon {
+  width: 24px;
+  height: 24px;
+  color: #475569;
+}
+.feedback-opt-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.yandex-review-prompt {
+  margin-top: 16px;
+  animation: fadeIn 0.3s ease;
+}
+.yandex-review-btn {
+  display: inline-block;
+  background: #fc3f1d;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  text-decoration: none;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+.menu-items-full-phone { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 100px; }
+.menu-card-full {
+  background: #ffffff;
+  color: #111111;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.menu-card-full img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.menu-card-full .card-content {
+  padding: 12px 4px 4px;
+}
+.menu-card-full .card-text-block h3 {
+  font-size: 15px;
+  margin: 0 0 6px 0;
+  font-weight: bold;
+}
+.menu-card-full .card-text-block p {
+  font-size: 12px;
+  color: #555;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+.menu-card-full .card-bottom-row {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.menu-card-full .add-to-cart-btn {
+  width: auto;
+  padding: 8px 20px;
+  font-size: 12px;
+}
+.menu-card-full .counter-controls {
+  width: auto;
+  min-width: 90px;
+}
+.order-receipt-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  color: #111;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  animation: fadeIn 0.2s ease;
+}
+.receipt-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #555;
+}
+.receipt-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.receipt-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.receipt-item .r-name {
+  flex: 1;
+  padding-right: 10px;
+}
+.receipt-item .r-price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.receipt-total {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px dashed #ccc;
+  padding-top: 12px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.feedback-textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 12px;
+  min-height: 60px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.feedback-submit-btn {
+  width: 100%;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.feedback-success-msg {
+  color: #10b981;
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 12px;
+}
 </style>
+

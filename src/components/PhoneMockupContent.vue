@@ -11,7 +11,8 @@
           <div class="phone-screen">
             <!-- Тот же самый контент телефона -->
             <template v-if="currentScreen === 'menu'">
-              <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
+              <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
+            <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
                 cursor: 'pointer', 
                 backgroundColor: currentRestaurantInfo.secondaryColor, 
                 backgroundImage: currentRestaurantInfo.coverImage 
@@ -30,8 +31,7 @@
                 </div>
                 <div class="phone-logo">{{ currentRestaurantInfo.name || t('restaurantName') }}</div>
               </div>
-              
-              <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
+
                 <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
                   <div 
                     class="qr-card-preview" 
@@ -72,7 +72,8 @@
                   </div>
 
                   <!-- Категории меню -->
-                  <div class="phone-categories">
+                  <PromoBanners :restaurantId="computedRestaurantId" />
+                    <div class="phone-categories">
                     <button 
                       class="phone-cat-badge" 
                       :class="{ active: selectedCategory === null }"
@@ -97,8 +98,8 @@
                     {{ t('emptySearch') }}
                   </div>
 
-                  <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : 'menu-items-list-phone'">
-                    <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : 'menu-list-row'">
+                  <div v-else :class="viewMode === 'grid' ? 'menu-items-grid-phone' : (viewMode === 'full' ? 'menu-items-full-phone' : 'menu-items-list-phone')">
+                    <div v-for="item in filteredItems" :key="item.id" :class="viewMode === 'grid' ? 'menu-card' : (viewMode === 'full' ? 'menu-card-full' : 'menu-list-row')">
                       <img v-if="viewMode === 'grid'" :src="item.image || 'placeholder.jpg'" alt="Блюдо" />
                       <div class="card-content">
                         <div class="card-text-block">
@@ -109,7 +110,7 @@
                           </span>
                         </div>
                         <div class="card-bottom-row" style="flex-direction: column; gap: 8px;">
-                          <span v-if="viewMode === 'grid'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+                          <span v-if="viewMode === 'grid' || viewMode === 'full'" class="price" :style="{ color: currentRestaurantInfo.primaryColor || '#646cff', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }">
                             <template v-if="!item.priceBottle && !item.priceGlass">
                               {{ Number(item.price || 0).toFixed(2) }} ₽
                             </template>
@@ -177,6 +178,7 @@
         
         <!-- ЭКРАН МЕНЮ -->
         <template v-if="currentScreen === 'menu'">
+          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
           <div class="phone-header" @click="triggerFileUpload('cover')" :style="{ 
             cursor: 'pointer', 
             backgroundColor: currentRestaurantInfo.secondaryColor, 
@@ -196,8 +198,7 @@
             </div>
             <div class="phone-logo">{{ currentRestaurantInfo.name || t('restaurantName') }}</div>
           </div>
-          
-          <div class="phone-body" @scroll="handlePhoneScroll" :style="{ backgroundColor: currentRestaurantInfo.backgroundColor, color: currentRestaurantInfo.textColor }">
+
             <div v-if="activeTab === 'qrcode'" class="phone-qr-preview">
               <div 
                 class="qr-card-preview" 
@@ -238,7 +239,8 @@
               </div>
 
               <!-- Категории меню -->
-              <div class="phone-categories">
+              <PromoBanners :restaurantId="computedRestaurantId" />
+                    <div class="phone-categories">
                 <button 
                   class="phone-cat-badge" 
                   :class="{ active: selectedCategory === null }"
@@ -381,7 +383,17 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue';
+
+const computedRestaurantId = computed(() => {
+  try {
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    return props.restaurantInfo?.id || props.restaurantInfo?.restaurantId || user.restaurantId;
+  } catch (e) {
+    return props.restaurantInfo?.id || props.restaurantInfo?.restaurantId;
+  }
+});
 import QrcodeVue from 'qrcode.vue';
+import PromoBanners from './client/PromoBanners.vue';
 
 import SettingsbarForClient from './SettingsbarForClient.vue';
 
@@ -769,4 +781,51 @@ const openPreview = () => {
 .fullscreen-phone-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 20px; }
 .phone-mockup.fullscreen-mode { transform: scale(1.1); }
 .floating-cart-bar { position: absolute; bottom: calc(12px + 45px + 4px); left: 12px; right: 12px; color: white; border-radius: 24px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
+.menu-items-full-phone { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 100px; }
+.menu-card-full {
+  background: #ffffff;
+  color: #111111;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.menu-card-full img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.menu-card-full .card-content {
+  padding: 12px 4px 4px;
+}
+.menu-card-full .card-text-block h3 {
+  font-size: 15px;
+  margin: 0 0 6px 0;
+  font-weight: bold;
+}
+.menu-card-full .card-text-block p {
+  font-size: 12px;
+  color: #555;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+.menu-card-full .card-bottom-row {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.menu-card-full .add-to-cart-btn {
+  width: auto;
+  padding: 8px 20px;
+  font-size: 12px;
+}
+.menu-card-full .counter-controls {
+  width: auto;
+  min-width: 90px;
+}
 </style>

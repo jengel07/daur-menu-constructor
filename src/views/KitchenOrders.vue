@@ -24,16 +24,20 @@
       </div>
 
       <div class="k-header-actions">
-        <button class="k-btn-refresh" style="background: #eab308; color: #000;" @click="showStopList = true">
-          🛑 Стоп-лист
+        <button class="k-btn-icon btn-stoplist" @click="showStopList = true" title="Стоп-лист">
+          <AlertOctagon :size="18" />
+          <span class="btn-text">Стоп-лист</span>
         </button>
         <button class="k-btn-icon" :title="isLight ? 'Тёмная тема' : 'Светлая тема'" @click="isLight = !isLight">
-          {{ isLight ? '🌙' : '☀️' }}
+          <Moon v-if="isLight" :size="18" />
+          <Sun v-else :size="18" />
         </button>
-        <button class="k-btn-refresh" :class="{ rotating: loading }" @click="fetchOrders">
-          🔄 Обновить
+        <button class="k-btn-icon" :class="{ rotating: loading }" @click="fetchOrders" title="Обновить">
+          <RefreshCw :size="18" />
         </button>
-        <button class="k-btn-logout" @click="logout">Выйти</button>
+        <button class="k-btn-icon btn-logout" @click="logout" title="Выйти">
+          <LogOut :size="18" />
+        </button>
       </div>
     </header>
 
@@ -234,6 +238,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { LogOut, RefreshCw, Moon, Sun, AlertOctagon } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { ordersApi } from '../api'
 import StopListModal from '../components/kitchen/StopListModal.vue'
@@ -467,56 +472,79 @@ onUnmounted(() => {
 .k-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 24px;
+  justify-content: space-between;
+  padding: 12px 20px;
   background: #1a1d2e;
   border-bottom: 1px solid #2d3148;
-  flex-wrap: wrap;
+  gap: 16px;
 }
-.light-theme .k-header {
-  background: #fff;
-  border-color: #e2e5f0;
-}
-.k-title-block { display: flex; align-items: center; gap: 12px; min-width: 200px; }
-.k-logo { font-size: 28px; }
-.k-title { font-size: 18px; font-weight: 700; margin: 0; }
-.k-role  { font-size: 12px; color: #8b90b5; }
+.light-theme .k-header { background: #fff; border-color: #e2e5f0; }
+.k-title-block { display: flex; align-items: center; gap: 12px; }
+.k-logo { font-size: 24px; }
+.k-title { font-size: 16px; font-weight: 700; margin: 0; white-space: nowrap; }
+.k-role { font-size: 11px; color: #8b90b5; white-space: nowrap; }
 .light-theme .k-role { color: #6b7080; }
-.k-tabs { display: flex; gap: 8px; flex: 1; justify-content: center; flex-wrap: wrap; }
+
+.k-tabs { 
+  display: flex; 
+  gap: 8px; 
+  flex: 1; 
+  overflow-x: auto; 
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.k-tabs::-webkit-scrollbar { display: none; }
 .k-tab {
   display: flex; align-items: center; gap: 6px;
-  padding: 7px 16px;
+  padding: 8px 14px;
   border: 1.5px solid transparent;
-  border-radius: 20px;
+  border-radius: 24px;
   cursor: pointer;
   font-size: 13px; font-weight: 600;
   background: #23263b; color: #8b90b5;
   transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .light-theme .k-tab { background: #f0f2f8; color: #6b7080; }
 .k-tab-count {
   background: #333660; color: #fff;
-  border-radius: 10px; padding: 1px 7px; font-size: 11px;
+  border-radius: 12px; padding: 2px 6px; font-size: 11px;
 }
-.k-tab.new.active       { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,.12); }
-.k-tab.progress.active  { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,.12); }
-.k-tab.done.active      { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,.12); }
+.k-tab.new.active { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,.12); }
+.k-tab.progress.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,.12); }
+.k-tab.done.active { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,.12); }
 .k-tab.cancelled.active { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.12); }
-.k-header-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+
+.k-header-actions { display: flex; gap: 8px; align-items: center; }
 .k-btn-icon {
-  background: none; border: 1.5px solid #333660;
-  border-radius: 8px; width: 36px; height: 36px; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: #23263b; border: 1px solid #333660; color: #8b90b5;
+  border-radius: 10px; padding: 8px; font-size: 13px; cursor: pointer;
+  transition: all 0.2s;
 }
-.k-btn-refresh {
-  background: #1e40af; color: #fff; border: none;
-  border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
-}
-.k-btn-refresh.rotating { animation: spin 1s linear infinite; }
+.light-theme .k-btn-icon { background: #f0f2f8; border-color: #e2e5f0; color: #475569; }
+.k-btn-icon:hover { background: #2d3148; color: #fff; }
+.light-theme .k-btn-icon:hover { background: #e2e8f0; color: #0f172a; }
+
+.btn-stoplist { background: rgba(245,158,11,.1); color: #f59e0b; border-color: rgba(245,158,11,.3); padding: 8px 12px; }
+.btn-stoplist:hover { background: rgba(245,158,11,.2) !important; color: #f59e0b !important; }
+.btn-logout { background: rgba(239,68,68,.1); color: #ef4444; border-color: rgba(239,68,68,.3); }
+.btn-logout:hover { background: rgba(239,68,68,.2) !important; color: #ef4444 !important; }
+
+.k-btn-icon.rotating svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.k-btn-logout {
-  background: #7f1d1d; color: #fca5a5; border: none;
-  border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+
+/* Mobile layout adjustments */
+@media (max-width: 768px) {
+  .k-header { flex-direction: column; align-items: stretch; padding: 16px; gap: 16px; }
+  .k-title-block { justify-content: space-between; }
+  .k-header-actions { justify-content: space-between; }
+  .btn-text { display: none; }
+  .k-btn-icon { flex: 1; padding: 10px; }
+  .k-tabs { padding-bottom: 4px; }
 }
+
 .k-autorefresh-bar {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 24px; font-size: 11px; color: #6b7280;

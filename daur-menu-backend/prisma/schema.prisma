@@ -18,7 +18,8 @@ model Restaurant {
   staff      Staff[]
   orders     Order[]
   dishes     Dish[]     // Связь с блюдами ресторана
-  categories Category[] // Связь с категориями ресторана
+  categories Category[] // Связь с категориями
+  banners    PromotionBanner[]
 }
 
 model Menu {
@@ -104,6 +105,8 @@ model Order {
   comment       String?
   rejectionNote String?
   totalPrice    Float
+  rating        Int?
+  feedback      String?     @db.Text
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt @default(now())
   restaurantId  String
@@ -120,4 +123,15 @@ model OrderItem {
   name     String
   price    Float
   quantity Int
+}
+model PromotionBanner {
+  id           String     @id @default(uuid())
+  imageUrl     String     @db.Text
+  isActive     Boolean    @default(true)
+  targetItemId String?
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }

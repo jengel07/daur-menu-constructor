@@ -16,8 +16,10 @@ import ColorEditor from './components/ColorEditor.vue';
 import QrCodeEditor from './components/QrCodeEditor.vue';
 import OrderSettingsEditor from './components/OrderSettingsEditor.vue';
 import PhoneMockupContent from './components/PhoneMockupContent.vue';
+import BannerManager from './components/admin/BannerManager.vue';
 
 import {
+  Image as ImageIcon,
   UtensilsCrossed,
   Palette,
   Sparkles,
@@ -49,7 +51,7 @@ if (!API_URL || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname)
 const router = useRouter();
 const menuStore = useMenuStore();
 
-const activeTab = ref<'navigation' | 'colors' | 'branding' | 'general' | 'qrcode' | 'orders'>('navigation');
+const activeTab = ref<'navigation' | 'colors' | 'branding' | 'banners' | 'general' | 'qrcode' | 'orders'>('navigation');
 const isLightTheme = ref(false);
 const hasImported = ref(true);
 const isInitialLoading = ref(true);
@@ -557,17 +559,18 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
         </div>
 
         <nav class="sidebar-menu">
-          <button v-for="tab in ['navigation', 'colors', 'branding', 'general', 'qrcode', 'orders']" :key="tab"
+          <button v-for="tab in ['navigation', 'colors', 'branding', 'banners', 'general', 'qrcode', 'orders']" :key="tab"
             class="menu-btn" :class="{ active: activeTab === tab }" @click="activeTab = tab as any">
             <span class="icon" style="display: flex; align-items: center;">
               <UtensilsCrossed v-if="tab === 'navigation'" :size="18" stroke-width="2" />
               <Palette v-else-if="tab === 'colors'" :size="18" stroke-width="2" />
               <Sparkles v-else-if="tab === 'branding'" :size="18" stroke-width="2" />
+                <ImageIcon v-else-if="tab === 'banners'" :size="18" stroke-width="2" />
               <FileText v-else-if="tab === 'general'" :size="18" stroke-width="2" />
               <QrCode v-else-if="tab === 'qrcode'" :size="18" stroke-width="2" />
               <ClipboardList v-else-if="tab === 'orders'" :size="18" stroke-width="2" />
             </span>
-            {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'general' ? 'Общие данные' : tab === 'qrcode' ? 'QR-код меню' : 'Настройка заказов' }}
+            {{ tab === 'navigation' ? 'Навигация и блюда' : tab === 'colors' ? 'Цвета интерфейса' : tab === 'branding' ? 'Брендинг и лого' : tab === 'banners' ? 'Баннеры' : tab === 'banners' ? 'Баннеры' : tab === 'general' ? 'Общие данные' : tab === 'qrcode' ? 'QR-код меню' : 'Настройка заказов' }}
           </button>
         </nav>
 
@@ -598,6 +601,7 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
             @update-categories="(cats) => { menuStore.updateCategories(cats); syncToTableStorage(); }" />
           <BrandingEditor v-else-if="activeTab === 'branding'" :model-value="menuStore.restaurantInfo"
             @update:model-value="updateRestaurantInfo" />
+          <BannerManager v-else-if="activeTab === 'banners'" :restaurantId="(menuStore.restaurantInfo as any).id || (menuStore.restaurantInfo as any).restaurantId || JSON.parse(localStorage.getItem('currentUser') || '{}').restaurantId" />
           <GeneralSettings v-else-if="activeTab === 'general'" :model-value="menuStore.restaurantInfo"
             @update:model-value="updateRestaurantInfo" />
           <ColorEditor v-else-if="activeTab === 'colors'" :model-value="menuStore.restaurantInfo"
@@ -651,6 +655,7 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
               <span>Персонал</span>
               <span v-if="staff.length > 0" class="smenu-badge smenu-badge-grey">{{ staff.length }}</span>
             </button>
+            
             <button class="smenu-nav-item" @click="openSidebarView('payment')">
               <CreditCard :size="18" />
               <span>Оплата</span>
@@ -750,7 +755,9 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
         </template>
 
         <!-- ══ STAFF VIEW ══ -->
-        <template v-else-if="sidebarView === 'staff'">
+        
+        
+<template v-else-if="sidebarView === 'staff'">
           <div class="smenu-scrollable">
             <!-- Ошибка -->
             <div v-if="staffError" class="smenu-error-msg">⚠️ {{ staffError }}</div>

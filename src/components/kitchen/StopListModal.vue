@@ -108,7 +108,7 @@ const close = () => {
   emit('close');
 };
 
-const getDishesForCategory = (categoryId: string) => {
+const getDishesForCategory = (categoryId: string | null) => {
   let list = items.value.filter(i => i.categoryId === categoryId);
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
@@ -118,7 +118,12 @@ const getDishesForCategory = (categoryId: string) => {
 };
 
 const filteredCategories = computed(() => {
-  return categories.value.filter(cat => getDishesForCategory(cat.id).length > 0);
+  const cats = categories.value.filter(cat => getDishesForCategory(cat.id).length > 0);
+  const uncategorized = items.value.filter(i => !i.categoryId);
+  if (uncategorized.length > 0) {
+    cats.push({ id: null, name: 'Без категории' });
+  }
+  return cats;
 });
 
 const toggleAvailability = async (dish: any) => {
