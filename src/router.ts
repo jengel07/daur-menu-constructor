@@ -72,7 +72,7 @@ const SUPER_ADMIN_EMAIL = 'geller.9797@mail.ru';
 router.beforeEach((to, _from, next) => {
   const authenticated = isAuthenticated();
   const role = getUserRole(); // 'admin' | 'cook' | 'waiter' | null
-  const isStaffRole = role === 'cook' || role === 'waiter';
+  const isStaffRole = role === 'cook' || role === 'waiter' || role === 'barista';
 
   // Достаем email текущего пользователя из localStorage
   let userEmail = '';

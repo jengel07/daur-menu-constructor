@@ -580,6 +580,7 @@ app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) 
         });
 
         if (items.length > 0) {
+          console.log("First item modifiers received:", items[0] && items[0].modifiers);
           const formattedDishes = items.map(dish => ({
             id: dish.id, // Сохраняем оригинальный ID для корзины и фронта
             name: dish.name || 'Без названия',
@@ -597,7 +598,8 @@ app.post('/api/menu/:restaurantId', authMiddleware, adminOnly, async (req, res) 
             noLactose: dish.noLactose ?? dish.lactoseFree ?? false,
             noGluten: dish.noGluten ?? dish.glutenFree ?? false,
             vegetarian: dish.vegetarian ?? false,
-            vegan: dish.vegan ?? false
+            vegan: dish.vegan ?? false,
+              modifiers: dish.modifiers || null
           }));
 
           await tx.dish.createMany({

@@ -1,17 +1,10 @@
 const fs = require('fs');
-const path = 'src/Constructor.vue';
-let code = fs.readFileSync(path, 'utf8');
+let code = fs.readFileSync('src/views/ClientView.vue', 'utf8');
 
 code = code.replace(
-  "import {\n  Image as ImageIcon, useRouter } from 'vue-router';",
-  "import { useRouter } from 'vue-router';"
+  "import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';",
+  "import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue';"
 );
 
-code = code.replace(
-  "import {\n  UtensilsCrossed,",
-  "import {\n  Image as ImageIcon,\n  UtensilsCrossed,"
-);
-
-fs.writeFileSync(path, code);
-console.log('Fixed Constructor.vue imports');
-
+fs.writeFileSync('src/views/ClientView.vue', code);
+console.log('Added watch to imports');

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ModifiersEditor from './ModifiersEditor.vue';
 import { ref, computed } from 'vue';
 import type { MenuItem, MenuCategory } from '../types/menu';
 import axios from 'axios';
@@ -16,6 +17,7 @@ import { compressDishImage } from "../composables/useImageCompressor";
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const isImageLoading = ref(false);
+const showModifiersModal = ref(false);
 const imageLoadError = ref<string | null>(null);
 
 const props = defineProps<{
@@ -29,6 +31,22 @@ const emit = defineEmits<{
 }>();
 
 // Синхронизация с сервером (с привязкой к ID ресторана)
+
+  const promptNewCategory = () => {
+    const name = prompt('Введите название новой категории:');
+    if (!name || !name.trim()) return;
+    const newCat = {
+      id: 'cat-' + Date.now(),
+      name: name.trim(),
+      orderIndex: props.categories ? props.categories.length : 0
+    };
+    const newCats = [...(props.categories || []), newCat];
+    emit('update-categories', newCats);
+    if (editingItem.value) {
+      editingItem.value.categoryId = newCat.id;
+    }
+  };
+  
 const syncWithServer = async (updatedItems: MenuItem[]) => {
   const dataToSave = {
     cats: props.categories,
@@ -288,7 +306,8 @@ const closeModal = () => {
 
         <div class="card-footer">
           <span class="item-price">
-            <template v-if="!item.priceBottle && !item.priceGlass">{{ item.price }} ₽</template>
+            <template v-if="!item.priceBottle && !item.priceGlass">{{ item.price }} ₽  
+  </template>
             <template v-else>{{ [item.priceGlass, item.priceBottle].filter(p => p).join(' / ') }} ₽</template>
           </span>
           
@@ -359,7 +378,14 @@ const closeModal = () => {
           <textarea v-model="editingItem.description" placeholder="Ингредиенты, особенности вкуса..." rows="3"></textarea>
         </div>
 
-        <div class="form-group">
+        
+          <div class="form-group">
+            <button type="button" class="btn-secondary" style="width: 100%; border-style: dashed; padding: 12px;" @click="showModifiersModal = true">
+              ⚙️ Настроить опции и добавки ({{ editingItem.modifiers ? editingItem.modifiers.length : 0 }} групп)
+            </button>
+          </div>
+  
+          <div class="form-group">
             <label>Диетические теги</label>
             <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
               <label class="compact-tag-toggle" :class="{ active: editingItem.nutFree }">
@@ -409,13 +435,16 @@ const closeModal = () => {
 
           <div class="form-group">
             <label>Категория</label>
-            <select v-model="editingItem.categoryId" v-if="categories && categories.length > 0">
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                {{ cat.name }}
-              </option>
-            </select>
-            <div v-else style="color: #e74c3c; font-size: 13px; padding: 6px 0;">
-              ⚠️ Нет доступных категорий! Сначала создайте категорию.
+            <div style="display: flex; gap: 8px;">
+              <select v-model="editingItem.categoryId" v-if="categories && categories.length > 0" style="flex: 1;">
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.name }}
+                </option>
+              </select>
+              <div v-else style="color: #e74c3c; font-size: 13px; padding: 6px 0; flex: 1;">
+                ⚠️ Нет категорий!
+              </div>
+              <button type="button" class="btn-secondary" style="flex-shrink: 0; padding: 0 12px; height: 42px;" @click="promptNewCategory">+ Новая</button>
             </div>
           </div>
         </div>
@@ -427,7 +456,13 @@ const closeModal = () => {
       </div>
     </div>
   </div>
-</template>
+<ModifiersEditor 
+      v-if="showModifiersModal" 
+      :modifiers="editingItem.modifiers || []" 
+      @close="showModifiersModal = false"
+      @save="mods => { editingItem.modifiers = mods; showModifiersModal = false; }" 
+    />
+  </template>
 
 <style scoped>
 .menu-editor {

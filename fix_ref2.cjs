@@ -1,0 +1,7 @@
+const fs = require('fs');
+let code = fs.readFileSync('src/components/MenuEditor.vue', 'utf8');
+code = code.replace("import { ref } from 'vue';\r\nimport { ref, computed } from 'vue';", "import { ref, computed } from 'vue';");
+code = code.replace("import { ref } from 'vue';\nimport { ref, computed } from 'vue';", "import { ref, computed } from 'vue';");
+fs.writeFileSync('src/components/MenuEditor.vue', code);
+console.log('Fixed ref import');
+

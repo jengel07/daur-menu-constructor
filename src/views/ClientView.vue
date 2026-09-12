@@ -118,7 +118,7 @@
                       <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
                       <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
                     </div>
-                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
+                    <button v-else class="add-to-cart-btn" :style="{ backgroundColor: restaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="item.modifiers && item.modifiers.length > 0 ? modifierItem = item : addToCart(item)">+ {{ item.modifiers && item.modifiers.length > 0 ? tDyn('опции') : tDyn('добавить') }}</button>
                   </div>
 
                   <div v-else>
@@ -396,94 +396,103 @@
         </div>
 
           
-          <div v-if="activeOrderId && !showCheckoutModal" class="active-order-container" style="position: absolute; top: 15px; left: 12px; right: 12px; bottom: 80px; z-index: 20; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding-bottom: 16px; scrollbar-width: none;">
-            <div class="floating-order-bar" @click="isOrderExpanded = !isOrderExpanded">
-              <div class="order-bar-icon-wrapper" :class="'status-' + activeOrderStatus">
-                <Clock v-if="activeOrderStatus === 'new'" :size="20" stroke-width="2" />
-                <ChefHat v-else-if="activeOrderStatus === 'progress'" :size="20" stroke-width="2" />
-                <CheckCircle v-else-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived'" :size="20" stroke-width="2" />
-                <XCircle v-else :size="20" stroke-width="2" />
-              </div>
-              <div class="order-bar-text">
-                <strong>{{ tDyn('Заказ') }} #{{ activeOrderNumber || activeOrderId.slice(-4) }}</strong>
-                <span>{{ getOrderStatusText() }}</span>
-              </div>
-              <div class="order-bar-right">
-                <button v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived' || activeOrderStatus === 'cancelled'" class="close-order-btn" @click.stop="clearActiveOrder">
-                  <X :size="14" stroke-width="3" />
-                </button>
-                <ChevronDown class="order-bar-chevron" :class="{ 'expanded': isOrderExpanded }" :size="20" />
-              </div>
-            </div>
+          
+<div v-if="activeOrders.length > 0 && !showCheckoutModal" class="active-orders-wrapper" style="position: absolute; top: 15px; left: 12px; right: 12px; z-index: 20; pointer-events: none; display: flex; flex-direction: column; gap: 8px;">
+  <div v-for="order in activeOrders" :key="order.id" class="active-order-container" style="pointer-events: none; display: block;">
+    <div class="floating-order-bar" @click="isOrderExpanded[order.id] = !isOrderExpanded[order.id]" style="pointer-events: auto; margin-bottom: 8px;">
+      <div class="order-bar-icon-wrapper" :class="'status-' + order.status">
+        <Clock v-if="order.status === 'new'" :size="20" stroke-width="2" />
+        <ChefHat v-else-if="order.status === 'progress'" :size="20" stroke-width="2" />
+        <CheckCircle v-else-if="order.status === 'done' || order.status === 'archived'" :size="20" stroke-width="2" />
+        <XCircle v-else :size="20" stroke-width="2" />
+      </div>
+      <div class="order-bar-text">
+        <strong>{{ tDyn('Заказ') }} #{{ order.orderNumber || order.id.slice(-4) }}</strong>
+        <span>{{ getOrderStatusText(order.status) }}</span>
+      </div>
+      <div class="order-bar-right">
+        <button v-if="order.status === 'done' || order.status === 'archived' || order.status === 'cancelled'" class="close-order-btn" @click.stop="clearActiveOrder(order.id)">
+          <X :size="14" stroke-width="3" />
+        </button>
+        <ChevronDown class="order-bar-chevron" :class="{ 'expanded': isOrderExpanded[order.id] }" :size="20" />
+      </div>
+    </div>
 
-              <div v-if="isOrderExpanded && activeOrderData" class="order-receipt-card" style="margin-top: 8px;">
-                <div class="receipt-header">
-                  <strong>{{ tDyn('Чек заказа') }}</strong>
-                  <span>{{ new Date(activeOrderData.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</span>
-                </div>
-                <div class="receipt-items">
-                  <div v-for="item in activeOrderData.items" :key="item.id" class="receipt-item">
-                    <span class="r-name">{{ item.quantity }}x {{ item.name }}</span>
-                    <span class="r-price">{{ Number(item.price * item.quantity).toFixed(2) }} ₽</span>
-                  </div>
-                </div>
-                <div class="receipt-total">
-                  <span>{{ tDyn('Итого') }}</span>
-                  <span>{{ Number(activeOrderData.totalPrice).toFixed(2) }} ₽</span>
-                </div>
-              </div>
+    <div v-if="isOrderExpanded[order.id] && order.items" class="order-receipt-card" style="margin-bottom: 8px; pointer-events: auto; max-height: 300px; overflow-y: auto;">
+      <div class="receipt-header">
+        <strong>{{ tDyn('Чек заказа') }}</strong>
+        <span>{{ new Date(order.createdAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</span>
+      </div>
+      <div class="receipt-items">
+        <div v-for="item in order.items" :key="item.id" class="receipt-item">
+          <span class="r-name">{{ item.quantity }}x {{ item.name }}</span>
+          <span class="r-price">{{ Number(item.price * item.quantity).toFixed(2) }} ₽</span>
+        </div>
+      </div>
+      <div class="receipt-total">
+        <span>{{ tDyn('Итого') }}</span>
+        <span>{{ Number(order.totalPrice || order.total).toFixed(2) }} ₽</span>
+      </div>
+    </div>
 
-            
-            <div v-if="activeOrderStatus === 'done' || activeOrderStatus === 'archived'" style="animation: fadeIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 16px;">
-              <div class="feedback-widget">
-                  <div class="feedback-title">{{ tDyn('Вам все понравилось?') }}</div>
-                  <div class="stars-container">
-                    <Star 
-                      v-for="i in 5" :key="i"
-                      :class="['star-icon', { 'filled': i <= orderRating }]"
-                      @click="orderRating = i"
-                    />
-                  </div>
-                  
-                  <div v-if="orderRating > 0 && !feedbackSubmitted" class="feedback-details-section">
-                      <div class="feedback-subtitle">{{ tDyn('Что именно вам особенно понравилось или не понравилось?') }}</div>
-                      <div class="feedback-options-scroll">
-                        <div 
-                          v-for="opt in feedbackOptions" :key="opt.id"
-                          class="feedback-option-card"
-                          :class="{ 'selected': orderFeedback.includes(opt.id) }"
-                          @click.prevent="toggleFeedback(opt.id)"
-                        >
-                          <component :is="opt.icon" class="feedback-opt-icon" />
-                          <span class="feedback-opt-label">{{ tDyn(opt.label) }}</span>
-                        </div>
-                      </div>
-                      
-                      <textarea v-model="orderFeedbackText" class="feedback-textarea" :placeholder="tDyn('Расскажите подробнее...')"></textarea>
-                      <button class="feedback-submit-btn" @click="submitFeedback">{{ tDyn('Отправить отзыв') }}</button>
-                      
-                      <div v-if="orderRating >= 4" class="yandex-review-prompt">
-                        <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
-                          Оставить отзыв на Яндекс Картах
-                        </a>
-                      </div>
-                    </div>
-                    <div v-if="feedbackSubmitted" class="feedback-success-msg">
-                      {{ tDyn('Спасибо за ваш отзыв!') }}
-                      
-                      <div v-if="orderRating >= 4" class="yandex-review-prompt" style="margin-top: 12px;">
-                        <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
-                          Оставить отзыв на Яндекс Картах
-                        </a>
-                      </div>
-
-                    </div>
-                  </div>
+    <div v-if="order.status === 'done' || order.status === 'archived'" style="animation: fadeIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 16px; pointer-events: auto; margin-bottom: 8px;">
+      <div class="feedback-widget" style="pointer-events: auto;">
+        <div class="feedback-title">{{ tDyn('Вам все понравилось?') }}</div>
+        <div class="stars-container">
+          <Star 
+            v-for="i in 5" :key="i"
+            :class="['star-icon', { 'filled': i <= (orderRating[order.id] || 0) }]"
+            @click="orderRating[order.id] = i"
+          />
+        </div>
+        
+        <div v-if="(orderRating[order.id] || 0) > 0 && !feedbackSubmitted[order.id]" class="feedback-extra" style="animation: slideDown 0.3s ease-out;">
+          <div v-if="(orderRating[order.id] || 0) <= 3" class="feedback-options-grid">
+            <div 
+              v-for="opt in badFeedbackOptions" :key="opt.id"
+              class="feedback-option-card"
+              :class="{ 'selected': (orderFeedback[order.id] || []).includes(opt.id) }"
+              @click.prevent="toggleFeedback(order.id, opt.id)"
+            >
+              <component :is="opt.icon" class="feedback-opt-icon" />
+              <span class="feedback-opt-label">{{ tDyn(opt.label) }}</span>
             </div>
           </div>
-    
-
-        <div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
+          <div v-else class="feedback-options-grid">
+            <div 
+              v-for="opt in goodFeedbackOptions" :key="opt.id"
+              class="feedback-option-card"
+              :class="{ 'selected': (orderFeedback[order.id] || []).includes(opt.id) }"
+              @click.prevent="toggleFeedback(order.id, opt.id)"
+            >
+              <component :is="opt.icon" class="feedback-opt-icon" />
+              <span class="feedback-opt-label">{{ tDyn(opt.label) }}</span>
+            </div>
+          </div>
+          
+          <textarea v-model="orderFeedbackText[order.id]" class="feedback-textarea" :placeholder="tDyn('Расскажите подробнее...')"></textarea>
+          <button class="feedback-submit-btn" @click="submitFeedback(order.id)">{{ tDyn('Отправить отзыв') }}</button>
+          
+          <div v-if="(orderRating[order.id] || 0) >= 4" class="yandex-review-prompt">
+            <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
+              Оставить отзыв на Яндекс Картах
+            </a>
+          </div>
+        </div>
+        <div v-if="feedbackSubmitted[order.id]" class="feedback-success-msg">
+          {{ tDyn('Спасибо за ваш отзыв!') }}
+          
+          <div v-if="(orderRating[order.id] || 0) >= 4" class="yandex-review-prompt" style="margin-top: 12px;">
+            <a :href="store.generalSettings?.yandexReviewLink || 'https://yandex.ru/maps/org/jazzve/43328610653/reviews/'" target="_blank" class="yandex-review-btn">
+              Оставить отзыв на Яндекс Картах
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-if="cartItems.length > 0 && !showCheckoutModal" class="floating-cart-bar" @click="activeModal = 'cart'" :style="{ backgroundColor: restaurantInfo.primaryColor || '#10b981' }">
           <span style="display: flex; align-items: center; gap: 6px;">
             <ShoppingCart :size="18" stroke-width="2" /> 
             {{ t('cart') }} ({{ totalQuantity }})
@@ -494,10 +503,19 @@
       </div>
     </div>
   </div>
+
+  <ClientModifiersModal 
+    v-if="modifierItem" 
+    :item="modifierItem" 
+    :restaurantInfo="restaurantInfo" 
+    @close="modifierItem = null" 
+    @add-to-cart="(finalItem) => { addToCart(finalItem); modifierItem = null; }" 
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
+import ClientModifiersModal from '../components/ClientModifiersModal.vue';
+import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue';
 
 const computedRestaurantId = computed(() => {
   try {
@@ -564,6 +582,7 @@ const categories = computed(() => store.categories);
 const selectedCategory = ref<string>('all');
 const currentLang = ref<string>('ru'); 
 const viewMode = ref<'grid' | 'list' | 'full'>('full');
+const modifierItem = ref<any>(null);
 const activeModal = ref<'none' | 'cart' | 'filters' | 'search' | 'share' | 'language' | 'variant'>('none');
 const selectedVariantItem = ref<any>(null);
 const openVariantModal = (item: any) => { selectedVariantItem.value = item; activeModal.value = 'variant'; };
@@ -586,53 +605,61 @@ const getCurrentTimeStr = () => {
 const showCheckoutModal = ref(false);
 const checkoutStep = ref<1 | 2>(1);
 
-const orderRating = ref(0);
-const orderFeedback = ref<string[]>([]);
-  const orderFeedbackText = ref<string>('');
-  const feedbackSubmitted = ref<boolean>(false);
 const feedbackOptions = [
   { id: 'kitchen', label: 'Кухня', icon: ConciergeBell },
   { id: 'service', label: 'Обслуживание', icon: ClipboardCheck },
   { id: 'interior', label: 'Интерьер', icon: Armchair }
 ];
 
-  const submitFeedback = async () => {
-    if (!activeOrderId.value || !orderRating.value) return;
-    try {
-      const fbStr = orderFeedback.value.length > 0 ? `[${orderFeedback.value.join(', ')}] ` : '';
-      const fullText = fbStr + orderFeedbackText.value;
-      
-      const res = await fetch(`${API_URL}/api/orders/${activeOrderId.value}/feedback`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: orderRating.value, feedback: fullText })
-      });
-      if (res.ok) {
-        feedbackSubmitted.value = true;
-      }
-    } catch (e) {
-      console.error(e);
+  const submitFeedback = async (orderId: string) => {
+  if (!orderId || !orderRating.value[orderId]) return;
+  try {
+    const fbArr = orderFeedback.value[orderId] || [];
+    const fbStr = fbArr.length > 0 ? `[${fbArr.join(', ')}] ` : '';
+    const fullText = fbStr + (orderFeedbackText.value[orderId] || '');
+    const res = await fetch(`${API_URL}/api/orders/${orderId}/feedback`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: orderRating.value[orderId], feedback: fullText })
+    });
+    if (res.ok) {
+      feedbackSubmitted.value[orderId] = true;
     }
-  };
-
-  const toggleFeedback = (id: string) => {
-  if (orderFeedback.value.includes(id)) {
-    orderFeedback.value = orderFeedback.value.filter(x => x !== id);
-  } else {
-    orderFeedback.value.push(id);
+  } catch (e) {
+    console.error(e);
   }
 };
 
+  const toggleFeedback = (orderId: string, id: string) => {
+  if (!orderFeedback.value[orderId]) orderFeedback.value[orderId] = [];
+  if (orderFeedback.value[orderId].includes(id)) {
+    orderFeedback.value[orderId] = orderFeedback.value[orderId].filter((x: string) => x !== id);
+  } else {
+    orderFeedback.value[orderId].push(id);
+  }
+};
+
+const savedForm = JSON.parse(localStorage.getItem('customer_form') || '{}');
 const customerForm = ref({
-  name: '',
-  phone: '',
-  orderType: 'dine_in',
-  tableNumber: '',
-  address: '',
-  comment: '',
+  name: savedForm.name || '',
+  phone: savedForm.phone || '',
+  orderType: savedForm.orderType || 'dine_in',
+  tableNumber: savedForm.tableNumber || '',
+  address: savedForm.address || '',
+  comment: '', // don't save previous comment
   scheduledTime: getCurrentTimeStr(),
   scheduledDate: getTodayDateStr()
 });
+
+watch(customerForm, (newVal) => {
+  localStorage.setItem('customer_form', JSON.stringify({
+    name: newVal.name,
+    phone: newVal.phone,
+    orderType: newVal.orderType,
+    tableNumber: newVal.tableNumber,
+    address: newVal.address
+  }));
+}, { deep: true });
 
 const t = (key: string) => {
   return translations[currentLang.value]?.[key] || translations['ru'][key] || key;
@@ -817,11 +844,22 @@ onMounted(() => {
   loadClientMenu();
   window.addEventListener('storage', handleStorageEvent);
   
-  const savedOrderId = localStorage.getItem('active_order_id');
-  if (savedOrderId) {
-    activeOrderId.value = savedOrderId;
+  try {
+  const savedOrders = JSON.parse(localStorage.getItem('active_orders') || '[]');
+  if (savedOrders && savedOrders.length > 0) {
+    activeOrderIds.value = savedOrders;
     startOrderPolling();
+  } else {
+    // Migrate old single order
+    const oldSaved = localStorage.getItem('active_order_id');
+    if (oldSaved) {
+      activeOrderIds.value = [oldSaved];
+      localStorage.setItem('active_orders', JSON.stringify([oldSaved]));
+      localStorage.removeItem('active_order_id');
+      startOrderPolling();
+    }
   }
+} catch (e) { console.error(e); }
 });
 
 onUnmounted(() => {
@@ -829,11 +867,13 @@ onUnmounted(() => {
   if (orderPollInterval) clearInterval(orderPollInterval);
 });
 
-const activeOrderId = ref<string | null>(null);
-const activeOrderNumber = ref<string | null>(null);
-const activeOrderStatus = ref<string>('new');
-const activeOrderData = ref<any>(null);
-const isOrderExpanded = ref<boolean>(false);
+const activeOrderIds = ref<string[]>([]);
+const activeOrders = ref<any[]>([]);
+const isOrderExpanded = ref<Record<string, boolean>>({});
+const orderRating = ref<Record<string, number>>({});
+const orderFeedback = ref<Record<string, string[]>>({});
+const orderFeedbackText = ref<Record<string, string>>({});
+const feedbackSubmitted = ref<Record<string, boolean>>({});
 let orderPollInterval: any = null;
 
 const startOrderPolling = () => {
@@ -843,42 +883,45 @@ const startOrderPolling = () => {
 };
 
 const pollOrderStatus = async () => {
-  if (!activeOrderId.value) return;
+  if (activeOrderIds.value.length === 0) return;
   try {
-    const res = await fetch(`${API_URL}/api/orders/${activeOrderId.value}`);
-    if (res.ok) {
-      const order = await res.json();
-      activeOrderStatus.value = order.status;
-        activeOrderData.value = order;
-      activeOrderNumber.value = order.orderNumber || activeOrderId.value.slice(-4);
-      if (order.status === 'done' || order.status === 'archived' || order.status === 'cancelled') {
-        clearInterval(orderPollInterval);
-        // Auto-close removed so user can leave feedback // прячем через 30 сек после завершения
+    const updated = [];
+    for (const id of activeOrderIds.value) {
+      const res = await fetch(`${API_URL}/api/orders/${id}`);
+      if (res.ok) {
+        updated.push(await res.json());
       }
     }
+    updated.forEach(newO => {
+      const existingIdx = activeOrders.value.findIndex(o => o.id === newO.id);
+      if (existingIdx !== -1) {
+        activeOrders.value[existingIdx] = newO;
+      } else {
+        activeOrders.value.push(newO);
+      }
+    });
   } catch (err) {
-    console.error('Ошибка проверки статуса:', err);
+    console.error('Error polling:', err);
   }
 };
 
-const clearActiveOrder = () => {
-  activeOrderId.value = null;
-  activeOrderNumber.value = null;
-  activeOrderStatus.value = 'new';
-    activeOrderData.value = null;
-    isOrderExpanded.value = false;
-  localStorage.removeItem('active_order_id');
-  if (orderPollInterval) clearInterval(orderPollInterval);
+const clearActiveOrder = (id: string) => {
+  activeOrderIds.value = activeOrderIds.value.filter(x => x !== id);
+  activeOrders.value = activeOrders.value.filter(x => x.id !== id);
+  localStorage.setItem('active_orders', JSON.stringify(activeOrderIds.value));
+  if (activeOrderIds.value.length === 0 && orderPollInterval) {
+    clearInterval(orderPollInterval);
+  }
 };
 
-const getOrderStatusText = () => {
-  switch (activeOrderStatus.value) {
-    case 'new': return 'Принят, ожидайте...';
-    case 'progress': return 'Готовится 🧑‍🍳';
-    case 'done': return 'Относится официантом / Заберите сами 🎉';
-    case 'archived': return 'Завершен ✅';
-    case 'cancelled': return 'Отменен ❌';
-    default: return 'Обрабатывается...';
+const getOrderStatusText = (status: string) => {
+  switch (status) {
+    case 'new': return tDyn('Новый, ждем...');
+    case 'progress': return tDyn('Готовится на кухне');
+    case 'done': return tDyn('Готов (Подан / Ожидает выдачи)');
+    case 'archived': return tDyn('Закрыт');
+    case 'cancelled': return tDyn('Отменен');
+    default: return tDyn('Обновление...');
   }
 };
 
@@ -987,12 +1030,19 @@ const getRussianName = (field: any) => {
 };
 
 const confirmOrder = async () => {
-  const preparedItems = cartItems.value.map(item => ({
-    id: item.id,
-    name: getRussianName(item.name),
-    price: Number(item.price || 0),
-    quantity: item.quantity
-  }));
+  const preparedItems = cartItems.value.map(item => {
+    let itemName = getRussianName(item.name);
+    if (item.selectedModifiers && item.selectedModifiers.length > 0) {
+      const mods = item.selectedModifiers.map((m) => m.name).join(', ');
+      itemName += ` (${mods})`;
+    }
+    return {
+      id: String(item.id).split('_')[0],
+      name: itemName,
+      price: Number(item.price || 0),
+      quantity: item.quantity
+    };
+  });
 
   const newOrderData = {
     restaurantId: (restaurantInfo.value as any).id || (restaurantInfo.value as any).restaurantId,
@@ -1023,25 +1073,21 @@ const confirmOrder = async () => {
     const result = await response.json();
     
     // Сохраняем активный заказ
-    localStorage.setItem('active_order_id', result.orderId);
-    activeOrderId.value = result.orderId;
-    activeOrderNumber.value = result.order?.orderNumber || result.orderId.slice(-4);
-    activeOrderStatus.value = 'new';
-      activeOrderData.value = result.order;
-      startOrderPolling();
+    if (!activeOrderIds.value.includes(result.orderId)) {
+      activeOrderIds.value.push(result.orderId);
+      activeOrders.value.push(result.order);
+      localStorage.setItem('active_orders', JSON.stringify(activeOrderIds.value));
+    }
+    startOrderPolling();
 
     cartItems.value = [];
     closeModal();
     customerForm.value = { 
-      name: '', 
-      phone: '', 
-      orderType: 'dine_in', 
-      tableNumber: '', 
-      address: '', 
-      comment: '',
-      scheduledTime: getCurrentTimeStr(),
-      scheduledDate: getTodayDateStr()
-    };
+        ...customerForm.value,
+        comment: '',
+        scheduledTime: getCurrentTimeStr(),
+        scheduledDate: getTodayDateStr()
+      };
 
   } catch (error) {
     console.error('Ошибка при отправке заказа:', error);

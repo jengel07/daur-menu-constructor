@@ -175,6 +175,8 @@ const applyAuthResult = (result: {
     lowerRole.includes('cook') ||
     lowerRole.includes('chef') ||
     lowerRole.includes('waiter') ||
+      lowerRole.includes('barista') ||
+      lowerRole.includes('бармен') ||
     lowerRole.includes('повар') ||
     lowerRole.includes('официант')
   ) {

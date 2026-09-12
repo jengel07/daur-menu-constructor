@@ -201,7 +201,7 @@ const removeStaffMember = async (id: string) => {
 };
 
 const getRoleLabel = (role: string) =>
-  ({ cook: '👨‍🍳 Повар', chef: '👨‍🍳 Повар', waiter: '🧑‍💼 Официант', admin: '👑 Администратор' })[role] || role;
+  ({ cook: '👨‍🍳 Повар', chef: '👨‍🍳 Повар', waiter: '👱‍♀️🍽️ Официант', barista: '☕ Бармен', admin: '👑 Администратор' })[role] || role;
 
 
 // ─── PAYMENT ──────────────────────────────────────────
@@ -339,7 +339,8 @@ const syncToTableStorage = () => {
         noLactose: item.noLactose || false,
         noGluten: item.noGluten || false,
         isAvailable: item.isAvailable !== false,
-        image: item.image || ''
+        image: item.image || '',
+          modifiers: item.modifiers || []
       }))
   }));
 
@@ -795,6 +796,7 @@ const updateRestaurantInfo = (newData: typeof menuStore.restaurantInfo) => {
               <select v-model="staffForm.role" class="smenu-input">
                 <option value="cook">👨‍🍳 Повар</option>
                 <option value="waiter">🧑‍💼 Официант</option>
+                  <option value="barista">☕ Бармен</option>
                 <option value="admin">👑 Администратор</option>
               </select>
               <div class="smenu-form-actions">

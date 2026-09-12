@@ -263,7 +263,7 @@ const savedUser = (() => {
 })()
 const staffName = savedUser.name || 'Персонал'
 const role = savedUser.role || ''
-const roleLabel = role === 'cook' ? '👨🍳 Повар' : role === 'waiter' ? '🧑🍽 Официант' : '👤 Сотрудник'
+const roleLabel = role === 'cook' ? '👨‍🍳 Повар' : role === 'waiter' ? '🧑‍🍽️ Официант' : role === 'barista' ? '☕ Бармен' : '👤 Сотрудник'
 
 const tabs = [
   { key: 'new',       label: 'Новые',     emptyIcon: '📭', emptyText: 'Нет новых заказов' },

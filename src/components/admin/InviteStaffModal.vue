@@ -44,6 +44,7 @@
           <select v-model="form.role" required>
             <option value="chef">Шеф-повар / Кухня (Доступ к заказам и стоп-листам)</option>
             <option value="waiter">Официант (Создание и статус заказов)</option>
+            <option value="barista">Бармен / Бариста (принимает заказы на бар)</option>
             <option value="manager">Менеджер (Полный доступ к меню и заказам)</option>
             <option value="other">Другой персонал</option>
           </select>

@@ -125,7 +125,7 @@
                               <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
                               <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
                             </div>
-                            <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
+                            <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="item.modifiers && item.modifiers.length > 0 ? modifierItem = item : addToCart(item)">+ {{ item.modifiers && item.modifiers.length > 0 ? tDyn('опции') : tDyn('добавить') }}</button>
                           </div>
                         </div>
                       </div>
@@ -292,7 +292,7 @@
                           <span class="counter-value">{{ getItemQuantity(item.id) }}</span>
                           <button class="counter-btn" @click="increaseQuantity(item.id)">+</button>
                         </div>
-                        <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="addToCart(item)">+ {{ tDyn('добавить') }}</button>
+                        <button v-else class="add-to-cart-btn" :style="{ backgroundColor: currentRestaurantInfo.primaryColor || '#646cff', width: '100%', padding: '6px 12px' }" @click="item.modifiers && item.modifiers.length > 0 ? modifierItem = item : addToCart(item)">+ {{ item.modifiers && item.modifiers.length > 0 ? tDyn('опции') : tDyn('добавить') }}</button>
                       </div>
                     </div>
                   </div>
@@ -379,9 +379,18 @@
       </div>
     </div>
   </div>
+
+  <ClientModifiersModal 
+    v-if="modifierItem" 
+    :item="modifierItem" 
+    :restaurantInfo="currentRestaurantInfo" 
+    @close="modifierItem = null" 
+    @add-to-cart="(finalItem) => { addToCart(finalItem); modifierItem = null; }" 
+  />
 </template>
 
 <script setup lang="ts">
+import ClientModifiersModal from './ClientModifiersModal.vue';
 import { ref, computed, reactive } from 'vue';
 
 const computedRestaurantId = computed(() => {
@@ -451,6 +460,7 @@ const currentCategories = computed(() => {
 
 const currentScreen = ref<'menu' | 'cart'>('menu');
 const activeTab = ref<'menu' | 'qrcode'>('menu');
+const modifierItem = ref<any>(null);
 const activeModal = ref<'none' | 'language' | 'search' | 'filters' | 'share' | 'cart' | 'checkout'>('none');
 const viewMode = ref<'grid' | 'list'>('grid');
 const selectedCategory = ref<string | null>(null);
